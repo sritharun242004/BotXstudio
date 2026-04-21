@@ -1,0 +1,18 @@
+node_modules
+server/node_modules
+server/dist
+docs
+.env
+server/.env
+.git
+*.md
+Poses
+Poses.zip
+multiangle
+design-system
+model-templates
+printstemp
+back,side poses
+botstudiox.docx
+bot studiox logo.png
+Saree.txt

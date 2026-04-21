@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+server/node_modules/
+
+# Build output
+docs/
+server/dist/
+*.tsbuildinfo
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+server/.env
+server/.env.*
+!server/.env.example
+
+# EC2 keys
+*.pem
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.codex
+
+# Python (legacy)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# App-specific
+server/uploads/
+backend/storage/
+Poses/
+Poses.zip
+multiangle/
+design-system/
+model-templates/
+printstemp/

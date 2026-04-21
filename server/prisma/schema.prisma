@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String   @map("password_hash")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  storyboards   Storyboard[]
+  images        Image[]
+  assets        Asset[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  revoked   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Storyboard {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  title      String   @default("New storyboard")
+  garmentType String  @default("") @map("garment_type")
+  isActive   Boolean  @default(false) @map("is_active")
+  previewUrl String?  @map("preview_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // StoryboardConfig — 22 flat columns
+  occasionPreset        String @default("") @map("occasion_preset")
+  occasionDetails       String @default("") @map("occasion_details")
+  accessories           String @default("") @map("accessories")
+  bottomWearPreset      String @default("") @map("bottom_wear_preset")
+  bottomWearDetails     String @default("") @map("bottom_wear_details")
+  printInputKind        String @default("image") @map("print_input_kind")
+  printColorHex         String @default("") @map("print_color_hex")
+  printAdditionalPrompt String @default("") @map("print_additional_prompt")
+  printTargetGender     String @default("Male") @map("print_target_gender")
+  printGarmentCategory  String @default("T-shirt") @map("print_garment_category")
+  footwearPreset        String @default("") @map("footwear_preset")
+  footwearDetails       String @default("") @map("footwear_details")
+  stylePreset           String @default("") @map("style_preset")
+  styleKeywordsDetails  String @default("") @map("style_keywords_details")
+  backgroundThemePreset  String @default("") @map("background_theme_preset")
+  backgroundThemeDetails String @default("") @map("background_theme_details")
+  modelPreset           String @default("White / European") @map("model_preset")
+  modelDetails          String @default("") @map("model_details")
+  modelPosePreset       String @default("") @map("model_pose_preset")
+  modelPoseDetails      String @default("") @map("model_pose_details")
+  modelStylingPreset    String @default("") @map("model_styling_preset")
+  modelStylingNotes     String @default("") @map("model_styling_notes")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images Image[]
+
+  @@map("storyboards")
+}
+
+model Image {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  storyboardId    String?  @map("storyboard_id")
+  title           String
+  kind            String
+  mimeType        String   @map("mime_type")
+  fileName        String?  @map("file_name")
+  s3Key           String   @map("s3_key")
+  s3Bucket        String   @map("s3_bucket")
+  fileSizeBytes   Int?     @map("file_size_bytes")
+  storyboardTitle String?  @map("storyboard_title")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyboard Storyboard? @relation(fields: [storyboardId], references: [id], onDelete: SetNull)
+
+  @@map("images")
+}
+
+model Asset {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  kind          String
+  title         String
+  mimeType      String   @map("mime_type")
+  s3Key         String   @map("s3_key")
+  s3Bucket      String   @map("s3_bucket")
+  fileSizeBytes Int?     @map("file_size_bytes")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("assets")
+}
