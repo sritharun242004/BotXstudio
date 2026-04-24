@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-const APP = "/register";
+const APP = "/login";
 const BASE = import.meta.env.BASE_URL;
 
 export default function LandingPage() {
