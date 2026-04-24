@@ -30,6 +30,17 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function getRaw(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { buffer, mimeType } = await imageService.getRaw(req.user!.userId, req.params.id as string);
+    res.set("Content-Type", mimeType);
+    res.set("Cache-Control", "private, max-age=3600");
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
     await imageService.remove(req.user!.userId, req.params.id as string);

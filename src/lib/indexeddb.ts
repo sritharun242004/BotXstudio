@@ -65,12 +65,16 @@ function apiToRecord(img: ApiImage): SavedImageRecord {
 export async function saveImageRecord(input: SaveInput): Promise<SavedImageRecord> {
   const base64 = await blobToBase64(input.blob);
 
+  // Only send storyboardId if it's a valid UUID (old localStorage IDs are timestamps)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const sbId = input.storyboardId && uuidRegex.test(input.storyboardId) ? input.storyboardId : undefined;
+
   const payload = {
     title: input.title,
     kind: input.kind,
     mimeType: input.mimeType,
     fileName: input.fileName,
-    storyboardId: input.storyboardId,
+    storyboardId: sbId,
     storyboardTitle: input.storyboardTitle,
     data: base64,
   };
@@ -93,7 +97,13 @@ export async function deleteSavedImage(id: string): Promise<void> {
   await apiDelete(`/api/images/${id}`);
 }
 
-/** Batch delete images */
+/** Batch delete specific images by IDs */
+export async function batchDeleteImages(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  await apiPost("/api/images/batch-delete", { ids });
+}
+
+/** Batch delete all images */
 export async function clearSavedImages(): Promise<void> {
   const data = await apiGet<{ images: ApiImage[] }>("/api/images");
   if (data.images.length === 0) return;

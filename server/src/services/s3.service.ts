@@ -59,6 +59,17 @@ export async function getPresignedUploadUrl(
   );
 }
 
+/** Get object as buffer from S3 */
+export async function getObjectBuffer(key: string): Promise<Buffer> {
+  const res = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }));
+  const stream = res.Body as NodeJS.ReadableStream;
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
+}
+
 /** Delete a single object from S3 */
 export async function deleteObject(key: string): Promise<void> {
   await s3.send(

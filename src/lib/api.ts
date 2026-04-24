@@ -12,21 +12,6 @@ export function getAccessToken(): string | null {
 
 // ─── Core fetch helpers ──────────────────────────────────────────────────────
 
-async function refreshAccessToken(): Promise<string | null> {
-  try {
-    const resp = await fetch("/api/auth/refresh", {
-      method: "POST",
-      credentials: "include", // sends httpOnly cookie
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    accessToken = data.accessToken;
-    return accessToken;
-  } catch {
-    return null;
-  }
-}
-
 async function apiFetch<T = any>(
   path: string,
   options: RequestInit = {},
@@ -43,18 +28,17 @@ async function apiFetch<T = any>(
   let resp = await fetch(path, {
     ...options,
     headers,
-    credentials: "include",
   });
 
-  // Auto-refresh on 401
+  // Auto-refresh on 401 using Cognito refresh token
   if (resp.status === 401 && accessToken) {
-    const newToken = await refreshAccessToken();
+    const { refreshCognitoToken } = await import("./auth");
+    const newToken = await refreshCognitoToken();
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`;
       resp = await fetch(path, {
         ...options,
         headers,
-        credentials: "include",
       });
     }
   }

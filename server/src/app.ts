@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import { env } from "./config/env.js";
@@ -18,12 +17,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export function createApp() {
   const app = express();
 
+  // Trust proxy (Nginx)
+  app.set("trust proxy", 1);
+
   // Global middleware
   app.use(helmet({
     contentSecurityPolicy: env.NODE_ENV === "production" ? undefined : false,
   }));
   app.use(cors(corsOptions));
-  app.use(cookieParser());
   app.use(express.json({ limit: "25mb" }));
 
   // Health check

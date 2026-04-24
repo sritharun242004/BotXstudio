@@ -95,6 +95,7 @@ interface PrintsTabProps {
   onGenerate: () => void;
   onRetry: (comment: string) => void;
   onSave: () => void;
+  isSaving?: boolean;
   onOpenImage: (src: string, title: string, alt?: string, gallery?: Array<{ src: string; title: string; alt?: string }>) => void;
 }
 
@@ -123,6 +124,7 @@ export default function PrintsTab({
   onGenerate,
   onRetry,
   onSave,
+  isSaving = false,
   onOpenImage,
 }: PrintsTabProps) {
   const [retryOpen, setRetryOpen] = useState(false);
@@ -553,15 +555,21 @@ export default function PrintsTab({
                 <button
                   type="button"
                   className="btn btnGhost iconButton"
-                  style={{ width: 110 }}
+                  style={{ width: 130 }}
                   onClick={onSave}
-                  disabled={isBusy || !hasPrintedOutputs}
+                  disabled={isBusy || isSaving || !hasPrintedOutputs}
                   aria-label="Save all printed garments"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
-                  </svg>
-                  &nbsp;&nbsp;Save all
+                  {isSaving ? (
+                    <>Saving...</>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
+                      </svg>
+                      &nbsp;&nbsp;Save all
+                    </>
+                  )}
                 </button>
               </div>
             )}
@@ -637,9 +645,13 @@ export default function PrintsTab({
                   &nbsp;&nbsp;Download side
                 </a>
               )}
-              <button type="button" className="btn btnGhost iconButton" style={{ width: 110 }} onClick={onSave} disabled={isBusy || !hasPrintedOutputs} aria-label="Save printed garments">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" /></svg>
-                &nbsp;&nbsp;Save all
+              <button type="button" className="btn btnGhost iconButton" style={{ width: 130 }} onClick={onSave} disabled={isBusy || isSaving || !hasPrintedOutputs} aria-label="Save printed garments">
+                {isSaving ? <>Saving...</> : (
+                  <>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" /></svg>
+                    &nbsp;&nbsp;Save all
+                  </>
+                )}
               </button>
               <button type="button" className="btnGhost iconButton" onClick={() => hasPrintedOutputs && onOpenImage(primaryPrintedOutput, "Printed garment", undefined, outputGallery)} disabled={!hasPrintedOutputs} aria-label="Open printed garment" title="Open">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -11,29 +11,16 @@ model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
-  passwordHash String   @map("password_hash")
+  passwordHash String?  @map("password_hash")
+  cognitoSub   String?  @unique @map("cognito_sub")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
   storyboards   Storyboard[]
   images        Image[]
   assets        Asset[]
 
   @@map("users")
-}
-
-model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String   @map("user_id")
-  expiresAt DateTime @map("expires_at")
-  revoked   Boolean  @default(false)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@map("refresh_tokens")
 }
 
 model Storyboard {

@@ -14,7 +14,7 @@ import Toast, { type ToastItem } from "./components/Toast";
 import SavedImagesPane from "./components/SavedImagesPane";
 import AssetsTab from "./components/AssetsTab";
 
-import { base64ToBytes, dataUrlToInlineImage, generateImage } from "./lib/gemini";
+import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
 import {
   footwearPresetKeywordsByValue,
   footwearPresetLabelByValue,
@@ -23,8 +23,9 @@ import {
   occasionPresetLabelByValue,
   stylePresetLabelByValue,
 } from "./lib/presets";
-import { dataUrlToBlob, fileToDataUrl, normalizeHexColor, nowIso, parseTags as parseLocalTags } from "./lib/utils";
-import { deleteSavedImage, listSavedImages, saveImageRecord, getImageDownloadUrl, type SavedImageRecord } from "./lib/indexeddb";
+import { dataUrlToBlob, effectiveMimeType, fileToDataUrl, normalizeHexColor, nowIso, parseTags as parseLocalTags } from "./lib/utils";
+import { deleteSavedImage, batchDeleteImages, listSavedImages, saveImageRecord, type SavedImageRecord } from "./lib/indexeddb";
+import { getAccessToken } from "./lib/api";
 import {
   createStoryboardRecord,
   createStoryboardApi,
@@ -90,6 +91,12 @@ type StoryboardPrintsRuntime = {
   timingsMs: number | null;
 };
 
+type PoseResult = {
+  dataUrl: string;
+  mimeType: string;
+  poseIndex: number;
+};
+
 type StoryboardRuntime = {
   garmentDataUrls: string[];
   garmentFileNames: string[];
@@ -111,6 +118,7 @@ type StoryboardRuntime = {
   resultDataUrl: string | null;
   resultMimeType: string | null;
   resultTimingsMs: Record<string, number> | null;
+  poseResults: PoseResult[];
 };
 
 type AppTab = "prints" | "generate" | "assets" | "saved";
@@ -361,6 +369,7 @@ function createDefaultRuntime(): StoryboardRuntime {
     angles: createDefaultAnglesRuntime(),
     generateError: null, chosenSummary: null, debugSummary: null,
     resultDataUrl: null, resultMimeType: null, resultTimingsMs: null,
+    poseResults: [],
   };
 }
 
@@ -578,6 +587,7 @@ export default function App() {
   type ImageEntry = { src: string; title: string; alt?: string };
   const [imageModal, setImageModal] = useState<{ images: ImageEntry[]; currentIndex: number } | null>(null);
   const [savedImages, setSavedImages] = useState<SavedImageView[]>([]);
+  const [savedImagesLoading, setSavedImagesLoading] = useState(true);
   const [saveToast, setSaveToast] = useState({ visible: false, message: "" });
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastIdRef = useRef(0);
@@ -862,6 +872,7 @@ export default function App() {
           resultDataUrl: srcRuntime.resultDataUrl,
           resultMimeType: srcRuntime.resultMimeType,
           resultTimingsMs: srcRuntime.resultTimingsMs ? { ...srcRuntime.resultTimingsMs } : null,
+          poseResults: [...srcRuntime.poseResults],
         },
       }));
       setActiveStoryboardId(dst.id);
@@ -906,6 +917,7 @@ export default function App() {
           resultDataUrl: srcRuntime.resultDataUrl,
           resultMimeType: srcRuntime.resultMimeType,
           resultTimingsMs: srcRuntime.resultTimingsMs ? { ...srcRuntime.resultTimingsMs } : null,
+          poseResults: [...srcRuntime.poseResults],
         },
       }));
       setActiveStoryboardId(dst.id);
@@ -968,28 +980,27 @@ export default function App() {
   }
 
   async function loadSavedImagesFromDb() {
-    const records = await listSavedImages();
-    // For API-loaded records, fetch presigned download URLs
-    const views: SavedImageView[] = [];
-    for (const record of records) {
-      if (record.blob.size > 0) {
-        views.push(toSavedImageView(record));
-      } else {
-        // Get presigned download URL from API
-        try {
-          const downloadUrl = await getImageDownloadUrl(record.id);
-          views.push({ ...record, url: downloadUrl });
-        } catch {
-          views.push({ ...record, url: "" });
+    setSavedImagesLoading(true);
+    try {
+      const records = await listSavedImages();
+      const token = getAccessToken();
+      const views: SavedImageView[] = records.map((record) => {
+        if (record.blob.size > 0) {
+          return toSavedImageView(record);
         }
-      }
+        // Use same-origin backend proxy URL with token (avoids S3 CORS issues)
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        return { ...record, url: `/api/images/${record.id}/raw${qs}` };
+      });
+      setSavedImages((prev) => {
+        for (const img of prev) {
+          if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+        }
+        return views;
+      });
+    } finally {
+      setSavedImagesLoading(false);
     }
-    setSavedImages((prev) => {
-      for (const img of prev) {
-        if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
-      }
-      return views;
-    });
   }
 
   async function deleteImage(id: string) {
@@ -1008,14 +1019,15 @@ export default function App() {
   }
 
   async function deleteGroup(ids: string[]) {
-    const n = ids.length;
-    if (!confirm(`Delete ${n} image${n > 1 ? "s" : ""}? This cannot be undone.`)) return;
     try {
-      await Promise.all(ids.map((id) => deleteSavedImage(id)));
+      await batchDeleteImages(ids);
       setSavedImages((prev) => {
         const idSet = new Set(ids);
         return prev.filter((img) => {
-          if (idSet.has(img.id)) { URL.revokeObjectURL(img.url); return false; }
+          if (idSet.has(img.id)) {
+            if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+            return false;
+          }
           return true;
         });
       });
@@ -1113,7 +1125,7 @@ export default function App() {
     });
 
     for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Garment", kind: "asset-garment", mimeType: file.type, blob: file, createdAt: Date.now() })
+      await saveImageRecord({ title: file.name || "Uploaded Garment", kind: "asset-garment", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
         .catch(console.error);
     }
@@ -1145,7 +1157,7 @@ export default function App() {
     });
 
     for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: file.type, blob: file, createdAt: Date.now() })
+      await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
         .catch(console.error);
     }
@@ -1177,7 +1189,7 @@ export default function App() {
     });
 
     for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: file.type, blob: file, createdAt: Date.now() })
+      await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
         .catch(console.error);
     }
@@ -1209,11 +1221,22 @@ export default function App() {
     });
 
     for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: file.type, blob: file, createdAt: Date.now() })
+      await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
         .catch(console.error);
     }
     if (input) input.value = "";
+  }
+
+  /** Convert any URL (blob:, https://, etc.) to a data URL if it isn't one already */
+  async function ensureDataUrl(url: string, fileName: string): Promise<string> {
+    if (url.startsWith("data:")) return url;
+    // Fetch remote / blob URLs and convert to data URL
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to fetch image (${resp.status})`);
+    const blob = await resp.blob();
+    if (!blob.size) throw new Error("Fetched image is empty");
+    return fileToDataUrl(new File([blob], fileName, { type: blob.type }));
   }
 
   async function addGarmentFromDataUrl(url: string, fileName: string) {
@@ -1225,60 +1248,79 @@ export default function App() {
       updateRuntime(sbId, { generateError: "You can upload up to 4 garment photos. Remove one to add more." });
       return;
     }
-    let dataUrl = url;
-    if (url.startsWith("blob:")) {
-      try {
-        const resp = await fetch(url);
-        const blob = await resp.blob();
-        dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type }));
-      } catch { return; }
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: [...r.garmentDataUrls, dataUrl], garmentFileNames: [...r.garmentFileNames, fileName], generateError: null } };
+      });
+    } catch (err) { console.error("Failed to load garment image", err); showToast("Failed to load image.", "error"); }
+  }
+
+  async function addGarmentBundle(items: { url: string; fileName: string }[]) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId];
+    if (!rt) return;
+    const MAX = 4;
+    const remaining = MAX - rt.garmentDataUrls.length;
+    if (remaining <= 0) {
+      showToast("You can upload up to 4 garment photos. Remove one to add more.", "error");
+      return;
     }
-    setStoryboardRuntime((prev) => {
-      const r = prev[sbId]!;
-      return { ...prev, [sbId]: { ...r, garmentDataUrls: [...r.garmentDataUrls, dataUrl], garmentFileNames: [...r.garmentFileNames, fileName], generateError: null } };
-    });
+    if (items.length > remaining) {
+      showToast(`Only ${remaining} slot${remaining !== 1 ? "s" : ""} remaining — remove a garment photo first.`, "error");
+      return;
+    }
+    try {
+      const dataUrls = await Promise.all(items.map((it) => ensureDataUrl(it.url, it.fileName)));
+      const fileNames = items.map((it) => it.fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: [...r.garmentDataUrls, ...dataUrls], garmentFileNames: [...r.garmentFileNames, ...fileNames], generateError: null } };
+      });
+    } catch (err) {
+      console.error("Failed to load bundle images", err);
+      showToast("Failed to load one or more images from bundle.", "error");
+    }
   }
 
   async function addBackgroundFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
     if (!rt || rt.backgroundDataUrls.length >= 4) return;
-    let dataUrl = url;
-    if (url.startsWith("blob:")) {
-      try { const resp = await fetch(url); const blob = await resp.blob(); dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type })); } catch { return; }
-    }
-    setStoryboardRuntime((prev) => {
-      const r = prev[sbId]!;
-      return { ...prev, [sbId]: { ...r, backgroundDataUrls: [...r.backgroundDataUrls, dataUrl], backgroundFileNames: [...r.backgroundFileNames, fileName] } };
-    });
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [...r.backgroundDataUrls, dataUrl], backgroundFileNames: [...r.backgroundFileNames, fileName] } };
+      });
+    } catch (err) { console.error("Failed to load background image", err); showToast("Failed to load background image.", "error"); }
   }
 
   async function addModelFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
     if (!rt || rt.modelDataUrls.length >= 4) return;
-    let dataUrl = url;
-    if (url.startsWith("blob:")) {
-      try { const resp = await fetch(url); const blob = await resp.blob(); dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type })); } catch { return; }
-    }
-    setStoryboardRuntime((prev) => {
-      const r = prev[sbId]!;
-      return { ...prev, [sbId]: { ...r, modelDataUrls: [...r.modelDataUrls, dataUrl], modelFileNames: [...r.modelFileNames, fileName] } };
-    });
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, modelDataUrls: [...r.modelDataUrls, dataUrl], modelFileNames: [...r.modelFileNames, fileName] } };
+      });
+    } catch (err) { console.error("Failed to load model image", err); showToast("Failed to load model image.", "error"); }
   }
 
   async function addPoseFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
     if (!rt || rt.poseDataUrls.length >= 4) return;
-    let dataUrl = url;
-    if (url.startsWith("blob:")) {
-      try { const resp = await fetch(url); const blob = await resp.blob(); dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type })); } catch { return; }
-    }
-    setStoryboardRuntime((prev) => {
-      const r = prev[sbId]!;
-      return { ...prev, [sbId]: { ...r, poseDataUrls: [...r.poseDataUrls, dataUrl], poseFileNames: [...r.poseFileNames, fileName] } };
-    });
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, poseDataUrls: [...r.poseDataUrls, dataUrl], poseFileNames: [...r.poseFileNames, fileName] } };
+      });
+    } catch (err) { console.error("Failed to load pose image", err); showToast("Failed to load pose image.", "error"); }
   }
 
   // ── Prints handlers ────────────────────────────────────────────────────────
@@ -1533,23 +1575,28 @@ export default function App() {
     return generatePrintedGarment(retryComment);
   }
 
+  const [isSavingPrints, setIsSavingPrints] = useState(false);
   async function savePrintedGarment() {
+    if (isSavingPrints) return;
     const rt = activeRuntime;
     const sbTitle = activeStoryboard.title;
     if (!rt.prints.outputFrontDataUrl) {
       updatePrints(activeStoryboardId, { error: "Generate the printed garments first." }); return;
     }
+    setIsSavingPrints(true);
     try {
       const ts = Date.now();
       const savePromises = [];
       if (rt.prints.outputFrontDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputFrontDataUrl, mimeType: rt.prints.outputFrontMimeType, title: `Printed garment (front) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-front-${ts}.${mimeToExtension(rt.prints.outputFrontMimeType)}`, notify: false }));
       if (rt.prints.outputBackDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputBackDataUrl, mimeType: rt.prints.outputBackMimeType, title: `Printed garment (back) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-back-${ts}.${mimeToExtension(rt.prints.outputBackMimeType)}`, notify: false }));
       if (rt.prints.outputSideDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputSideDataUrl, mimeType: rt.prints.outputSideMimeType, title: `Printed garment (side) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-side-${ts}.${mimeToExtension(rt.prints.outputSideMimeType)}`, notify: false }));
-      
+
       await Promise.all(savePromises);
       showSaveToast(`Saved ${savePromises.length} printed garment${savePromises.length > 1 ? 's' : ''}.`);
     } catch (err: any) {
       updatePrints(activeStoryboardId, { error: err?.message || String(err) });
+    } finally {
+      setIsSavingPrints(false);
     }
   }
 
@@ -1572,6 +1619,7 @@ export default function App() {
       generateError: null, garmentRefDataUrl: null, garmentRefMimeType: null,
       lastPlan: null, lastFinalPrompt: null, angles: createDefaultAnglesRuntime(),
       chosenSummary: null, debugSummary: null, resultDataUrl: null, resultMimeType: null, resultTimingsMs: null,
+      poseResults: [],
     });
 
     if (!rt.garmentDataUrls.length) { updateRuntime(sbId, { generateError: "Please select garment photos." }); return; }
@@ -1597,10 +1645,8 @@ export default function App() {
       const styleKeywords = bw ? [...baseStyleKeywords, bw] : baseStyleKeywords;
       const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
       const modelRefDataUrl = rt.modelDataUrls[0] || null;
-      const poseRefDataUrl = rt.poseDataUrls[0] || null;
       const backgroundRefDataUrl = rt.backgroundDataUrls[0] || null;
       const hasModelReference = Boolean(modelRefDataUrl);
-      const hasPoseReference = Boolean(poseRefDataUrl);
       const hasBackgroundReference = Boolean(backgroundRefDataUrl);
 
       const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
@@ -1654,26 +1700,52 @@ export default function App() {
         aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
       });
       timings.garment_reference = Math.round(performance.now() - tGarment0);
+      if (!garmentRef.imageBase64) throw new GeminiError("Garment reference generation returned no image data.");
       const garmentRefDataUrl = `data:${garmentRef.mimeType};base64,${garmentRef.imageBase64}`;
 
       setGenerationStepIndex(3);
 
-      const compositePrompt = buildCompositePrompt({ plan, finalPrompt: finalPromptRes.prompt, hasModelReference, hasPoseReference, hasBackgroundReference });
-      debug.composite_prompt = compositePrompt;
-      debug.negative_prompt = plan.negative_prompt;
+      // Generate one composite per selected pose (or one with no pose) — in parallel
+      const poseUrls = rt.poseDataUrls.length > 0 ? rt.poseDataUrls : [null as string | null];
+      const originalGarmentInlines = garmentImages; // original garment photos for design fidelity
 
-      const tComp0 = performance.now();
-      const compositeImages = [
-        { mimeType: garmentRef.mimeType, data: base64ToBytes(garmentRef.imageBase64) },
-        ...(modelRefDataUrl ? [dataUrlToInlineImage(modelRefDataUrl)] : []),
-        ...(poseRefDataUrl ? [dataUrlToInlineImage(poseRefDataUrl)] : []),
-        ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
-      ];
-      const composite = await generateImage({
-        model: "gemini-3-pro-image-preview", promptText: compositePrompt, images: compositeImages,
-        aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
-      });
-      timings.composite = Math.round(performance.now() - tComp0);
+      const tCompAll = performance.now();
+      const allPoseResults: PoseResult[] = await Promise.all(
+        poseUrls.map(async (poseRef, pi) => {
+          const hasPoseReference = Boolean(poseRef);
+          const compositePrompt = buildCompositePrompt({
+            plan, finalPrompt: finalPromptRes.prompt, hasModelReference, hasPoseReference, hasBackgroundReference,
+            originalGarmentCount: originalGarmentInlines.length,
+          });
+          if (pi === 0) {
+            debug.composite_prompt = compositePrompt;
+            debug.negative_prompt = plan.negative_prompt;
+          }
+
+          // Image order matches buildCompositePrompt: garment ref → model → original garments → pose → background
+          const compositeImages = [
+            { mimeType: garmentRef.mimeType, data: base64ToBytes(garmentRef.imageBase64) },
+            ...(modelRefDataUrl ? [dataUrlToInlineImage(modelRefDataUrl)] : []),
+            ...originalGarmentInlines,
+            ...(poseRef ? [dataUrlToInlineImage(poseRef)] : []),
+            ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
+          ];
+          const composite = await generateImage({
+            model: "gemini-3-pro-image-preview", promptText: compositePrompt, images: compositeImages,
+            aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
+          });
+
+          if (!composite.imageBase64) throw new GeminiError(`Image generation returned no image data (pose ${pi + 1}).`);
+          return {
+            dataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
+            mimeType: composite.mimeType,
+            poseIndex: pi,
+          };
+        }),
+      );
+      const totalCompositeMs = Math.round(performance.now() - tCompAll);
+
+      timings.composite = totalCompositeMs;
       timings.api_total = Object.values(timings).reduce((a, v) => a + (typeof v === "number" ? v : 0), 0);
 
       const chosenSummary = {
@@ -1682,14 +1754,17 @@ export default function App() {
         background_theme: plan.background_theme, model_ethnicity: plan.model_ethnicity, model_pose: plan.model_pose,
       };
 
+      const firstResult = allPoseResults[0];
       updateRuntime(sbId, {
         lastPlan: safeClone(plan), lastFinalPrompt: finalPromptRes.prompt,
         garmentRefMimeType: garmentRef.mimeType, garmentRefDataUrl,
-        resultMimeType: composite.mimeType, resultDataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
+        resultMimeType: firstResult.mimeType, resultDataUrl: firstResult.dataUrl,
+        poseResults: allPoseResults,
         resultTimingsMs: timings, chosenSummary,
         debugSummary: { timings_ms: timings, plan_error: planError, ...debug },
       });
-      showToast("Scene generated successfully!", "success");
+      const poseCount = allPoseResults.length;
+      showToast(poseCount > 1 ? `Generated ${poseCount} images for ${poseCount} poses!` : "Scene generated successfully!", "success");
     } catch (err: any) {
       updateRuntime(sbId, { generateError: err?.message || String(err) });
       showToast("Scene generation failed. Please try again.", "error");
@@ -1744,14 +1819,18 @@ export default function App() {
       const hasModelReference = Boolean(modelRefDataUrl);
       const hasBackgroundReference = Boolean(backgroundRefDataUrl);
 
+      const originalGarmentInlines = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
       const compositePrompt = buildRetryCompositePrompt({
         plan, finalPrompt: rt.lastFinalPrompt, hasModelReference, hasBackgroundReference, retryComment: retryComment || "",
+        originalGarmentCount: originalGarmentInlines.length,
       });
 
       const t0 = performance.now();
+      // Image order matches buildCompositePrompt: garment ref → model → original garments → background
       const compositeImages = [
         dataUrlToInlineImage(rt.garmentRefDataUrl),
         ...(modelRefDataUrl ? [dataUrlToInlineImage(modelRefDataUrl)] : []),
+        ...originalGarmentInlines,
         ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
       ];
       const composite = await generateImage({
@@ -1759,6 +1838,7 @@ export default function App() {
         aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
       });
       const ms = Math.round(performance.now() - t0);
+      if (!composite.imageBase64) throw new GeminiError("Retry generation returned no image data.");
 
       const chosenSummary = {
         occasion: plan.occasion, color_scheme: plan.color_scheme, print_style: plan.print_style,
@@ -1770,6 +1850,7 @@ export default function App() {
         lastPlan: safeClone(plan),
         resultMimeType: composite.mimeType,
         resultDataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
+        poseResults: [{ dataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`, mimeType: composite.mimeType, poseIndex: 0 }],
         angles: createDefaultAnglesRuntime(),
         resultTimingsMs: { composite: ms, api_total: ms },
         chosenSummary,
@@ -1886,11 +1967,25 @@ export default function App() {
     if (!rt.resultDataUrl) { updateRuntime(activeStoryboardId, { generateError: "Generate the main image first." }); return; }
     try {
       const ts = Date.now();
-      await saveImageToLibrary({
-        dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType,
-        title: `Look — ${activeStoryboard.title}`, kind: "main",
-        fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`,
-      });
+      const sbTitle = activeStoryboard.title;
+      if (rt.poseResults.length > 1) {
+        // Save all pose results
+        await Promise.all(rt.poseResults.map((pr, i) =>
+          saveImageToLibrary({
+            dataUrl: pr.dataUrl, mimeType: pr.mimeType,
+            title: `Look (Pose ${i + 1}) — ${sbTitle}`, kind: "main",
+            fileName: `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`,
+            notify: false,
+          })
+        ));
+        showSaveToast(`Saved ${rt.poseResults.length} pose variations.`);
+      } else {
+        await saveImageToLibrary({
+          dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType,
+          title: `Look — ${sbTitle}`, kind: "main",
+          fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`,
+        });
+      }
     } catch (err: any) {
       updateRuntime(activeStoryboardId, { generateError: err?.message || String(err) });
     }
@@ -1903,13 +1998,26 @@ export default function App() {
     }
     try {
       const ts = Date.now(); const sbTitle = activeStoryboard.title;
-      await Promise.all([
-        saveImageToLibrary({ dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType, title: `Look — ${sbTitle}`, kind: "main", fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`, notify: false }),
+      const saveOps = [];
+
+      // Save all pose results (or the single main result)
+      if (rt.poseResults.length > 1) {
+        for (let i = 0; i < rt.poseResults.length; i++) {
+          const pr = rt.poseResults[i];
+          saveOps.push(saveImageToLibrary({ dataUrl: pr.dataUrl, mimeType: pr.mimeType, title: `Look (Pose ${i + 1}) — ${sbTitle}`, kind: "main", fileName: `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`, notify: false }));
+        }
+      } else {
+        saveOps.push(saveImageToLibrary({ dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType, title: `Look — ${sbTitle}`, kind: "main", fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`, notify: false }));
+      }
+
+      saveOps.push(
         saveImageToLibrary({ dataUrl: rt.angles.sideDataUrl, mimeType: rt.angles.sideMimeType, title: `Side view — ${sbTitle}`, kind: "side", fileName: `look-side-${ts}.${mimeToExtension(rt.angles.sideMimeType)}`, notify: false }),
         saveImageToLibrary({ dataUrl: rt.angles.backDataUrl, mimeType: rt.angles.backMimeType, title: `Back view — ${sbTitle}`, kind: "back", fileName: `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`, notify: false }),
         saveImageToLibrary({ dataUrl: rt.angles.detailDataUrl, mimeType: rt.angles.detailMimeType, title: `Detail shot — ${sbTitle}`, kind: "detail", fileName: `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`, notify: false }),
-      ]);
-      showSaveToast("Saved 4 images.");
+      );
+
+      await Promise.all(saveOps);
+      showSaveToast(`Saved ${saveOps.length} images.`);
     } catch (err: any) {
       updateAngles(activeStoryboardId, { error: err?.message || String(err) });
     }
@@ -1919,7 +2027,14 @@ export default function App() {
     const rt = activeRuntime;
     if (!rt.resultDataUrl || !rt.angles.sideDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) return;
     const ts = Date.now();
-    triggerDownload(rt.resultDataUrl, `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`);
+
+    // Download all pose results
+    if (rt.poseResults.length > 1) {
+      rt.poseResults.forEach((pr, i) => triggerDownload(pr.dataUrl, `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`));
+    } else {
+      triggerDownload(rt.resultDataUrl, `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`);
+    }
+
     triggerDownload(rt.angles.sideDataUrl, `look-side-${ts}.${mimeToExtension(rt.angles.sideMimeType)}`);
     triggerDownload(rt.angles.backDataUrl, `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`);
     triggerDownload(rt.angles.detailDataUrl, `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`);
@@ -2032,6 +2147,7 @@ export default function App() {
                 onGenerate={() => generatePrintedGarment()}
                 onRetry={retryPrintedGarment}
                 onSave={savePrintedGarment}
+                isSaving={isSavingPrints}
                 onOpenImage={(src, title, alt, gallery) => openImageModal(src, title, alt ?? title, gallery)}
               />
             )}
@@ -2089,6 +2205,7 @@ export default function App() {
                           onModelFileChange={onModelFileChange}
                           onPoseFileChange={onPoseFileChange}
                           addGarmentFromDataUrl={addGarmentFromDataUrl}
+                          addGarmentBundle={addGarmentBundle}
                           addBackgroundFromDataUrl={addBackgroundFromDataUrl}
                           addModelFromDataUrl={addModelFromDataUrl}
                           addPoseFromDataUrl={addPoseFromDataUrl}
@@ -2125,6 +2242,7 @@ export default function App() {
             {activeTab === "saved" && (
               <SavedImagesPane
                 images={savedImages}
+                isLoading={savedImagesLoading}
                 formatTimestamp={formatSavedTimestamp}
                 mimeToExtension={mimeToExtension}
                 onOpenImage={openImageModal}

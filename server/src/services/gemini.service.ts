@@ -51,6 +51,56 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
+/* ── Retry with exponential backoff for transient errors (503, 429) ── */
+
+const RETRYABLE_STATUS_CODES = new Set([429, 503]);
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 2_000; // 2s, 4s, 8s
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ resp: Response; body: string }> {
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1); // 2s, 4s, 8s
+      const jitter = Math.random() * 500;
+      console.log(`[Gemini] Retry ${attempt}/${MAX_RETRIES} after ${delay + jitter | 0}ms...`);
+      await sleep(delay + jitter);
+    }
+
+    try {
+      const resp = await fetchWithTimeout(url, init, timeoutMs);
+      const body = await resp.text();
+
+      if (!resp.ok && RETRYABLE_STATUS_CODES.has(resp.status) && attempt < MAX_RETRIES) {
+        console.warn(`[Gemini] Got ${resp.status}, will retry. Body: ${body.slice(0, 200)}`);
+        lastError = new GeminiError(`Gemini API error (${resp.status}): ${body.slice(0, 500)}`);
+        continue;
+      }
+
+      return { resp, body };
+    } catch (err: any) {
+      // Abort errors (timeout) are not retryable
+      if (err?.name === "AbortError") throw new GeminiError("Gemini API request timed out.");
+      lastError = err;
+      if (attempt < MAX_RETRIES) {
+        console.warn(`[Gemini] Fetch error, will retry: ${String(err?.message || err).slice(0, 200)}`);
+        continue;
+      }
+    }
+  }
+
+  throw lastError ?? new GeminiError("Gemini API request failed after retries.");
+}
+
 const PROMPT_QUALITY_MARKER = "Photo quality requirements:";
 const PROMPT_PHOTOSHOOT_QUALITY_BLOCK = [
   "Photo quality requirements:",
@@ -100,7 +150,7 @@ export async function generateText(opts: {
     },
   };
 
-  const resp = await fetchWithTimeout(
+  const { resp, body: rawBody } = await fetchWithRetry(
     url,
     {
       method: "POST",
@@ -110,7 +160,6 @@ export async function generateText(opts: {
     typeof opts.timeoutMs === "number" ? opts.timeoutMs : 120_000,
   );
 
-  const rawBody = await resp.text();
   if (!resp.ok) {
     throw new GeminiError(`Gemini API error (${resp.status}): ${rawBody.slice(0, 500)}`);
   }
@@ -167,7 +216,7 @@ export async function generateImage(opts: {
   };
 
   async function post(payload: any): Promise<any> {
-    const resp = await fetchWithTimeout(
+    const { resp, body: rawBody } = await fetchWithRetry(
       url,
       {
         method: "POST",
@@ -177,7 +226,6 @@ export async function generateImage(opts: {
       typeof opts.timeoutMs === "number" ? opts.timeoutMs : 180_000,
     );
 
-    const rawBody = await resp.text();
     if (!resp.ok) {
       throw new GeminiError(`Gemini API error (${resp.status}): ${rawBody.slice(0, 500)}`);
     }

@@ -4,6 +4,12 @@ import Spinner from "./Spinner";
 
 type Timings = { textLlmMs: number; imageGenMs: number; totalMs: number };
 
+type PoseResult = {
+  dataUrl: string;
+  mimeType: string;
+  poseIndex: number;
+};
+
 type AnglesRuntime = {
   generating: boolean;
   error: string | null;
@@ -21,6 +27,7 @@ type RuntimeLite = {
   resultMimeType: string | null;
   resultTimingsMs: Record<string, number> | null;
   angles: AnglesRuntime;
+  poseResults: PoseResult[];
 };
 
 interface StoryboardResultsPaneProps {
@@ -63,14 +70,25 @@ export default function StoryboardResultsPane({
   const [retryOpen, setRetryOpen] = useState(false);
   const [retryComments, setRetryComments] = useState("");
 
+  const hasMultiplePoses = runtime.poseResults.length > 1;
+
   // Build gallery from all available result images for prev/next navigation
   function buildResultGallery() {
-    return [
-      runtime.resultDataUrl        && { src: runtime.resultDataUrl,           title: "Generated look", alt: "Generated look" },
-      runtime.angles.sideDataUrl   && { src: runtime.angles.sideDataUrl,      title: "Side view",      alt: "Generated side view" },
-      runtime.angles.backDataUrl   && { src: runtime.angles.backDataUrl,      title: "Back view",      alt: "Generated back view" },
-      runtime.angles.detailDataUrl && { src: runtime.angles.detailDataUrl,    title: "Detail shot",    alt: "Generated detail shot" },
-    ].filter(Boolean) as Array<{ src: string; title: string; alt?: string }>;
+    const gallery: Array<{ src: string; title: string; alt?: string }> = [];
+
+    if (hasMultiplePoses) {
+      runtime.poseResults.forEach((pr, i) => {
+        gallery.push({ src: pr.dataUrl, title: `Pose ${i + 1}`, alt: `Generated look – Pose ${i + 1}` });
+      });
+    } else if (runtime.resultDataUrl) {
+      gallery.push({ src: runtime.resultDataUrl, title: "Generated look", alt: "Generated look" });
+    }
+
+    if (runtime.angles.sideDataUrl) gallery.push({ src: runtime.angles.sideDataUrl, title: "Side view", alt: "Generated side view" });
+    if (runtime.angles.backDataUrl) gallery.push({ src: runtime.angles.backDataUrl, title: "Back view", alt: "Generated back view" });
+    if (runtime.angles.detailDataUrl) gallery.push({ src: runtime.angles.detailDataUrl, title: "Detail shot", alt: "Generated detail shot" });
+
+    return gallery;
   }
 
   function handleRetry() {
@@ -131,31 +149,70 @@ export default function StoryboardResultsPane({
             </div>
           </div>
 
-          <div
-            className="resultImageZoom"
-            onPointerMove={onResultImagePointerMove}
-            onPointerLeave={onResultImagePointerLeave}
-          >
-            <img className="resultImage" src={runtime.resultDataUrl} alt="Generated look" draggable={false} />
-          </div>
+          {/* ── Multi-pose grid ── */}
+          {hasMultiplePoses ? (
+            <div className="poseResultsGrid" data-count={runtime.poseResults.length}>
+              {runtime.poseResults.map((pr, i) => (
+                <div key={i} className="poseResultTile">
+                  <div className="poseResultLabel">Pose {i + 1}</div>
+                  <div className="poseResultImageWrap">
+                    <img src={pr.dataUrl} alt={`Generated look – Pose ${i + 1}`} draggable={false} />
+                    <div className="poseResultOverlay">
+                      <button
+                        type="button"
+                        className="poseResultOverlayBtn"
+                        onClick={() => onOpenImage(pr.dataUrl, `Pose ${i + 1}`, `Generated look – Pose ${i + 1}`, buildResultGallery())}
+                        title="View"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                        </svg>
+                      </button>
+                      <a
+                        className="poseResultOverlayBtn"
+                        href={pr.dataUrl}
+                        download={`look-pose${i + 1}-${Date.now()}.${mimeToExtension(pr.mimeType)}`}
+                        title="Download"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3v10" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                        </svg>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            /* ── Single result ── */
+            <div
+              className="resultImageZoom"
+              onPointerMove={onResultImagePointerMove}
+              onPointerLeave={onResultImagePointerLeave}
+            >
+              <img className="resultImage" src={runtime.resultDataUrl} alt="Generated look" draggable={false} />
+            </div>
+          )}
 
           <div className="resultImageButtons">
-            <a
-              className="btn btnGhost iconButton"
-              style={{ width: 130 }}
-              href={runtime.resultDataUrl}
-              download={`look-${Date.now()}.${mimeToExtension(runtime.resultMimeType)}`}
-              aria-label="Download generated image"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3v10" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-              </svg>
-              &nbsp;&nbsp;Download
-            </a>
+            {!hasMultiplePoses && (
+              <a
+                className="btn btnGhost iconButton"
+                style={{ width: 130 }}
+                href={runtime.resultDataUrl}
+                download={`look-${Date.now()}.${mimeToExtension(runtime.resultMimeType)}`}
+                aria-label="Download generated image"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 3v10" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                </svg>
+                &nbsp;&nbsp;Download
+              </a>
+            )}
             <button
               type="button"
               className="btn btnGhost iconButton"
-              style={{ width: 100 }}
+              style={{ width: hasMultiplePoses ? 160 : 100 }}
               onClick={onSaveImage}
               disabled={isGenerating}
               aria-label="Save generated image"
@@ -163,19 +220,21 @@ export default function StoryboardResultsPane({
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1z" />
               </svg>
-              &nbsp;&nbsp;Save
+              &nbsp;&nbsp;{hasMultiplePoses ? `Save all ${runtime.poseResults.length}` : "Save"}
             </button>
-            <button
-              type="button"
-              className="btnGhost iconButton"
-              onClick={() => onOpenImage(runtime.resultDataUrl!, "Generated look", "Generated look", buildResultGallery())}
-              aria-label="Open generated image"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M10 10 5 5" /><path d="M5 8V5H8" /><path d="M14 10 19 5" /><path d="M16 5h3v3" />
-                <path d="M10 14 5 19" /><path d="M5 16v3h3" /><path d="M14 14 19 19" /><path d="M16 19h3v-3" />
-              </svg>
-            </button>
+            {!hasMultiplePoses && (
+              <button
+                type="button"
+                className="btnGhost iconButton"
+                onClick={() => onOpenImage(runtime.resultDataUrl!, "Generated look", "Generated look", buildResultGallery())}
+                aria-label="Open generated image"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10 10 5 5" /><path d="M5 8V5H8" /><path d="M14 10 19 5" /><path d="M16 5h3v3" />
+                  <path d="M10 14 5 19" /><path d="M5 16v3h3" /><path d="M14 14 19 19" /><path d="M16 19h3v-3" />
+                </svg>
+              </button>
+            )}
             <button
               type="button"
               className="btnGhost iconButton"

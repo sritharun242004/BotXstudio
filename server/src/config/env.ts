@@ -9,10 +9,9 @@ const envSchema = z.object({
 
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters"),
-  JWT_REFRESH_SECRET: z.string().min(16, "JWT_REFRESH_SECRET must be at least 16 characters"),
-  JWT_ACCESS_EXPIRY: z.string().default("15m"),
-  JWT_REFRESH_EXPIRY: z.string().default("7d"),
+  COGNITO_USER_POOL_ID: z.string().min(1, "COGNITO_USER_POOL_ID is required"),
+  COGNITO_CLIENT_ID: z.string().min(1, "COGNITO_CLIENT_ID is required"),
+  COGNITO_DOMAIN: z.string().min(1, "COGNITO_DOMAIN is required"),
 
   CORS_ORIGIN: z.string().default("http://localhost:5173"),
 

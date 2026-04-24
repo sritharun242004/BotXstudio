@@ -23,7 +23,105 @@ type RuntimeLite = {
   generateError: string | null;
 };
 
-type SavedPrint = { id: string; url: string; title: string; fileName?: string };
+type SavedPrint = { id: string; url: string; title: string; fileName?: string; storyboardId?: string; storyboardTitle?: string; createdAt: number };
+
+type PrintBundle = { id: string; storyboardTitle?: string; storyboardId?: string; images: SavedPrint[]; earliestCreatedAt: number };
+
+function groupPrintsByStoryboard(prints: SavedPrint[]): PrintBundle[] {
+  // Group ALL prints from the same storyboard together (no time limit).
+  // This ensures front+back+side prints always appear as one selectable bundle.
+  const sorted = [...prints].sort((a, b) => b.createdAt - a.createdAt);
+  const bundles: PrintBundle[] = [];
+  for (const p of sorted) {
+    const match = bundles.find((b) => {
+      if (p.storyboardId && b.storyboardId) return p.storyboardId === b.storyboardId;
+      if (!p.storyboardId && !b.storyboardId && p.storyboardTitle && b.storyboardTitle)
+        return p.storyboardTitle === b.storyboardTitle;
+      return false;
+    });
+    if (match) {
+      match.images.push(p);
+      if (p.createdAt < match.earliestCreatedAt) match.earliestCreatedAt = p.createdAt;
+    } else {
+      bundles.push({ id: p.id, storyboardId: p.storyboardId, storyboardTitle: p.storyboardTitle, images: [p], earliestCreatedAt: p.createdAt });
+    }
+  }
+  return bundles;
+}
+
+function PrintBundleCard({
+  bundle,
+  addGarmentFromDataUrl,
+  addGarmentBundle,
+}: {
+  bundle: PrintBundle;
+  addGarmentFromDataUrl: (url: string, fileName: string) => void;
+  addGarmentBundle: (items: { url: string; fileName: string }[]) => Promise<void>;
+}) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done">("idle");
+
+  const handleUseAll = async () => {
+    setStatus("loading");
+    try {
+      // Sort images so front comes before back comes before side
+      const viewOrder = (img: SavedPrint): number => {
+        const s = ((img.fileName || "") + " " + (img.title || "")).toLowerCase();
+        if (s.includes("front")) return 0;
+        if (s.includes("back")) return 1;
+        if (s.includes("side")) return 2;
+        return 3;
+      };
+      const sorted = [...bundle.images].sort((a, b) => viewOrder(a) - viewOrder(b));
+      await addGarmentBundle(
+        sorted.map((img) => ({ url: img.url, fileName: img.fileName || `print-${img.id}.png` }))
+      );
+      setStatus("done");
+      setTimeout(() => setStatus("idle"), 2000);
+    } catch (err) {
+      console.error("Failed to add bundle images", err);
+      setStatus("idle");
+    }
+  };
+
+  const count = bundle.images.length;
+  const gridCount = Math.min(count, 4) as 1 | 2 | 3 | 4;
+
+  return (
+    <div className="printBundleCard">
+      {/* Thumbnail grid — matches Saved Images card layout */}
+      <div className="printBundlePreview">
+        {count > 1 && <span className="printBundleBadge">&times;{count}</span>}
+        <div className="printBundleGrid" data-count={gridCount}>
+          {bundle.images.slice(0, 4).map((img, i) => (
+            <button
+              key={img.id}
+              type="button"
+              className="printBundleThumb"
+              onClick={() => addGarmentFromDataUrl(img.url, img.fileName || `print-${img.id}.png`)}
+              title="Click to add this image only"
+            >
+              <img src={img.url} alt={img.title} draggable={false} />
+              {i === 3 && count > 4 && <span className="printBundleMore">+{count - 3}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* Meta + action */}
+      <div className="printBundleMeta">
+        <div className="printBundleTitle">{bundle.storyboardTitle || "Untitled"}</div>
+        <div className="printBundleCount">{count} {count === 1 ? "print" : "prints"}</div>
+      </div>
+      <button
+        type="button"
+        className={`printBundleBtn ${status === "done" ? "printBundleBtnDone" : ""}`}
+        onClick={handleUseAll}
+        disabled={status === "loading"}
+      >
+        {status === "loading" ? "Adding..." : status === "done" ? "Added!" : "Use Bundle"}
+      </button>
+    </div>
+  );
+}
 
 const bottomWearPresetOptions = [
   { value: "", label: "Auto" },
@@ -74,6 +172,7 @@ interface StoryboardFormCardsProps {
   poseAssetImages: SavedPrint[];
   garmentAssetImages: SavedPrint[];
   addGarmentFromDataUrl: (url: string, fileName: string) => void;
+  addGarmentBundle: (items: { url: string; fileName: string }[]) => Promise<void>;
   addBackgroundFromDataUrl: (url: string, fileName: string) => void;
   addModelFromDataUrl: (url: string, fileName: string) => void;
   addPoseFromDataUrl: (url: string, fileName: string) => void;
@@ -101,6 +200,7 @@ export default function StoryboardFormCards({
   poseAssetImages,
   garmentAssetImages,
   addGarmentFromDataUrl,
+  addGarmentBundle,
   addBackgroundFromDataUrl,
   addModelFromDataUrl,
   addPoseFromDataUrl,
@@ -327,13 +427,16 @@ export default function StoryboardFormCards({
                 <span>Choose from Printed Garments</span>
               </button>
               {showSavedPrints && savedPrints.length > 0 && (
-                <div style={{ marginTop: 12 }}>
+                <div className="printBundlesWrap">
                   <label>Saved Prints</label>
-                  <div className="preview previewGarments">
-                    {savedPrints.map((print, idx) => (
-                      <div key={print.id} className="previewItem" onClick={() => addGarmentFromDataUrl(print.url, print.fileName || `print-${idx}.png`)} title="Click to add as garment">
-                        <img src={print.url} alt={print.title} draggable={false} />
-                      </div>
+                  <div className="printBundlesScroll">
+                    {groupPrintsByStoryboard(savedPrints).map((bundle) => (
+                      <PrintBundleCard
+                        key={bundle.id}
+                        bundle={bundle}
+                        addGarmentFromDataUrl={addGarmentFromDataUrl}
+                        addGarmentBundle={addGarmentBundle}
+                      />
                     ))}
                   </div>
                 </div>

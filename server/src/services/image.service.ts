@@ -15,11 +15,18 @@ export async function upload(userId: string, input: UploadImageInput) {
 
   const { bucket, size } = await s3Service.uploadBuffer(s3Key, buffer, input.mimeType);
 
+  // Validate storyboardId exists before linking (avoid FK constraint violation)
+  let validStoryboardId: string | null = null;
+  if (input.storyboardId) {
+    const sb = await prisma.storyboard.findUnique({ where: { id: input.storyboardId }, select: { id: true } });
+    if (sb) validStoryboardId = sb.id;
+  }
+
   const image = await prisma.image.create({
     data: {
       id: imageId,
       userId,
-      storyboardId: input.storyboardId || null,
+      storyboardId: validStoryboardId,
       title: input.title,
       kind: input.kind,
       mimeType: input.mimeType,
@@ -67,6 +74,15 @@ export async function getById(userId: string, id: string) {
   const downloadUrl = await s3Service.getPresignedDownloadUrl(image.s3Key);
 
   return { ...image, downloadUrl };
+}
+
+export async function getRaw(userId: string, id: string) {
+  const image = await prisma.image.findUnique({ where: { id } });
+  if (!image) throw new NotFoundError("Image not found");
+  if (image.userId !== userId) throw new ForbiddenError();
+
+  const buffer = await s3Service.getObjectBuffer(image.s3Key);
+  return { buffer, mimeType: image.mimeType };
 }
 
 export async function remove(userId: string, id: string) {

@@ -124,7 +124,7 @@ Goal: propose a styling plan to generate a photorealistic, high-conversion ecomm
 
 	Style guide to follow (non-negotiable):
 	- Product-first catalogue photography that still feels aspirational lifestyle (not pure studio).
-	- Vibe: warm, sunny, polished, approachable, slightly editorial. Think “vacation wardrobe lookbook”.
+	- Vibe: warm, sunny, polished, approachable, slightly editorial. Think "vacation wardrobe lookbook".
 	- Not gritty street-style; not dramatic high-fashion; no harsh moody lighting.
 		- Prioritize full-body vertical framing; model head-to-toe in frame; garment clearly visible and readable (avoid tiny/distant subject).
 		- ${MODEL_AGE_RULE}
@@ -266,10 +266,10 @@ export async function generateFinalPrompt(opts: {
     : "a suitable female fashion model";
 
   const background_instruction = opts.hasBackgroundReference
-    ? `${BACKGROUND_LOCK_RULE} Keep wording generic: say “in the provided background photo” (do not invent a new location).`
+    ? `${BACKGROUND_LOCK_RULE} Keep wording generic: say "in the provided background photo" (do not invent a new location).`
     : `No background reference is provided; invent a photorealistic setting matching: ${opts.plan.background_theme || opts.plan.occasion}.`;
   const model_instruction = opts.hasModelReference
-    ? "Use the MODEL PHOTO as identity reference and keep the same person. Do not invent face/hair details in text; keep wording generic: “match the provided model photo”."
+    ? `A MODEL PHOTO is provided as identity reference. The generated person MUST be the exact same individual. CRITICAL: Do NOT describe the model's face, skin color, ethnicity, hair color, or hair style in your prompt text — those details come exclusively from the reference image. Just write "matching the MODEL PHOTO identity exactly" and nothing more about her appearance.`
     : `No model reference is provided; invent a suitable female fashion model.${opts.plan.model_ethnicity ? ` Prefer ethnicity: ${opts.plan.model_ethnicity}.` : ""}`;
 
   const prompt = `
@@ -290,7 +290,7 @@ Constraints:
 
 Style guide baseline to incorporate (must match this look):
 - Product-first catalogue photography with aspirational lifestyle feel (not pure studio).
-- Warm, sunny, polished, approachable, slightly editorial; “vacation wardrobe lookbook” vibe. Not gritty street-style; not dramatic high-fashion.
+- Warm, sunny, polished, approachable, slightly editorial; "vacation wardrobe lookbook" vibe. Not gritty street-style; not dramatic high-fashion.
 - Camera: vertical 3:4 full-body shot, 35–50mm look, eye-level, f/3.2–f/4 shallow separation, crisp focus.
 - Lighting: natural daylight look with soft front-side light (10–45°) and gentle fill; medium contrast; warm midtones; realistic shadows.
 - Pose: ${opts.plan.model_pose ? `follow this direction: ${opts.plan.model_pose}` : "natural weight shift (S-curve), legs uncrossed, slight torso twist/shoulder tilt to show silhouette + neckline, relaxed hands (light touch on fabric/hip/railing; no clenched fists), slight head tilt, soft smile; optional subtle step/sway to show drape."}
@@ -412,6 +412,8 @@ export function buildPrintApplicationPrompt(opts: {
       // ── Frame & scale ────────────────────────────────────────────────────────
       "FRAME & SCALE RULES (NON-NEGOTIABLE):",
       "- Garment size and framing must remain IDENTICAL to IMAGE 2 (no zoom in/out, no reframing).",
+      "- The ENTIRE garment must be fully visible: collar/neckline, both sleeves (full length), and hem — nothing cropped at any edge.",
+      "- Maintain the same whitespace/margins around the garment as in IMAGE 2. Do NOT zoom in or fill the frame tighter than the template.",
       "- No change in camera angle, aspect ratio, or composition.",
       "- No distortion, warping, or reshaping of the garment silhouette.",
       "- No modification of background, mannequin, shadows, or any non-garment pixel.",
@@ -461,6 +463,7 @@ export function buildPrintApplicationPrompt(opts: {
       "Photo quality requirements:",
       "- Output must preserve the exact composition of the garment template (same mannequin, pose, background, lighting, shadows, wrinkles, camera angle).",
       "- Do NOT crop or reframe. Keep the same aspect ratio and framing.",
+      "- The ENTIRE garment must be fully visible: collar/neckline, both sleeves (full length), and hem — nothing cropped at any edge. Maintain the same whitespace/margins as the input template.",
       "- Only the garment fabric appearance should change.",
       "- Photorealistic, high resolution, crisp detail; no blur; no noise; do not add new text/watermarks.",
       "",
@@ -494,6 +497,8 @@ export function buildPrintApplicationPrompt(opts: {
       // ── Frame & scale rules ──────────────────────────────────────────────────
       "FRAME & SCALE RULES (NON-NEGOTIABLE):",
       "- The garment size and framing must remain IDENTICAL to the input template (no zoom in, no zoom out).",
+      "- The ENTIRE garment must be fully visible: collar/neckline, both sleeves (full length), and hem — nothing cropped at any edge.",
+      "- Maintain the same whitespace/margins around the garment as in the input template. Do NOT zoom in or fill the frame tighter than the template.",
       "- The garment must fully fill the frame in exactly the same way as the input image.",
       "- Scale the design pattern relative to the garment bounding box — NOT relative to the full canvas.",
       "- Pattern density and tile spacing must remain uniform and consistent across front, back, and side views.",
@@ -550,7 +555,7 @@ export function buildPrintApplicationPrompt(opts: {
   }
   lines.push(
     "",
-    "Final check: design confined to garment only · garment framing unchanged · pattern scale consistent with front view · fabric color preserved · no background change · no mannequin change · no zoom · no warping · no flat overlay · no watermark.",
+    "Final check: design confined to garment only · entire garment visible (collar, both sleeves, hem — no cropping) · garment framing unchanged · pattern scale consistent with front view · fabric color preserved · no background change · no mannequin change · no zoom · no warping · no flat overlay · no watermark.",
   );
   return lines.join("\n").trim();
 }
@@ -561,6 +566,7 @@ export function buildCompositePrompt(opts: {
   hasModelReference: boolean;
   hasPoseReference?: boolean;
   hasBackgroundReference: boolean;
+  originalGarmentCount?: number;
 }): string {
   const avoid = [normalizeAvoidClause(opts.plan.negative_prompt), GLOBAL_AVOID].filter(Boolean).join(", ");
 
@@ -578,13 +584,37 @@ export function buildCompositePrompt(opts: {
   ];
 
   let imgIndex = 2;
+
+  // Model photo comes FIRST (right after garment ref) for maximum face fidelity weight
   if (opts.hasModelReference) {
-    lines.push(`IMAGE ${imgIndex++} is the MODEL PHOTO. You MUST match her identity/face/hair, and body proportions.`);
+    lines.push(
+      `IMAGE ${imgIndex++} is the MODEL PHOTO — the IDENTITY SOURCE. This is the most important reference for the person's appearance.`,
+      "FACE IDENTITY LOCK (CRITICAL — equal priority to garment accuracy):",
+      "- The generated person MUST be the EXACT same individual as in the MODEL PHOTO.",
+      "- Reproduce her face pixel-perfectly: facial bone structure, eye shape, eye color, eyebrow shape, nose shape, lip shape, jawline, chin, cheekbones, forehead, and skin tone.",
+      "- Reproduce her hair exactly: hair color, hair texture, hair length, hair style, parting, and volume.",
+      "- Do NOT beautify, smooth, age, de-age, slim, widen, lighten, darken, or alter any facial feature.",
+      "- Do NOT generate a generic/stock model face. Do NOT average or blend with any other face source.",
+      "- The person in the output must be immediately recognizable as the MODEL PHOTO person by someone who knows them.",
+    );
   } else {
     lines.push(
       "No model reference is provided: create a suitable single female fashion model"
         + (opts.plan.model_ethnicity ? ` (prefer ${opts.plan.model_ethnicity})` : "")
         + ".",
+    );
+  }
+
+  // Original garment photos as secondary design reference
+  const origCount = opts.originalGarmentCount ?? 0;
+  if (origCount > 0) {
+    const startIdx = imgIndex;
+    const endIdx = imgIndex + origCount - 1;
+    imgIndex += origCount;
+    lines.push(
+      origCount === 1
+        ? `IMAGE ${startIdx} is the ORIGINAL GARMENT PHOTO showing the actual print/design details. Use it as secondary reference for graphic accuracy — preserve every graphic print, text, logo, and pattern placement exactly as shown.`
+        : `IMAGES ${startIdx}–${endIdx} are the ORIGINAL GARMENT PHOTOS showing the actual print/design details from different angles. Use them as secondary reference for graphic accuracy — preserve every graphic print, text, logo, and pattern placement exactly as shown.`,
     );
   }
 
@@ -614,6 +644,7 @@ export function buildCompositePrompt(opts: {
     "Product scale: keep the model/garment medium-large in frame (avoid wide shots). Aim for the model to fill ~80–85% of the image height while still fully visible head-to-toe. Ensure fabric texture/print details are readable.",
     "Keep the entire garment visible and unobstructed (do not hide it behind props or hair).",
     GARMENT_FIDELITY_RULE,
+    "DESIGN PRESERVATION: The garment's graphic prints, text, logos, and pattern placement must be preserved exactly as shown in the GARMENT REFERENCE and ORIGINAL GARMENT PHOTOS — do not simplify, redraw, reinterpret, or alter any graphic elements. If the garment has a specific print or logo, it must appear in the same position, size, and detail.",
     "No added text overlays, no watermarks, no brand logos in the background.",
     "Keep anatomy correct. No extra people. No duplicates.",
   );
@@ -652,12 +683,17 @@ export function buildCompositePrompt(opts: {
     opts.hasBackgroundReference ? BACKGROUND_LOCK_RULE : "Background must match the scene direction above.",
     "One person only; correct anatomy; no extra limbs; no duplicates.",
   );
-  if (opts.hasPoseReference && opts.hasModelReference) {
+  if (opts.hasModelReference) {
     lines.push(
-      "IDENTITY: the final person MUST be the MODEL PHOTO person only. The pose image is body-position-only reference — do NOT transfer any identity, face, hair, or clothing from the pose image.",
+      "FACE IDENTITY FINAL CHECK: Compare the output face to the MODEL PHOTO — it MUST be the same person. Same eyes, nose, lips, jawline, skin tone, hair color, hair style. If it does not look like the same person, the image is REJECTED.",
     );
   }
-  lines.push(`Avoid: ${avoid}`);
+  if (opts.hasPoseReference && opts.hasModelReference) {
+    lines.push(
+      "The pose image is body-position-only reference — do NOT transfer any identity, face, hair, or clothing from the pose image.",
+    );
+  }
+  lines.push(`Avoid: ${avoid}${opts.hasModelReference ? ", altered face, wrong face, face morphing, generic stock model face, different person than MODEL PHOTO" : ""}`);
   return lines.join("\n").trim();
 }
 
@@ -668,6 +704,7 @@ export function buildRetryCompositePrompt(opts: {
   hasPoseReference?: boolean;
   hasBackgroundReference: boolean;
   retryComment: string;
+  originalGarmentCount?: number;
 }): string {
   const base = buildCompositePrompt({
     plan: opts.plan,
@@ -675,6 +712,7 @@ export function buildRetryCompositePrompt(opts: {
     hasModelReference: opts.hasModelReference,
     hasPoseReference: opts.hasPoseReference,
     hasBackgroundReference: opts.hasBackgroundReference,
+    originalGarmentCount: opts.originalGarmentCount,
   });
 
   const comment = (opts.retryComment || "").trim();
