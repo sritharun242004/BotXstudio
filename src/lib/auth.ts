@@ -45,7 +45,7 @@ export async function redirectToLogin(provider?: "Google" | "Apple") {
     `${COGNITO_DOMAIN}/oauth2/authorize?` +
     `client_id=${CLIENT_ID}` +
     `&response_type=code` +
-    `&scope=openid+email+profile` +
+    `&scope=openid+email+phone` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
     `&code_challenge=${codeChallenge}` +
     `&code_challenge_method=S256`;

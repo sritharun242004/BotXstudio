@@ -9,6 +9,13 @@ export default function AuthCallbackPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const errorParam = params.get("error");
+    const errorDesc = params.get("error_description");
+    if (errorParam) {
+      setError(`${errorParam}: ${errorDesc || "Unknown error from auth provider."}`);
+      return;
+    }
+
     const code = params.get("code");
     if (!code) {
       setError("Missing authorization code.");
