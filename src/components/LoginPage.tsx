@@ -37,25 +37,8 @@ export default function LoginPage() {
           <button
             type="button"
             className="auth-btn"
-            onClick={() => redirectToLogin("Apple")}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-              background: "#000", color: "#fff",
-            }}
-          >
-            <svg width="18" height="18" viewBox="0 0 18 22" fill="currentColor">
-              <path d="M17.05 18.68c-.93 2.07-1.38 2.99-2.58 4.82-1.67 2.55-4.03 5.73-6.95 5.76-2.6.02-3.27-1.69-6.8-1.66-3.53.02-4.27 1.7-6.87 1.67-2.92-.03-5.16-2.92-6.84-5.47C-16.48 18.78-18.36 10.87-15.02 5.6c2.36-3.72 6.1-5.9 9.54-5.9 3.24 0 5.28 1.72 7.96 1.72 2.6 0 4.18-1.73 7.93-1.73 3.06 0 6.38 1.66 8.74 4.54-7.68 4.21-6.43 15.18 1.9 18.45zM12.66-3.27C14.07-4.93 15.1-7.28 14.76-9.68c-2.14.15-4.64 1.51-6.1 3.28-1.32 1.6-2.41 3.97-1.99 6.27 2.34.07 4.76-1.33 5.99-3.14z" transform="translate(3 9) scale(0.5)"/>
-            </svg>
-            Sign in with Apple
-          </button>
-
-          <div style={{ textAlign: "center", color: "#888", fontSize: "13px", margin: "4px 0" }}>or</div>
-
-          <button
-            type="button"
-            className="auth-btn"
             onClick={() => redirectToLogin()}
-            style={{ background: "transparent", color: "#aaa", border: "1px solid #444" }}
+            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
           >
             Sign in with Email
           </button>

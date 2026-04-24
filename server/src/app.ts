@@ -42,9 +42,9 @@ export function createApp() {
   // In production, serve the frontend static build
   if (env.NODE_ENV === "production") {
     const clientDist = path.resolve(__dirname, "../../client");
-    app.use("/ecommerce-scene-generator", express.static(clientDist));
+    app.use("/", express.static(clientDist));
     // SPA fallback — serve index.html for all non-API routes
-    app.get(/^\/ecommerce-scene-generator(?:\/.*)?$/, (_req, res) => {
+    app.get(/^\/(?!api\/).*$/, (_req, res) => {
       res.sendFile(path.join(clientDist, "index.html"));
     });
   }
