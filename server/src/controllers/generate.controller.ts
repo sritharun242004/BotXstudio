@@ -1,10 +1,17 @@
 import type { Request, Response, NextFunction } from "express";
+import { PrismaClient } from "@prisma/client";
 import * as geminiService from "../services/gemini.service.js";
 import type { GeneratePlanInput, GenerateImageInput } from "../validators/generate.validators.js";
 
+const prisma = new PrismaClient();
+
 export async function plan(req: Request, res: Response, next: NextFunction) {
+  const userId = req.user?.userId;
+  const input = req.body as GeneratePlanInput;
+  const model = input.model || "gemini-3-flash-preview";
+  const startMs = Date.now();
+
   try {
-    const input = req.body as GeneratePlanInput;
     const result = await geminiService.generateText({
       model: input.model,
       promptText: input.promptText,
@@ -12,15 +19,55 @@ export async function plan(req: Request, res: Response, next: NextFunction) {
       temperature: input.temperature,
       maxOutputTokens: input.maxOutputTokens,
     });
-    res.json(result);
-  } catch (err) {
+
+    const latencyMs = Date.now() - startMs;
+
+    if (userId) {
+      prisma.apiLog.create({
+        data: {
+          userId,
+          type: "text",
+          model,
+          promptTokens: result.tokens.promptTokens,
+          outputTokens: result.tokens.outputTokens,
+          totalTokens: result.tokens.totalTokens,
+          latencyMs,
+          status: "success",
+        },
+      }).catch((err) => console.error("[ApiLog] Failed to save:", err));
+    }
+
+    res.json({
+      ...result,
+      latencyMs,
+    });
+  } catch (err: any) {
+    const latencyMs = Date.now() - startMs;
+
+    if (userId) {
+      prisma.apiLog.create({
+        data: {
+          userId,
+          type: "text",
+          model,
+          latencyMs,
+          status: "error",
+          errorMessage: String(err?.message || err).slice(0, 500),
+        },
+      }).catch((logErr) => console.error("[ApiLog] Failed to save error log:", logErr));
+    }
+
     next(err);
   }
 }
 
 export async function image(req: Request, res: Response, next: NextFunction) {
+  const userId = req.user?.userId;
+  const input = req.body as GenerateImageInput;
+  const model = input.model || "gemini-3-pro-image-preview";
+  const startMs = Date.now();
+
   try {
-    const input = req.body as GenerateImageInput;
     const result = await geminiService.generateImage({
       model: input.model,
       promptText: input.promptText,
@@ -30,8 +77,44 @@ export async function image(req: Request, res: Response, next: NextFunction) {
       width: input.width,
       height: input.height,
     });
-    res.json(result);
-  } catch (err) {
+
+    const latencyMs = Date.now() - startMs;
+
+    if (userId) {
+      prisma.apiLog.create({
+        data: {
+          userId,
+          type: "image",
+          model,
+          promptTokens: result.tokens.promptTokens,
+          outputTokens: result.tokens.outputTokens,
+          totalTokens: result.tokens.totalTokens,
+          latencyMs,
+          status: "success",
+        },
+      }).catch((err) => console.error("[ApiLog] Failed to save:", err));
+    }
+
+    res.json({
+      ...result,
+      latencyMs,
+    });
+  } catch (err: any) {
+    const latencyMs = Date.now() - startMs;
+
+    if (userId) {
+      prisma.apiLog.create({
+        data: {
+          userId,
+          type: "image",
+          model,
+          latencyMs,
+          status: "error",
+          errorMessage: String(err?.message || err).slice(0, 500),
+        },
+      }).catch((logErr) => console.error("[ApiLog] Failed to save error log:", logErr));
+    }
+
     next(err);
   }
 }

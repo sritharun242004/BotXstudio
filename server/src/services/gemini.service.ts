@@ -27,6 +27,21 @@ function pickResponseJsonText(result: any): string {
   return texts.join("\n").trim();
 }
 
+export type TokenUsage = {
+  promptTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+function extractTokenUsage(json: any): TokenUsage {
+  const meta = json?.usageMetadata;
+  return {
+    promptTokens: meta?.promptTokenCount ?? 0,
+    outputTokens: meta?.candidatesTokenCount ?? 0,
+    totalTokens: meta?.totalTokenCount ?? 0,
+  };
+}
+
 function pickResponseInlineImage(result: any): { mimeType: string; data: string } | null {
   const parts = (((result?.candidates ?? [])[0]?.content ?? {})?.parts ?? []) as any[];
   for (const part of parts) {
@@ -130,7 +145,7 @@ export async function generateText(opts: {
   timeoutMs?: number;
   temperature?: number;
   maxOutputTokens?: number;
-}): Promise<{ text: string; raw: unknown }> {
+}): Promise<{ text: string; raw: unknown; tokens: TokenUsage }> {
   const modelName = normalizeModelName(opts.model || "", "gemini-3-flash-preview");
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`;
   const url = `${endpoint}?${new URLSearchParams({ key: env.GEMINI_API_KEY }).toString()}`;
@@ -173,7 +188,7 @@ export async function generateText(opts: {
 
   const text = pickResponseJsonText(json);
   if (!text) throw new GeminiError("Gemini API did not return text.");
-  return { text, raw: json };
+  return { text, raw: json, tokens: extractTokenUsage(json) };
 }
 
 /** Generate image from Gemini */
@@ -186,7 +201,7 @@ export async function generateImage(opts: {
   aspectRatio?: string;
   width?: number;
   height?: number;
-}): Promise<{ mimeType: string; imageBase64: string; raw: unknown }> {
+}): Promise<{ mimeType: string; imageBase64: string; raw: unknown; tokens: TokenUsage }> {
   const modelName = normalizeModelName(opts.model || "", "gemini-3-pro-image-preview");
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`;
   const url = `${endpoint}?${new URLSearchParams({ key: env.GEMINI_API_KEY }).toString()}`;
@@ -271,7 +286,7 @@ export async function generateImage(opts: {
       `Gemini API did not return an image.${detail ? ` Response text: ${detail.slice(0, 500)}` : ""}`,
     );
   }
-  return { mimeType: inline.mimeType, imageBase64: inline.data, raw: json };
+  return { mimeType: inline.mimeType, imageBase64: inline.data, raw: json, tokens: extractTokenUsage(json) };
 }
 
 /** Extract JSON object from LLM text response */

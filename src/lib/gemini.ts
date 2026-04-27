@@ -1,4 +1,4 @@
-import { getAccessToken } from "./api";
+import { getAccessToken, refreshTokenOnce } from "./api";
 
 export type GeminiInlineImage = { mimeType: string; data: Uint8Array };
 
@@ -105,13 +105,28 @@ async function proxyFetch<T>(path: string, payload: unknown, timeoutMs: number):
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
   try {
-    const resp = await fetch(path, {
+    let resp = await fetch(path, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
       signal: controller.signal,
       credentials: "include",
     });
+
+    // Auto-refresh on 401 (mutex-protected to avoid concurrent refresh races)
+    if (resp.status === 401 && token) {
+      const newToken = await refreshTokenOnce();
+      if (newToken) {
+        headers["Authorization"] = `Bearer ${newToken}`;
+        resp = await fetch(path, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal,
+          credentials: "include",
+        });
+      }
+    }
 
     const text = await resp.text();
     if (!resp.ok) {

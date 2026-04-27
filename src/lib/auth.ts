@@ -114,34 +114,38 @@ export async function handleCallback(code: string): Promise<Session> {
 // ─── Token refresh via Cognito ───────────────────────────────────────────────
 
 export async function refreshCognitoToken(): Promise<string | null> {
-  const raw = localStorage.getItem(TOKENS_KEY);
-  if (!raw) return null;
+  try {
+    const raw = localStorage.getItem(TOKENS_KEY);
+    if (!raw) return null;
 
-  const stored = JSON.parse(raw);
-  if (!stored.refreshToken) return null;
+    const stored = JSON.parse(raw);
+    if (!stored.refreshToken) return null;
 
-  const resp = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: CLIENT_ID,
-      refresh_token: stored.refreshToken,
-    }),
-  });
+    const resp = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: CLIENT_ID,
+        refresh_token: stored.refreshToken,
+      }),
+    });
 
-  if (!resp.ok) return null;
+    if (!resp.ok) return null;
 
-  const tokens = await resp.json();
-  setAccessToken(tokens.access_token);
-  localStorage.setItem(TOKENS_KEY, JSON.stringify({
-    ...stored,
-    accessToken: tokens.access_token,
-    idToken: tokens.id_token,
-    expiresAt: Date.now() + tokens.expires_in * 1000,
-  }));
+    const tokens = await resp.json();
+    setAccessToken(tokens.access_token);
+    localStorage.setItem(TOKENS_KEY, JSON.stringify({
+      ...stored,
+      accessToken: tokens.access_token,
+      idToken: tokens.id_token,
+      expiresAt: Date.now() + tokens.expires_in * 1000,
+    }));
 
-  return tokens.access_token;
+    return tokens.access_token;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Session management ──────────────────────────────────────────────────────
@@ -156,43 +160,47 @@ export function getSession(): Session | null {
 }
 
 export async function restoreSession(): Promise<Session | null> {
-  // Try to use stored access token
-  const raw = localStorage.getItem(TOKENS_KEY);
-  if (raw) {
-    const stored = JSON.parse(raw);
+  try {
+    // Try to use stored access token
+    const raw = localStorage.getItem(TOKENS_KEY);
+    if (raw) {
+      const stored = JSON.parse(raw);
 
-    // Extract email/name from stored ID token (for profile sync)
-    let email = "";
-    let name = "";
-    if (stored.idToken) {
-      const idPayload = decodeJwtPayload(stored.idToken);
-      email = idPayload.email || "";
-      name = idPayload.name || email.split("@")[0] || "";
-    }
+      // Extract email/name from stored ID token (for profile sync)
+      let email = "";
+      let name = "";
+      if (stored.idToken) {
+        const idPayload = decodeJwtPayload(stored.idToken);
+        email = idPayload.email || "";
+        name = idPayload.name || email.split("@")[0] || "";
+      }
 
-    // If token not expired, use it directly
-    if (stored.accessToken && stored.expiresAt > Date.now()) {
-      setAccessToken(stored.accessToken);
-      try {
-        const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
-        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
-        return data.user;
-      } catch {
-        // Token might be invalid, try refresh
+      // If token not expired, use it directly
+      if (stored.accessToken && stored.expiresAt > Date.now()) {
+        setAccessToken(stored.accessToken);
+        try {
+          const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
+          localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+          return data.user;
+        } catch {
+          // Token might be invalid, try refresh
+        }
+      }
+
+      // Try refreshing
+      const newToken = await refreshCognitoToken();
+      if (newToken) {
+        try {
+          const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
+          localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+          return data.user;
+        } catch {
+          // Refresh token also invalid
+        }
       }
     }
-
-    // Try refreshing
-    const newToken = await refreshCognitoToken();
-    if (newToken) {
-      try {
-        const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
-        localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
-        return data.user;
-      } catch {
-        // Refresh token also invalid
-      }
-    }
+  } catch {
+    // Corrupt localStorage or network failure — fall through to clear
   }
 
   clearLocalSession();

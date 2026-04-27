@@ -19,6 +19,7 @@ model User {
   storyboards   Storyboard[]
   images        Image[]
   assets        Asset[]
+  apiLogs       ApiLog[]
 
   @@map("users")
 }
@@ -97,4 +98,22 @@ model Asset {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("assets")
+}
+
+model ApiLog {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  type          String
+  model         String
+  promptTokens  Int      @default(0) @map("prompt_tokens")
+  outputTokens  Int      @default(0) @map("output_tokens")
+  totalTokens   Int      @default(0) @map("total_tokens")
+  latencyMs     Int      @default(0) @map("latency_ms")
+  status        String   @default("success")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_logs")
 }

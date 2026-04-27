@@ -10,6 +10,19 @@ export function getAccessToken(): string | null {
   return accessToken;
 }
 
+// ─── Refresh mutex — prevents concurrent token refresh calls ─────────────────
+
+let refreshPromise: Promise<string | null> | null = null;
+
+export async function refreshTokenOnce(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+  const { refreshCognitoToken } = await import("./auth");
+  refreshPromise = refreshCognitoToken().finally(() => {
+    refreshPromise = null;
+  });
+  return refreshPromise;
+}
+
 // ─── Core fetch helpers ──────────────────────────────────────────────────────
 
 async function apiFetch<T = any>(
@@ -30,10 +43,9 @@ async function apiFetch<T = any>(
     headers,
   });
 
-  // Auto-refresh on 401 using Cognito refresh token
+  // Auto-refresh on 401 using Cognito refresh token (mutex-protected)
   if (resp.status === 401 && accessToken) {
-    const { refreshCognitoToken } = await import("./auth");
-    const newToken = await refreshCognitoToken();
+    const newToken = await refreshTokenOnce();
     if (newToken) {
       headers["Authorization"] = `Bearer ${newToken}`;
       resp = await fetch(path, {

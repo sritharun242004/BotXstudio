@@ -2929,3 +2929,121 @@ input[type="file"]::file-selector-button:hover {
   color: var(--muted-color);
   font-weight: 600;
 }
+
+/* API Activity Log Table */
+.apiLogTableWrap {
+  overflow-x: auto;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.apiLogTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.apiLogTable thead {
+  background: #f8fafc;
+  border-bottom: 2px solid var(--border);
+}
+
+.apiLogTable th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted-color);
+}
+
+.apiLogTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.apiLogTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.apiLogTable tbody tr:hover {
+  background: #f8fafc;
+}
+
+.apiLogRowError {
+  background: #fef2f2;
+}
+
+.apiLogRowError:hover {
+  background: #fee2e2 !important;
+}
+
+.apiLogTypeBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.apiLogType-image {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.apiLogType-text {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.apiLogModel {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted-color);
+}
+
+.apiLogTokens {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.apiLogLatency {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-align: right;
+}
+
+.apiLogStatusBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.apiLogStatus-success {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.apiLogStatus-error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.apiLogEmpty {
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--muted-color);
+  font-size: 14px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+}

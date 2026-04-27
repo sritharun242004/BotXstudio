@@ -32,8 +32,15 @@ export default function AuthCallbackPage() {
         window.location.href = BASE + "app";
       })
       .catch((err) => {
+        const msg = err.message || "Authentication failed.";
+        // If PKCE verifier is missing (stale callback URL, back-nav, etc.),
+        // auto-redirect to login to start a fresh auth flow
+        if (msg.includes("PKCE")) {
+          window.location.href = BASE + "login";
+          return;
+        }
         handledRef.current = false; // Allow retry on error
-        setError(err.message || "Authentication failed.");
+        setError(msg);
       });
   }, [params]);
 

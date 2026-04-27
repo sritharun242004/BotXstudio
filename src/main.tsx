@@ -15,10 +15,16 @@ function ProtectedApp() {
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    restoreSession().then((session) => {
-      setAuthenticated(!!session);
-      setChecking(false);
-    });
+    restoreSession()
+      .then((session) => {
+        setAuthenticated(!!session);
+      })
+      .catch(() => {
+        setAuthenticated(false);
+      })
+      .finally(() => {
+        setChecking(false);
+      });
   }, []);
 
   if (checking) {

@@ -18,6 +18,10 @@ usageRoutes.get("/", authenticate, async (req: Request, res: Response, next: Nex
       assetStorage,
       user,
       recentImages,
+      totalApiCalls,
+      tokenAggregates,
+      latencyAggregate,
+      recentApiLogs,
     ] = await Promise.all([
       prisma.storyboard.count({ where: { userId } }),
       prisma.image.count({ where: { userId } }),
@@ -30,6 +34,32 @@ usageRoutes.get("/", authenticate, async (req: Request, res: Response, next: Nex
         orderBy: { createdAt: "desc" },
         take: 30,
         select: { createdAt: true },
+      }),
+      prisma.apiLog.count({ where: { userId } }),
+      prisma.apiLog.aggregate({
+        where: { userId },
+        _sum: { promptTokens: true, outputTokens: true, totalTokens: true },
+      }),
+      prisma.apiLog.aggregate({
+        where: { userId },
+        _avg: { latencyMs: true },
+      }),
+      prisma.apiLog.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          type: true,
+          model: true,
+          promptTokens: true,
+          outputTokens: true,
+          totalTokens: true,
+          latencyMs: true,
+          status: true,
+          errorMessage: true,
+          createdAt: true,
+        },
       }),
     ]);
 
@@ -51,6 +81,14 @@ usageRoutes.get("/", authenticate, async (req: Request, res: Response, next: Nex
       assets: totalAssets,
       storageBytes: (imageStorage._sum.fileSizeBytes || 0) + (assetStorage._sum.fileSizeBytes || 0),
       dailyImageCounts: dailyCounts,
+      apiActivity: {
+        totalApiCalls,
+        totalTokens: tokenAggregates._sum.totalTokens || 0,
+        totalPromptTokens: tokenAggregates._sum.promptTokens || 0,
+        totalOutputTokens: tokenAggregates._sum.outputTokens || 0,
+        avgLatencyMs: Math.round(latencyAggregate._avg.latencyMs || 0),
+        logs: recentApiLogs,
+      },
     });
   } catch (err) {
     next(err);
