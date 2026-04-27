@@ -11,6 +11,7 @@ import { storyboardRoutes } from "./routes/storyboards.routes.js";
 import { imageRoutes } from "./routes/images.routes.js";
 import { generateRoutes } from "./routes/generate.routes.js";
 import { assetRoutes } from "./routes/assets.routes.js";
+import { usageRoutes } from "./routes/usage.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,6 +39,7 @@ export function createApp() {
   app.use("/api/images", imageRoutes);
   app.use("/api/generate", generateRoutes);
   app.use("/api/assets", assetRoutes);
+  app.use("/api/usage", usageRoutes);
 
   // In production, serve the frontend static build
   if (env.NODE_ENV === "production") {

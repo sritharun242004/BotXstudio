@@ -13,6 +13,7 @@ import PrintsTab from "./components/PrintsTab";
 import Toast, { type ToastItem } from "./components/Toast";
 import SavedImagesPane from "./components/SavedImagesPane";
 import AssetsTab from "./components/AssetsTab";
+import UsageTab from "./components/UsageTab";
 
 import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
 import {
@@ -121,7 +122,7 @@ type StoryboardRuntime = {
   poseResults: PoseResult[];
 };
 
-type AppTab = "prints" | "generate" | "assets" | "saved";
+type AppTab = "prints" | "generate" | "assets" | "saved" | "usage";
 type SavedImageView = SavedImageRecord & { url: string };
 
 // ─── Pure helpers (outside component) ────────────────────────────────────────
@@ -547,9 +548,8 @@ export default function App() {
   // ── Session ────────────────────────────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(() => getSession());
 
-  const handleLogout = useCallback(async () => {
-    await logout();
-    window.location.href = BASE + "login";
+  const handleLogout = useCallback(() => {
+    logout();
   }, []);
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -557,7 +557,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved"
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage"
       ? stored : "prints";
   });
 
@@ -646,6 +646,7 @@ export default function App() {
     activeTab === "prints" ? "Add Prints"
     : activeTab === "assets" ? "Uploaded Assets"
     : activeTab === "saved" ? "Saved images"
+    : activeTab === "usage" ? "API Usage"
     : "Generate Images";
 
   // ── Derived computed values used in generation ────────────────────────────
@@ -2078,7 +2079,7 @@ export default function App() {
             </div>
           </div>
           <nav className="sidebarNav" role="tablist" aria-label="Main sections">
-            {(["prints", "generate", "saved", "assets"] as const).map((tab) => (
+            {(["prints", "generate", "saved", "assets", "usage"] as const).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -2089,7 +2090,8 @@ export default function App() {
                 {tab === "prints" ? "Add Prints"
                   : tab === "generate" ? "Generate Images"
                   : tab === "saved" ? "Saved images"
-                  : "Uploaded Assets"}
+                  : tab === "assets" ? "Uploaded Assets"
+                  : "API Usage"}
               </button>
             ))}
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
@@ -2103,8 +2105,7 @@ export default function App() {
               <div className="sidebarUserInfo">
                 <div className="sidebarUserAvatar">{(session.name || session.email)[0]?.toUpperCase()}</div>
                 <div className="sidebarUserDetails">
-                  <div className="sidebarUserName">{session.name}</div>
-                  <div className="sidebarUserEmail">{session.email}</div>
+                  <div className="sidebarUserName">{session.name || session.email.split("@")[0]}</div>
                 </div>
               </div>
               <button type="button" className="sidebarLogoutBtn" onClick={handleLogout} title="Sign out">
@@ -2271,6 +2272,7 @@ export default function App() {
               />
             )}
 
+            {activeTab === "usage" && <UsageTab />}
 
           </div>
         </main>

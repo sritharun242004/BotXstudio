@@ -2770,3 +2770,162 @@ input[type="file"]::file-selector-button:hover {
   border-radius: 50%;
   flex-shrink: 0;
 }
+
+/* ─── Usage Tab ──────────────────────────────────────────────────── */
+
+.usageContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  max-width: 720px;
+}
+
+.usageLoading {
+  padding: 48px 0;
+  text-align: center;
+  color: var(--muted-color);
+  font-size: 14px;
+}
+
+.usageSection {}
+
+.usageSectionTitle {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 16px 0;
+}
+
+/* Account card */
+.usageAccount {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.usageAccountAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.usageAccountName {
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+}
+
+.usageAccountEmail {
+  font-size: 13px;
+  color: var(--muted-color);
+  margin-top: 2px;
+}
+
+.usageAccountMeta {
+  font-size: 12px;
+  color: var(--muted-color);
+  margin-top: 4px;
+}
+
+/* Stats grid */
+.usageStatsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.usageStatCard {
+  padding: 20px 16px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: center;
+}
+
+.usageStatIcon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.usageStatValue {
+  font-family: var(--font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.usageStatLabel {
+  font-size: 12px;
+  color: var(--muted-color);
+  font-weight: 600;
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Activity chart */
+.usageChart {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 20px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  height: 200px;
+}
+
+.usageChartBar {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+}
+
+.usageChartBarTrack {
+  flex: 1;
+  width: 100%;
+  max-width: 40px;
+  display: flex;
+  align-items: flex-end;
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.usageChartBarFill {
+  width: 100%;
+  min-height: 4px;
+  background: var(--accent);
+  border-radius: 6px 6px 0 0;
+  transition: height 0.3s ease;
+}
+
+.usageChartCount {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.usageChartLabel {
+  font-size: 11px;
+  color: var(--muted-color);
+  font-weight: 600;
+}

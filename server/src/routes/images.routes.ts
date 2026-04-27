@@ -7,7 +7,7 @@ import { uploadImageSchema, batchDeleteSchema } from "../validators/image.valida
 import { CognitoJwtVerifier } from "aws-jwt-verify";
 import { env } from "../config/env.js";
 import { UnauthorizedError } from "../utils/errors.js";
-import { findOrCreateUser } from "../services/auth.service.js";
+import { findByCognitoSub } from "../services/auth.service.js";
 
 export const imageRoutes = Router();
 
@@ -19,21 +19,19 @@ const verifier = CognitoJwtVerifier.create({
 
 // Raw image proxy — supports Bearer token OR ?token= query param (for <img> tags)
 async function authenticateFlexible(req: Request, _res: Response, next: NextFunction): Promise<void> {
-  const header = req.headers.authorization;
-  const queryToken = req.query.token as string | undefined;
-  const token = header?.startsWith("Bearer ") ? header.slice(7) : queryToken;
-  if (!token) throw new UnauthorizedError("Missing authorization");
   try {
+    const header = req.headers.authorization;
+    const queryToken = req.query.token as string | undefined;
+    const token = header?.startsWith("Bearer ") ? header.slice(7) : queryToken;
+    if (!token) return next(new UnauthorizedError("Missing authorization"));
+
     const payload = await verifier.verify(token);
-    const dbUser = await findOrCreateUser(
-      payload.sub,
-      (payload as any).email ?? "",
-      (payload as any).name ?? "",
-    );
+    const dbUser = await findByCognitoSub(payload.sub);
+    if (!dbUser) return next(new UnauthorizedError("User not found"));
     req.user = { userId: dbUser.id, email: dbUser.email };
     next();
   } catch {
-    throw new UnauthorizedError("Invalid or expired token");
+    next(new UnauthorizedError("Invalid or expired token"));
   }
 }
 

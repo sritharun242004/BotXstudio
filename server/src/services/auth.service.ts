@@ -3,12 +3,28 @@ import { UnauthorizedError } from "../utils/errors.js";
 
 const prisma = new PrismaClient();
 
+export async function findByCognitoSub(cognitoSub: string) {
+  return prisma.user.findUnique({
+    where: { cognitoSub },
+    select: { id: true, email: true, name: true },
+  });
+}
+
 export async function findOrCreateUser(cognitoSub: string, email: string, name: string) {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Try to find by cognitoSub first
   let user = await prisma.user.findUnique({ where: { cognitoSub } });
-  if (user) return { id: user.id, email: user.email, name: user.name };
+  if (user) {
+    // Update name/email if they were previously empty
+    const updates: Record<string, string> = {};
+    if ((!user.name || user.name === user.email) && name.trim()) updates.name = name.trim();
+    if (!user.email && normalizedEmail) updates.email = normalizedEmail;
+    if (Object.keys(updates).length > 0) {
+      user = await prisma.user.update({ where: { id: user.id }, data: updates });
+    }
+    return { id: user.id, email: user.email, name: user.name };
+  }
 
   // Try to find by email (existing user who hasn't linked Cognito yet)
   user = await prisma.user.findUnique({ where: { email: normalizedEmail } });

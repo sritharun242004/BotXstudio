@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { handleCallback } from "../lib/auth";
 
@@ -7,8 +7,13 @@ const BASE = import.meta.env.BASE_URL;
 export default function AuthCallbackPage() {
   const [params] = useSearchParams();
   const [error, setError] = useState("");
+  const handledRef = useRef(false);
 
   useEffect(() => {
+    // Prevent StrictMode double-invocation from consuming the PKCE verifier twice
+    if (handledRef.current) return;
+    handledRef.current = true;
+
     const errorParam = params.get("error");
     const errorDesc = params.get("error_description");
     if (errorParam) {
@@ -27,6 +32,7 @@ export default function AuthCallbackPage() {
         window.location.href = BASE + "app";
       })
       .catch((err) => {
+        handledRef.current = false; // Allow retry on error
         setError(err.message || "Authentication failed.");
       });
   }, [params]);

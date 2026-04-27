@@ -1,4 +1,4 @@
-import { apiGet, setAccessToken, getAccessToken } from "./api";
+import { apiGet, apiPost, setAccessToken, getAccessToken } from "./api";
 
 export type Session = {
   id: string;
@@ -39,7 +39,7 @@ function base64UrlEncode(buffer: Uint8Array): string {
 export async function redirectToLogin(provider?: "Google" | "Apple") {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
-  sessionStorage.setItem("pkce_code_verifier", codeVerifier);
+  localStorage.setItem("pkce_code_verifier", codeVerifier);
 
   let url =
     `${COGNITO_DOMAIN}/oauth2/authorize?` +
@@ -57,11 +57,21 @@ export async function redirectToLogin(provider?: "Google" | "Apple") {
   window.location.href = url;
 }
 
+// ─── JWT payload decoder (no verification — token came directly from Cognito) ─
+
+function decodeJwtPayload(token: string): Record<string, any> {
+  const parts = token.split(".");
+  if (parts.length !== 3) return {};
+  const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
+  return JSON.parse(atob(padded));
+}
+
 // ─── Exchange auth code for tokens ───────────────────────────────────────────
 
 export async function handleCallback(code: string): Promise<Session> {
-  const codeVerifier = sessionStorage.getItem("pkce_code_verifier");
-  sessionStorage.removeItem("pkce_code_verifier");
+  const codeVerifier = localStorage.getItem("pkce_code_verifier");
+  localStorage.removeItem("pkce_code_verifier");
   if (!codeVerifier) throw new Error("Missing PKCE code verifier");
 
   const resp = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
@@ -90,8 +100,13 @@ export async function handleCallback(code: string): Promise<Session> {
     expiresAt: Date.now() + tokens.expires_in * 1000,
   }));
 
-  // Fetch user profile from our backend (which does findOrCreate)
-  const data = await apiGet<{ user: Session }>("/api/auth/me");
+  // Decode the ID token to get email/name (access token doesn't include them)
+  const idPayload = decodeJwtPayload(tokens.id_token);
+  const email = idPayload.email || "";
+  const name = idPayload.name || email.split("@")[0] || "";
+
+  // Sync user profile with our backend (findOrCreate with proper email/name)
+  const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
   localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
   return data.user;
 }
@@ -146,11 +161,20 @@ export async function restoreSession(): Promise<Session | null> {
   if (raw) {
     const stored = JSON.parse(raw);
 
+    // Extract email/name from stored ID token (for profile sync)
+    let email = "";
+    let name = "";
+    if (stored.idToken) {
+      const idPayload = decodeJwtPayload(stored.idToken);
+      email = idPayload.email || "";
+      name = idPayload.name || email.split("@")[0] || "";
+    }
+
     // If token not expired, use it directly
     if (stored.accessToken && stored.expiresAt > Date.now()) {
       setAccessToken(stored.accessToken);
       try {
-        const data = await apiGet<{ user: Session }>("/api/auth/me");
+        const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
         localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
         return data.user;
       } catch {
@@ -162,7 +186,7 @@ export async function restoreSession(): Promise<Session | null> {
     const newToken = await refreshCognitoToken();
     if (newToken) {
       try {
-        const data = await apiGet<{ user: Session }>("/api/auth/me");
+        const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
         localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
         return data.user;
       } catch {
