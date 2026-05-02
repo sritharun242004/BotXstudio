@@ -234,7 +234,6 @@ export const modelPosePresetOptions: Option[] = [
       "seated on steps/bench in a clean setting; upright posture; legs naturally placed (not crossed); feet visible; relaxed hands; full-body head-to-toe framing; garment unobstructed",
     label: "Sitting (steps/bench)",
   },
-  { value: "custom", label: "Custom" },
 ];
 
 export const modelPosePresetLabelByValue: Record<string, string> = Object.fromEntries(
@@ -252,7 +251,18 @@ export const modelEthnicityOptions: Option[] = [
   { value: "Middle Eastern", label: "Middle Eastern" },
   { value: "Latina", label: "Latina" },
   { value: "Mixed / Diverse", label: "Mixed / Diverse" },
-  { value: "custom", label: "Custom" },
+];
+
+export const modelGenderOptions: Option[] = [
+  { value: "Female", label: "Female" },
+  { value: "Male", label: "Male" },
+];
+
+export const modelAgeRangeOptions: Option[] = [
+  { value: "", label: "Auto" },
+  { value: "18-25", label: "18–25" },
+  { value: "26-35", label: "26–35" },
+  { value: "36-45", label: "36–45" },
 ];
 
 export const backgroundThemeOptions: Option[] = [
@@ -327,5 +337,4 @@ export const backgroundThemeOptions: Option[] = [
       "nightclub lounge — upscale lounge; subtle neon accents; stylish nightlife vibe; moody but clean lighting; uncluttered background",
     label: "Nightlife",
   },
-  { value: "custom", label: "Custom" },
 ];

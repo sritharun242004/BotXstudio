@@ -13,7 +13,7 @@ class GeminiError extends AppError {
 function normalizeModelName(model: string, fallback: string): string {
   const trimmed = (model || "").trim();
   const effective = trimmed || fallback;
-  if (!effective) return "models/gemini-3-pro-image-preview";
+  if (!effective) return "models/gemini-2.5-flash-image";
   if (effective.startsWith("models/") || effective.startsWith("tunedModels/")) return effective;
   return `models/${effective}`;
 }
@@ -146,7 +146,7 @@ export async function generateText(opts: {
   temperature?: number;
   maxOutputTokens?: number;
 }): Promise<{ text: string; raw: unknown; tokens: TokenUsage }> {
-  const modelName = normalizeModelName(opts.model || "", "gemini-3-flash-preview");
+  const modelName = normalizeModelName(opts.model || "", "gemini-2.5-flash");
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`;
   const url = `${endpoint}?${new URLSearchParams({ key: env.GEMINI_API_KEY }).toString()}`;
 
@@ -202,7 +202,7 @@ export async function generateImage(opts: {
   width?: number;
   height?: number;
 }): Promise<{ mimeType: string; imageBase64: string; raw: unknown; tokens: TokenUsage }> {
-  const modelName = normalizeModelName(opts.model || "", "gemini-3-pro-image-preview");
+  const modelName = normalizeModelName(opts.model || "", "gemini-2.5-flash-image");
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent`;
   const url = `${endpoint}?${new URLSearchParams({ key: env.GEMINI_API_KEY }).toString()}`;
 
@@ -213,11 +213,15 @@ export async function generateImage(opts: {
     });
   }
 
+  // Use TEXT + IMAGE so the model can emit an explanation alongside the image
+  // (IMAGE-only can cause Pro models to silently return a text refusal instead)
+  const responseModalities = ["TEXT", "IMAGE"];
+
   const payloadBase: any = {
     contents: [{ role: "user", parts }],
     generationConfig: {
       temperature: typeof opts.temperature === "number" ? opts.temperature : 0.2,
-      responseModalities: ["IMAGE"],
+      responseModalities,
       ...((opts.aspectRatio || opts.width || opts.height)
         ? {
             imageConfig: {
@@ -282,8 +286,19 @@ export async function generateImage(opts: {
   if (!inline) {
     const responseText = pickResponseJsonText(json);
     const detail = (responseText || "").trim();
+    const finishReason = json?.candidates?.[0]?.finishReason ?? "";
+    const blockReason = json?.promptFeedback?.blockReason ?? "";
+    const safetyRatings = json?.candidates?.[0]?.safetyRatings
+      ? JSON.stringify(json.candidates[0].safetyRatings).slice(0, 300)
+      : "";
+    console.error("[Gemini] No image returned.", { model: modelName, finishReason, blockReason, safetyRatings, responseText: detail.slice(0, 300) });
     throw new GeminiError(
-      `Gemini API did not return an image.${detail ? ` Response text: ${detail.slice(0, 500)}` : ""}`,
+      [
+        "Gemini API did not return an image.",
+        finishReason  ? ` Finish reason: ${finishReason}.` : "",
+        blockReason   ? ` Block reason: ${blockReason}.` : "",
+        detail        ? ` Model said: ${detail.slice(0, 300)}` : "",
+      ].join(""),
     );
   }
   return { mimeType: inline.mimeType, imageBase64: inline.data, raw: json, tokens: extractTokenUsage(json) };

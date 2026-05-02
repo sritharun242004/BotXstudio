@@ -1028,8 +1028,11 @@ input[type="file"]::file-selector-button:hover {
 .resultImageZoom {
   --zoom-x: 50%;
   --zoom-y: 50%;
-  width: 100%;
+  height: 70vh;
+  max-height: 600px;
+  max-width: 100%;
   aspect-ratio: 3/4;
+  margin: 0 auto;
   overflow: hidden;
   border-radius: var(--radius-md);
   border: 2px solid var(--border-strong);
@@ -2263,6 +2266,96 @@ input[type="file"]::file-selector-button:hover {
   pointer-events: none;
 }
 
+/* ─── Garment Front/Back Upload Slots ───────────────────────────────────── */
+
+.garmentSlotGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.garmentSlotWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.garmentSlotLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text, #1e293b);
+}
+
+.garmentSlotRequired {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--accent, #6366f1);
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.garmentSlotOptional {
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  background: var(--border-subtle, #e2e8f0);
+  padding: 1px 6px;
+  border-radius: 9999px;
+}
+
+.garmentSlotPreview {
+  width: 100%;
+  aspect-ratio: 3/4;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.garmentSlotPreview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.garmentUploadSlot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 3/4;
+  border: 2px dashed var(--border-subtle, #cbd5e1);
+  border-radius: 8px;
+  background: var(--surface, #f8fafc);
+  color: var(--text-muted, #64748b);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms, color 150ms;
+  user-select: none;
+}
+
+.garmentUploadSlot:hover {
+  border-color: var(--accent, #6366f1);
+  background: var(--accent-subtle, #eef2ff);
+  color: var(--accent, #6366f1);
+}
+
+.garmentUploadSlotDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* ─── Garment Type ──────────────────────────────────────────────────────── */
 
 .garmentTypeRow {
@@ -2310,6 +2403,192 @@ input[type="file"]::file-selector-button:hover {
 .garmentTypePillActive:hover:not(:disabled) {
   background: var(--accent, #6366f1);
   color: #fff;
+}
+
+/* ─── Image Model Selector Cards ────────────────────────────────────────── */
+
+.modelSelectorCards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.modelCard {
+  flex: 1;
+  min-width: 200px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 150ms, border-color 150ms, box-shadow 150ms;
+  font-family: inherit;
+  text-align: left;
+}
+
+.modelCard:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Pro / Turbo — red theme */
+.modelCard--pro {
+  background: rgba(239, 68, 68, 0.07);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+.modelCard--pro:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.13);
+  border-color: rgba(239, 68, 68, 0.55);
+}
+.modelCard--pro.modelCardActive {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.22);
+}
+
+/* Flash / Eco — green theme */
+.modelCard--flash {
+  background: rgba(34, 197, 94, 0.07);
+  border-color: rgba(34, 197, 94, 0.28);
+}
+.modelCard--flash:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.13);
+  border-color: rgba(34, 197, 94, 0.55);
+}
+.modelCard--flash.modelCardActive {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.22);
+}
+
+.modelCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.modelCardName {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text, #1e293b);
+  line-height: 1.2;
+}
+
+.modelCardModeBadge {
+  font-size: 0.64rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.modelCard--pro .modelCardModeBadge {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+}
+.modelCard--pro.modelCardActive .modelCardModeBadge {
+  background: #ef4444;
+  color: #fff;
+}
+
+.modelCard--flash .modelCardModeBadge {
+  background: rgba(34, 197, 94, 0.18);
+  color: #16a34a;
+}
+.modelCard--flash.modelCardActive .modelCardModeBadge {
+  background: #22c55e;
+  color: #fff;
+}
+
+.modelCardDesc {
+  font-size: 0.77rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.4;
+}
+
+.modelCardTokenBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: 0.71rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 7px;
+}
+
+.modelCard--pro .modelCardTokenBadge {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+.modelCard--flash .modelCardTokenBadge {
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+}
+
+/* ─── Image Model Selector (legacy pills) ───────────────────────────────── */
+
+.modelPill {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--border-subtle, #cbd5e1);
+  border-radius: 10px;
+  background: var(--surface, #f8fafc);
+  cursor: pointer;
+  transition: background 150ms, border-color 150ms, box-shadow 150ms;
+  font-family: inherit;
+  min-width: 118px;
+  text-align: left;
+}
+
+.modelPill:hover:not(:disabled) {
+  border-color: var(--accent, #6366f1);
+  background: var(--accent-subtle, #eef2ff);
+}
+
+.modelPill:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.modelPillActive {
+  border-color: var(--accent, #6366f1);
+  background: var(--accent-subtle, #eef2ff);
+  box-shadow: 0 0 0 2px var(--accent, #6366f1);
+}
+
+.modelPillLabel {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text, #1e293b);
+  line-height: 1.2;
+}
+
+.modelPillActive .modelPillLabel { color: var(--accent, #6366f1); }
+
+.modelPillTag {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  background: var(--border-subtle, #e2e8f0);
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.modelPillTagActive {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+
+.modelPillDesc {
+  font-size: 0.73rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.3;
+  margin-top: 1px;
 }
 
 /* ── Library filter bar ──────────────────────────────────────────────────── */

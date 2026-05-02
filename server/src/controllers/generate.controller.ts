@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 export async function plan(req: Request, res: Response, next: NextFunction) {
   const userId = req.user?.userId;
   const input = req.body as GeneratePlanInput;
-  const model = input.model || "gemini-3-flash-preview";
+  const model = input.model || "gemini-2.5-flash";
   const startMs = Date.now();
 
   try {
@@ -64,7 +64,7 @@ export async function plan(req: Request, res: Response, next: NextFunction) {
 export async function image(req: Request, res: Response, next: NextFunction) {
   const userId = req.user?.userId;
   const input = req.body as GenerateImageInput;
-  const model = input.model || "gemini-3-pro-image-preview";
+  const model = input.model || "gemini-2.5-flash-image";
   const startMs = Date.now();
 
   try {

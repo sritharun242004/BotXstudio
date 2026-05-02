@@ -73,7 +73,30 @@ const MODEL_STYLING_PRESET_VALUES = {
     "beachy styling; loose natural waves; sun-kissed vibe; natural makeup; minimal jewelry; airy warm-weather mood",
 } as const;
 
+export const IMAGE_GENERATION_MODELS = [
+  {
+    id: "gemini-2.5-flash-image",
+    label: "Gemini 2.5 Flash Image",
+    mode: "Flash Mode",
+    tag: "Fast & Efficient",
+    desc: "High-quality ecommerce outputs · fast generation",
+    colorClass: "modelCard--flash",
+  },
+  {
+    id: "gemini-3-pro-image-preview",
+    label: "Gemini 3 Pro Image",
+    mode: "Turbo Mode",
+    tag: "High Quality",
+    desc: "Best quality outputs · consumes more tokens",
+    colorClass: "modelCard--pro",
+  },
+] as const;
+
+export type ImageGenerationModelId = typeof IMAGE_GENERATION_MODELS[number]["id"];
+export const DEFAULT_IMAGE_MODEL: ImageGenerationModelId = "gemini-2.5-flash-image";
+
 export type StoryboardConfig = {
+  imageModel: ImageGenerationModelId;
   occasionPreset: string;
   occasionDetails: string;
   accessories: string;
@@ -92,6 +115,9 @@ export type StoryboardConfig = {
   backgroundThemeDetails: string;
   modelPreset: string;
   modelDetails: string;
+  modelGender: string;
+  modelAgeRange: string;
+  modelCustomPrompt: string;
   modelPosePreset: string;
   modelPoseDetails: string;
   modelStylingPreset: string;
@@ -110,6 +136,7 @@ export type StoryboardRecord = {
 
 export function createDefaultStoryboardConfig(): StoryboardConfig {
   return {
+    imageModel: DEFAULT_IMAGE_MODEL,
     occasionPreset: "",
     occasionDetails: "",
     accessories: "",
@@ -126,8 +153,11 @@ export function createDefaultStoryboardConfig(): StoryboardConfig {
     styleKeywordsDetails: "",
     backgroundThemePreset: "",
     backgroundThemeDetails: "",
-    modelPreset: "White / European",
+    modelPreset: "",
     modelDetails: "",
+    modelGender: "Female",
+    modelAgeRange: "",
+    modelCustomPrompt: "",
     modelPosePreset: "",
     modelPoseDetails: "",
     modelStylingPreset: "",
@@ -261,7 +291,13 @@ function normalizeConfig(value: unknown): StoryboardConfig {
   const normalizedPrintInputKind = printInputKind === "color" ? "color" : "image";
   const printColorHexRaw = asString(raw.printColorHex) ?? base.printColorHex;
   const normalizedPrintColorHex = normalizeHexColor(printColorHexRaw) ?? base.printColorHex;
+  const rawImageModel = asString(raw.imageModel) ?? base.imageModel;
+  const imageModel: ImageGenerationModelId = IMAGE_GENERATION_MODELS.some((m) => m.id === rawImageModel)
+    ? (rawImageModel as ImageGenerationModelId)
+    : DEFAULT_IMAGE_MODEL;
+
   return {
+    imageModel,
     occasionPreset: normalizeOccasionPreset(asString(raw.occasionPreset) ?? base.occasionPreset),
     occasionDetails: asString(raw.occasionDetails) ?? base.occasionDetails,
     accessories: asString(raw.accessories) ?? base.accessories,
@@ -282,6 +318,9 @@ function normalizeConfig(value: unknown): StoryboardConfig {
     backgroundThemeDetails: asString(raw.backgroundThemeDetails) ?? base.backgroundThemeDetails,
     modelPreset: asString(raw.modelPreset) ?? base.modelPreset,
     modelDetails: asString(raw.modelDetails) ?? base.modelDetails,
+    modelGender: asString(raw.modelGender) ?? base.modelGender,
+    modelAgeRange: asString(raw.modelAgeRange) ?? base.modelAgeRange,
+    modelCustomPrompt: asString(raw.modelCustomPrompt) ?? base.modelCustomPrompt,
     modelPosePreset: asString(raw.modelPosePreset) ?? base.modelPosePreset,
     modelPoseDetails: asString(raw.modelPoseDetails) ?? base.modelPoseDetails,
     modelStylingPreset: normalizeModelStylingPreset(asString(raw.modelStylingPreset) ?? base.modelStylingPreset),

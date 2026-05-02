@@ -41,16 +41,14 @@ import {
   saveStoryboardsToLocalStorage,
   type StoryboardConfig,
   type StoryboardRecord,
+  type ImageGenerationModelId,
 } from "./lib/storyboards";
 import {
-  applyFreeformOverrides,
-  buildCompositePrompt,
-  buildGarmentReferencePrompt,
-  buildMultiAnglePrompt,
   buildPrintApplicationPrompt,
-  buildRetryCompositePrompt,
-  generateFinalPrompt,
-  planLookFromGarment,
+  buildDirectCompositePrompt,
+  generatePrimaryImage,
+  generateMultiAngleImages,
+  type DirectCompositeConfig,
   type LookPlan,
 } from "./lib/pipeline";
 
@@ -59,13 +57,11 @@ import {
 type StoryboardAnglesRuntime = {
   generating: boolean;
   error: string | null;
-  sideDataUrl: string | null;
-  sideMimeType: string | null;
   backDataUrl: string | null;
   backMimeType: string | null;
   detailDataUrl: string | null;
   detailMimeType: string | null;
-  timingsMs: { side: number; back: number; detail: number; total: number } | null;
+  timingsMs: { back: number; detail: number; total: number } | null;
 };
 
 type StoryboardPrintsRuntime = {
@@ -340,7 +336,7 @@ const GENERATION_STEPS = [
 const ACTIVE_TAB_KEY = "esg_active_tab_v1";
 
 function createDefaultAnglesRuntime(): StoryboardAnglesRuntime {
-  return { generating: false, error: null, sideDataUrl: null, sideMimeType: null, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null };
+  return { generating: false, error: null, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null };
 }
 
 function createDefaultPrintsRuntime(): StoryboardPrintsRuntime {
@@ -503,9 +499,7 @@ function storyboardSubtitle(sb: StoryboardRecord): string {
     : combinePresetAndCustom({ presetText: stylePresetText, customText: cfg.styleKeywordsDetails, joiner: ", " });
   if (styleKeywords) parts.push(`Style: ${styleKeywords}`);
 
-  const bgTheme = cfg.backgroundThemePreset === "custom"
-    ? cfg.backgroundThemeDetails.trim()
-    : combinePresetAndCustom({ presetText: cfg.backgroundThemePreset, customText: cfg.backgroundThemeDetails, joiner: ", " });
+  const bgTheme = combinePresetAndCustom({ presetText: cfg.backgroundThemePreset === "custom" ? "" : cfg.backgroundThemePreset, customText: cfg.backgroundThemeDetails, joiner: ", " });
   if (bgTheme) parts.push(`BG: ${bgTheme}`);
 
   if (cfg.accessories.trim()) parts.push(`Accessories: ${cfg.accessories.trim()}`);
@@ -520,16 +514,13 @@ function storyboardSubtitle(sb: StoryboardRecord): string {
     : combinePresetAndCustom({ presetText: footwearPresetLabel, customText: cfg.footwearDetails, joiner: ", " });
   if (footwear) parts.push(`Footwear: ${footwear}`);
 
-  const ethnicity = cfg.modelPreset === "custom"
-    ? cfg.modelDetails.trim()
-    : combinePresetAndCustom({ presetText: cfg.modelPreset, customText: cfg.modelDetails, joiner: ", " });
+  const modelPresetNorm = (cfg.modelPreset === "custom" || cfg.modelPreset === "nil") ? "" : cfg.modelPreset;
+  const ethnicity = combinePresetAndCustom({ presetText: modelPresetNorm, customText: cfg.modelDetails, joiner: ", " });
   if (ethnicity) parts.push(`Model: ${ethnicity}`);
 
   const modelPosePresetLabel = cfg.modelPosePreset && cfg.modelPosePreset !== "custom"
     ? modelPosePresetLabelByValue[cfg.modelPosePreset] ?? cfg.modelPosePreset : "";
-  const modelPose = cfg.modelPosePreset === "custom"
-    ? cfg.modelPoseDetails.trim()
-    : combinePresetAndCustom({ presetText: modelPosePresetLabel, customText: cfg.modelPoseDetails, joiner: ", " });
+  const modelPose = combinePresetAndCustom({ presetText: modelPosePresetLabel, customText: cfg.modelPoseDetails, joiner: ", " });
   if (modelPose) parts.push(`Pose: ${modelPose}`);
 
   const stylingPresetText = cfg.modelStylingPreset && cfg.modelStylingPreset !== "custom"
@@ -672,17 +663,14 @@ export default function App() {
         customText: activeConfig.styleKeywordsDetails, joiner: ", ",
       });
 
-  const backgroundThemeFinal = activeConfig.backgroundThemePreset === "custom"
-    ? activeConfig.backgroundThemeDetails.trim()
-    : combinePresetAndCustom({ presetText: activeConfig.backgroundThemePreset, customText: activeConfig.backgroundThemeDetails, joiner: ", " });
+  const backgroundThemeFinal = combinePresetAndCustom({ presetText: activeConfig.backgroundThemePreset === "custom" ? "" : activeConfig.backgroundThemePreset, customText: activeConfig.backgroundThemeDetails, joiner: ", " });
 
-  const modelEthnicityFinal = activeConfig.modelPreset === "custom"
-    ? activeConfig.modelDetails.trim()
-    : combinePresetAndCustom({ presetText: activeConfig.modelPreset, customText: activeConfig.modelDetails, joiner: ", " });
+  const activeModelPresetNorm = (activeConfig.modelPreset === "custom" || activeConfig.modelPreset === "nil") ? "" : activeConfig.modelPreset;
+  const modelEthnicityFinal = combinePresetAndCustom({ presetText: activeModelPresetNorm, customText: activeConfig.modelDetails, joiner: ", " });
 
-  const modelPoseFinal = activeConfig.modelPosePreset === "custom"
-    ? activeConfig.modelPoseDetails.trim()
-    : combinePresetAndCustom({ presetText: activeConfig.modelPosePreset, customText: activeConfig.modelPoseDetails, joiner: ", " });
+  const modelPosePresetNorm = activeConfig.modelPosePreset === "custom" ? "" : activeConfig.modelPosePreset;
+  const modelPoseLabelNorm = modelPosePresetNorm ? modelPosePresetLabelByValue[modelPosePresetNorm] ?? modelPosePresetNorm : "";
+  const modelPoseFinal = combinePresetAndCustom({ presetText: modelPoseLabelNorm, customText: activeConfig.modelPoseDetails, joiner: ", " });
 
   const modelStylingNotesFinal = activeConfig.modelStylingPreset === "custom"
     ? activeConfig.modelStylingNotes.trim()
@@ -862,8 +850,6 @@ export default function App() {
           prints: safeClone(srcRuntime.prints),
           angles: {
             ...createDefaultAnglesRuntime(),
-            sideDataUrl: srcRuntime.angles.sideDataUrl,
-            sideMimeType: srcRuntime.angles.sideMimeType,
             backDataUrl: srcRuntime.angles.backDataUrl,
             backMimeType: srcRuntime.angles.backMimeType,
             timingsMs: srcRuntime.angles.timingsMs ? { ...srcRuntime.angles.timingsMs } : null,
@@ -907,8 +893,6 @@ export default function App() {
           prints: safeClone(srcRuntime.prints),
           angles: {
             ...createDefaultAnglesRuntime(),
-            sideDataUrl: srcRuntime.angles.sideDataUrl,
-            sideMimeType: srcRuntime.angles.sideMimeType,
             backDataUrl: srcRuntime.angles.backDataUrl,
             backMimeType: srcRuntime.angles.backMimeType,
             timingsMs: srcRuntime.angles.timingsMs ? { ...srcRuntime.angles.timingsMs } : null,
@@ -1095,41 +1079,51 @@ export default function App() {
     });
   }
 
+  // Shared helper: set a specific garment slot (0 = front, 1 = back)
+  async function _setGarmentSlot(sbId: string, slot: 0 | 1, file: File) {
+    const dataUrl = await fileToDataUrl(file);
+    setStoryboardRuntime((prev) => {
+      const r = prev[sbId]!;
+      const urls = [...r.garmentDataUrls];
+      const names = [...r.garmentFileNames];
+      urls[slot] = dataUrl;
+      names[slot] = file.name || (slot === 0 ? "garment-front" : "garment-back");
+      return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
+    });
+    await saveImageRecord({ title: file.name || `Garment (${slot === 0 ? "front" : "back"})`, kind: "asset-garment", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+      .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+      .catch(console.error);
+  }
+
+  async function onGarmentFrontFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const files = Array.from(e.target?.files ?? []);
+    if (!files.length) { if (e.target) e.target.value = ""; return; }
+    updateRuntime(sbId, { generateError: null });
+    await _setGarmentSlot(sbId, 0, files[0]!);
+    if (e.target) e.target.value = "";
+  }
+
+  async function onGarmentBackFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const files = Array.from(e.target?.files ?? []);
+    if (!files.length) { if (e.target) e.target.value = ""; return; }
+    updateRuntime(sbId, { generateError: null });
+    await _setGarmentSlot(sbId, 1, files[0]!);
+    if (e.target) e.target.value = "";
+  }
+
+  // Used by AssetsTab — fills front first, then back
   async function onGarmentFileChange(e: ChangeEvent<HTMLInputElement>) {
     const sbId = activeStoryboardId;
     const input = e.target;
     const files = Array.from(input?.files ?? []);
     if (!files.length) { if (input) input.value = ""; return; }
-
     updateRuntime(sbId, { generateError: null });
-
     const rt = storyboardRuntime[sbId];
-    const MAX = 4;
-    const remaining = Math.max(0, MAX - (rt?.garmentDataUrls.length ?? 0));
-    if (!remaining) {
-      updateRuntime(sbId, { generateError: "You can upload up to 4 garment photos. Remove one to add more." });
-      if (input) input.value = "";
-      return;
-    }
-
-    const limited = files.slice(0, remaining);
-    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
-    setStoryboardRuntime((prev) => {
-      const r = prev[sbId]!;
-      return {
-        ...prev, [sbId]: {
-          ...r,
-          garmentDataUrls: [...r.garmentDataUrls, ...dataUrls],
-          garmentFileNames: [...r.garmentFileNames, ...limited.map((f) => f.name || "garment")],
-        },
-      };
-    });
-
-    for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Garment", kind: "asset-garment", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
-        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
-        .catch(console.error);
-    }
+    const hasFront = !!rt?.garmentDataUrls[0];
+    const file = files[0]!;
+    await _setGarmentSlot(sbId, hasFront ? 1 : 0, file);
     if (input) input.value = "";
   }
 
@@ -1157,6 +1151,13 @@ export default function App() {
       };
     });
 
+    // Clear text bg preset — uploaded image is the scene, no theme text needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, backgroundThemePreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
+
     for (const file of limited) {
       await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
@@ -1171,23 +1172,24 @@ export default function App() {
     const files = Array.from(input?.files ?? []);
     if (!files.length) { if (input) input.value = ""; return; }
 
-    const rt = storyboardRuntime[sbId];
-    const MAX = 4;
-    const remaining = Math.max(0, MAX - (rt?.modelDataUrls.length ?? 0));
-    if (!remaining) { if (input) input.value = ""; return; }
-
-    const limited = files.slice(0, remaining);
+    const limited = files.slice(0, 4);
     const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
     setStoryboardRuntime((prev) => {
       const r = prev[sbId]!;
       return {
         ...prev, [sbId]: {
           ...r,
-          modelDataUrls: [...r.modelDataUrls, ...dataUrls],
-          modelFileNames: [...r.modelFileNames, ...limited.map((f) => f.name || "model")],
+          modelDataUrls: dataUrls,
+          modelFileNames: limited.map((f) => f.name || "model"),
         },
       };
     });
+    // Clear ethnicity preset — uploaded image is the identity source, no text ethnicity needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, modelPreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
 
     for (const file of limited) {
       await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
@@ -1221,6 +1223,13 @@ export default function App() {
       };
     });
 
+    // Clear text pose preset — uploaded image drives the pose, no text fallback needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, modelPosePreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
+
     for (const file of limited) {
       await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
         .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
@@ -1240,44 +1249,38 @@ export default function App() {
     return fileToDataUrl(new File([blob], fileName, { type: blob.type }));
   }
 
+  // Fills front slot first, then back slot (2-slot system)
   async function addGarmentFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
     if (!rt) return;
-    const MAX = 4;
-    if (rt.garmentDataUrls.length >= MAX) {
-      updateRuntime(sbId, { generateError: "You can upload up to 4 garment photos. Remove one to add more." });
-      return;
-    }
+    const hasFront = !!rt.garmentDataUrls[0];
+    const slot: 0 | 1 = hasFront ? 1 : 0;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, garmentDataUrls: [...r.garmentDataUrls, dataUrl], garmentFileNames: [...r.garmentFileNames, fileName], generateError: null } };
+        const urls = [...r.garmentDataUrls];
+        const names = [...r.garmentFileNames];
+        urls[slot] = dataUrl;
+        names[slot] = fileName;
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
       });
     } catch (err) { console.error("Failed to load garment image", err); showToast("Failed to load image.", "error"); }
   }
 
+  // Bundle: item[0] → front slot, item[1] → back slot
   async function addGarmentBundle(items: { url: string; fileName: string }[]) {
     const sbId = activeStoryboardId;
-    const rt = storyboardRuntime[sbId];
-    if (!rt) return;
-    const MAX = 4;
-    const remaining = MAX - rt.garmentDataUrls.length;
-    if (remaining <= 0) {
-      showToast("You can upload up to 4 garment photos. Remove one to add more.", "error");
-      return;
-    }
-    if (items.length > remaining) {
-      showToast(`Only ${remaining} slot${remaining !== 1 ? "s" : ""} remaining — remove a garment photo first.`, "error");
-      return;
-    }
+    if (!items.length) return;
     try {
-      const dataUrls = await Promise.all(items.map((it) => ensureDataUrl(it.url, it.fileName)));
-      const fileNames = items.map((it) => it.fileName);
+      const dataUrls = await Promise.all(items.slice(0, 2).map((it) => ensureDataUrl(it.url, it.fileName)));
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, garmentDataUrls: [...r.garmentDataUrls, ...dataUrls], garmentFileNames: [...r.garmentFileNames, ...fileNames], generateError: null } };
+        const urls = [...r.garmentDataUrls];
+        const names = [...r.garmentFileNames];
+        dataUrls.forEach((dataUrl, i) => { urls[i] = dataUrl; names[i] = items[i]!.fileName; });
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
       });
     } catch (err) {
       console.error("Failed to load bundle images", err);
@@ -1301,13 +1304,18 @@ export default function App() {
   async function addModelFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
-    if (!rt || rt.modelDataUrls.length >= 4) return;
+    if (!rt) return;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, modelDataUrls: [...r.modelDataUrls, dataUrl], modelFileNames: [...r.modelFileNames, fileName] } };
+        return { ...prev, [sbId]: { ...r, modelDataUrls: [dataUrl], modelFileNames: [fileName] } };
       });
+      setStoryboards((prev) =>
+        prev.map((sb) =>
+          sb.id === sbId ? { ...sb, config: { ...sb.config, modelPreset: "" }, updatedAt: nowIso() } : sb,
+        ),
+      );
     } catch (err) { console.error("Failed to load model image", err); showToast("Failed to load model image.", "error"); }
   }
 
@@ -1505,63 +1513,66 @@ export default function App() {
     if (!rt.prints.baseGarmentFrontDataUrl) { updatePrints(sbId, { error: "Please upload a front view white garment photo." }); return; }
     if (!isFullCloth && !rt.prints.baseGarmentBackDataUrl) { updatePrints(sbId, { error: "Please upload a back view white garment photo." }); return; }
 
-    const printInputKind = activeConfig.printInputKind;
     const printColorHex = normalizeHexColor(activeConfig.printColorHex || "") || null;
-    if (printInputKind === "color") {
-      if (!printColorHex) { updatePrints(sbId, { error: "Please enter a hex color (e.g. #FF3366)." }); return; }
-    } else if (!rt.prints.printDesignFrontDataUrl && !rt.prints.printDesignBackDataUrl && !rt.prints.printDesignSideDataUrl) {
-      updatePrints(sbId, { error: "Please upload at least one print design (front, back, or side)." }); return;
+    const hasDesignUploaded = Boolean(rt.prints.printDesignFrontDataUrl || rt.prints.printDesignBackDataUrl);
+    const isDesignMode = hasDesignUploaded;
+
+    if (!hasDesignUploaded && !printColorHex) {
+      updatePrints(sbId, { error: "Please upload a front design or select a garment color." }); return;
     }
 
     updatePrints(sbId, { generating: true });
     resetPrintOutputs(sbId);
     startPrintTimer();
 
-    const isDesignMode = printInputKind === "image";
     try {
-      const colorSwatch = printInputKind === "color" ? createColorSwatchDataUrl(printColorHex!) : null;
+      const colorSwatch = !hasDesignUploaded && printColorHex ? createColorSwatchDataUrl(printColorHex) : null;
       const basePromptOpts = {
         additionalPrompt: activeConfig.printAdditionalPrompt || "",
+        garmentType: activeConfig.printGarmentCategory || "garment",
         ...(typeof retryComment === "string" ? { retryComment } : {}),
         ...(printColorHex ? { colorHex: printColorHex } : {}),
         ...(isDesignMode ? { hasDesign: true } : {}),
       };
       const promptFront = buildPrintApplicationPrompt({ ...basePromptOpts, view: "front" });
       const promptBack  = buildPrintApplicationPrompt({ ...basePromptOpts, view: "back" });
-      const promptSide  = buildPrintApplicationPrompt({ ...basePromptOpts, view: "side" });
 
       const t0 = performance.now();
       const promises: Promise<any>[] = [];
       const keys: string[] = [];
 
+      // If only front design uploaded, apply it to back view too
       const frontDesign = colorSwatch ?? rt.prints.printDesignFrontDataUrl;
-      const backDesign = colorSwatch ?? rt.prints.printDesignBackDataUrl;
-      const sideDesign = colorSwatch ?? rt.prints.printDesignSideDataUrl;
+      const backDesign  = colorSwatch ?? rt.prints.printDesignBackDataUrl ?? rt.prints.printDesignFrontDataUrl;
 
-      // Design is passed FIRST so the model treats it as the primary texture
-      // source; garment is passed SECOND as the shape/mask template.
+      const printModel = "gemini-2.5-flash-image";
       if (rt.prints.baseGarmentFrontDataUrl && frontDesign) {
-        promises.push(generateImage({ model: "gemini-3-pro-image-preview", promptText: promptFront, images: [dataUrlToInlineImage(frontDesign), dataUrlToInlineImage(rt.prints.baseGarmentFrontDataUrl)], timeoutMs: 180000 }));
+        promises.push(generateImage({ model: printModel, promptText: promptFront, images: [dataUrlToInlineImage(frontDesign), dataUrlToInlineImage(rt.prints.baseGarmentFrontDataUrl)], timeoutMs: 180000 }));
         keys.push("front");
       }
       if (!isFullCloth && rt.prints.baseGarmentBackDataUrl && backDesign) {
-        promises.push(generateImage({ model: "gemini-3-pro-image-preview", promptText: promptBack, images: [dataUrlToInlineImage(backDesign), dataUrlToInlineImage(rt.prints.baseGarmentBackDataUrl)], timeoutMs: 180000 }));
+        promises.push(generateImage({ model: printModel, promptText: promptBack, images: [dataUrlToInlineImage(backDesign), dataUrlToInlineImage(rt.prints.baseGarmentBackDataUrl)], timeoutMs: 180000 }));
         keys.push("back");
-      }
-      if (!isFullCloth && rt.prints.baseGarmentSideDataUrl && sideDesign) {
-        promises.push(generateImage({ model: "gemini-3-pro-image-preview", promptText: promptSide, images: [dataUrlToInlineImage(sideDesign), dataUrlToInlineImage(rt.prints.baseGarmentSideDataUrl)], timeoutMs: 180000 }));
-        keys.push("side");
       }
 
       const results = await Promise.all(promises);
       const outputUpdates: Partial<StoryboardPrintsRuntime> & { timingsMs?: number } = {};
       results.forEach((res, i) => {
         if (keys[i] === "front") { outputUpdates.outputFrontMimeType = res.mimeType; outputUpdates.outputFrontDataUrl = `data:${res.mimeType};base64,${res.imageBase64}`; }
-        if (keys[i] === "back") { outputUpdates.outputBackMimeType = res.mimeType; outputUpdates.outputBackDataUrl = `data:${res.mimeType};base64,${res.imageBase64}`; }
-        if (keys[i] === "side") { outputUpdates.outputSideMimeType = res.mimeType; outputUpdates.outputSideDataUrl = `data:${res.mimeType};base64,${res.imageBase64}`; }
+        if (keys[i] === "back")  { outputUpdates.outputBackMimeType  = res.mimeType; outputUpdates.outputBackDataUrl  = `data:${res.mimeType};base64,${res.imageBase64}`; }
       });
       outputUpdates.timingsMs = Math.round(performance.now() - t0);
       updatePrints(sbId, outputUpdates);
+
+      // Auto-save generated prints
+      const _pTs = Date.now();
+      const _pSbTitle = storyboards.find((s) => s.id === sbId)?.title || "Untitled";
+      const printSaves = [
+        outputUpdates.outputFrontDataUrl && saveImageToLibrary({ dataUrl: outputUpdates.outputFrontDataUrl, mimeType: outputUpdates.outputFrontMimeType ?? "image/png", title: `Printed garment (front) — ${_pSbTitle}`, kind: "prints", fileName: `printed-garment-front-${_pTs}.${mimeToExtension(outputUpdates.outputFrontMimeType ?? null)}`, notify: false }),
+        outputUpdates.outputBackDataUrl  && saveImageToLibrary({ dataUrl: outputUpdates.outputBackDataUrl,  mimeType: outputUpdates.outputBackMimeType  ?? "image/png", title: `Printed garment (back) — ${_pSbTitle}`,  kind: "prints", fileName: `printed-garment-back-${_pTs}.${mimeToExtension(outputUpdates.outputBackMimeType  ?? null)}`,  notify: false }),
+      ].filter(Boolean);
+      Promise.all(printSaves).catch(() => {});
+
       showToast("Print generation complete! Your designs are ready.", "success");
     } catch (err: any) {
       updatePrints(sbId, { error: err?.message || String(err) });
@@ -1576,30 +1587,7 @@ export default function App() {
     return generatePrintedGarment(retryComment);
   }
 
-  const [isSavingPrints, setIsSavingPrints] = useState(false);
-  async function savePrintedGarment() {
-    if (isSavingPrints) return;
-    const rt = activeRuntime;
-    const sbTitle = activeStoryboard.title;
-    if (!rt.prints.outputFrontDataUrl) {
-      updatePrints(activeStoryboardId, { error: "Generate the printed garments first." }); return;
-    }
-    setIsSavingPrints(true);
-    try {
-      const ts = Date.now();
-      const savePromises = [];
-      if (rt.prints.outputFrontDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputFrontDataUrl, mimeType: rt.prints.outputFrontMimeType, title: `Printed garment (front) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-front-${ts}.${mimeToExtension(rt.prints.outputFrontMimeType)}`, notify: false }));
-      if (rt.prints.outputBackDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputBackDataUrl, mimeType: rt.prints.outputBackMimeType, title: `Printed garment (back) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-back-${ts}.${mimeToExtension(rt.prints.outputBackMimeType)}`, notify: false }));
-      if (rt.prints.outputSideDataUrl) savePromises.push(saveImageToLibrary({ dataUrl: rt.prints.outputSideDataUrl, mimeType: rt.prints.outputSideMimeType, title: `Printed garment (side) — ${sbTitle}`, kind: "prints", fileName: `printed-garment-side-${ts}.${mimeToExtension(rt.prints.outputSideMimeType)}`, notify: false }));
-
-      await Promise.all(savePromises);
-      showSaveToast(`Saved ${savePromises.length} printed garment${savePromises.length > 1 ? 's' : ''}.`);
-    } catch (err: any) {
-      updatePrints(activeStoryboardId, { error: err?.message || String(err) });
-    } finally {
-      setIsSavingPrints(false);
-    }
-  }
+  // savePrintedGarment removed — prints are now auto-saved after generation
 
   // ── Main image generation ─────────────────────────────────────────────────
   function startGenerationTimer() {
@@ -1612,6 +1600,10 @@ export default function App() {
     if (generationIntervalRef.current) { window.clearInterval(generationIntervalRef.current); generationIntervalRef.current = null; }
   }
 
+  // ── Cost-optimized primary generation ────────────────────────────────────
+  // Removed: planLookFromGarment() (text LLM) + generateFinalPrompt() (text LLM)
+  // Added:   garment ref caching by SHA-256 hash → saves 1 image call on repeat runs
+  // Prompt: ~600 tokens (was ~1100); image inputs: 2–4 (was 5–8)
   async function onGenerateLook() {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId]!;
@@ -1619,153 +1611,77 @@ export default function App() {
     updateRuntime(sbId, {
       generateError: null, garmentRefDataUrl: null, garmentRefMimeType: null,
       lastPlan: null, lastFinalPrompt: null, angles: createDefaultAnglesRuntime(),
-      chosenSummary: null, debugSummary: null, resultDataUrl: null, resultMimeType: null, resultTimingsMs: null,
-      poseResults: [],
+      chosenSummary: null, debugSummary: null, resultDataUrl: null, resultMimeType: null,
+      resultTimingsMs: null, poseResults: [],
     });
 
-    if (!rt.garmentDataUrls.length) { updateRuntime(sbId, { generateError: "Please select garment photos." }); return; }
+    if (!rt.garmentDataUrls[0]) { updateRuntime(sbId, { generateError: "Please upload a front garment photo." }); return; }
 
     setIsGenerating(true);
-    setGenerationStepIndex(0);
+    setGenerationStepIndex(1);
     startGenerationTimer();
 
     try {
-      setGenerationStepIndex(1);
-
-      const userOverrides = {
-        occasion: occasionFinal || null,
-        background_theme: backgroundThemeFinal || null,
-        footwear: footwearFinal || null,
-        model_ethnicity: modelEthnicityFinal || null,
-        model_pose: modelPoseFinal || null,
-        model_styling_notes: modelStylingNotesFinal || null,
-      };
-
       const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
       const bw = bottomWearFinal.trim();
-      const styleKeywords = bw ? [...baseStyleKeywords, bw] : baseStyleKeywords;
       const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
-      const modelRefDataUrl = rt.modelDataUrls[0] || null;
-      const backgroundRefDataUrl = rt.backgroundDataUrls[0] || null;
-      const hasModelReference = Boolean(modelRefDataUrl);
-      const hasBackgroundReference = Boolean(backgroundRefDataUrl);
 
-      const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
-      const timings: Record<string, number> = {};
-      const debug: Record<string, unknown> = {};
-      let planError: string | null = null;
-
-      let plan: LookPlan;
-      const tPlan0 = performance.now();
-      try {
-        const planRes = await planLookFromGarment({
-          model: "gemini-3-flash-preview", garmentImages, availableBackgroundThemes: [], availableModelEthnicities: [],
-          userOverrides, timeoutMs: 120000,
-        });
-        plan = planRes.plan;
-        debug.plan_raw_text = planRes.rawText;
-        debug.plan_raw_json = planRes.rawJson;
-      } catch (err: any) {
-        planError = err?.message || String(err);
-        const ov = userOverrides;
-        plan = {
-          occasion: ov.occasion || "casual", color_scheme: "neutral", print_style: "as-is",
-          style_keywords: [], background_theme: ov.background_theme || ov.occasion || "casual",
-          footwear: ov.footwear || "", accessories: [],
-          negative_prompt: "blurry, low quality, incorrect garment, altered design, wrong print, extra limbs, deformed hands, text overlay, watermark",
-          model_ethnicity: ov.model_ethnicity || "", model_pose: ov.model_pose || "", model_styling_notes: ov.model_styling_notes || "",
-        };
-      }
-      timings.plan = Math.round(performance.now() - tPlan0);
-
-      plan = applyFreeformOverrides(plan, {
-        styleKeywords: styleKeywords.length ? styleKeywords : undefined,
-        accessories: accessories.length ? accessories : undefined,
-        footwear: footwearFinal || null,
-      });
-
-      const tFp0 = performance.now();
-      const finalPromptRes = await generateFinalPrompt({
-        model: "gemini-3-flash-preview", plan, background: null, chosenModel: null,
-        hasBackgroundReference, hasModelReference, timeoutMs: 120000,
-      });
-      timings.final_prompt = Math.round(performance.now() - tFp0);
-      debug.final_prompt = finalPromptRes.prompt;
-
-      setGenerationStepIndex(2);
-
-      const garmentRefPrompt = buildGarmentReferencePrompt();
-      const tGarment0 = performance.now();
-      const garmentRef = await generateImage({
-        model: "gemini-3-pro-image-preview", promptText: garmentRefPrompt, images: garmentImages,
-        aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
-      });
-      timings.garment_reference = Math.round(performance.now() - tGarment0);
-      if (!garmentRef.imageBase64) throw new GeminiError("Garment reference generation returned no image data.");
-      const garmentRefDataUrl = `data:${garmentRef.mimeType};base64,${garmentRef.imageBase64}`;
-
-      setGenerationStepIndex(3);
-
-      // Generate one composite per selected pose (or one with no pose) — in parallel
-      const poseUrls = rt.poseDataUrls.length > 0 ? rt.poseDataUrls : [null as string | null];
-      const originalGarmentInlines = garmentImages; // original garment photos for design fidelity
-
-      const tCompAll = performance.now();
-      const allPoseResults: PoseResult[] = await Promise.all(
-        poseUrls.map(async (poseRef, pi) => {
-          const hasPoseReference = Boolean(poseRef);
-          const compositePrompt = buildCompositePrompt({
-            plan, finalPrompt: finalPromptRes.prompt, hasModelReference, hasPoseReference, hasBackgroundReference,
-            originalGarmentCount: originalGarmentInlines.length,
-          });
-          if (pi === 0) {
-            debug.composite_prompt = compositePrompt;
-            debug.negative_prompt = plan.negative_prompt;
-          }
-
-          // Image order matches buildCompositePrompt: garment ref → model → original garments → pose → background
-          const compositeImages = [
-            { mimeType: garmentRef.mimeType, data: base64ToBytes(garmentRef.imageBase64) },
-            ...(modelRefDataUrl ? [dataUrlToInlineImage(modelRefDataUrl)] : []),
-            ...originalGarmentInlines,
-            ...(poseRef ? [dataUrlToInlineImage(poseRef)] : []),
-            ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
-          ];
-          const composite = await generateImage({
-            model: "gemini-3-pro-image-preview", promptText: compositePrompt, images: compositeImages,
-            aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
-          });
-
-          if (!composite.imageBase64) throw new GeminiError(`Image generation returned no image data (pose ${pi + 1}).`);
-          return {
-            dataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
-            mimeType: composite.mimeType,
-            poseIndex: pi,
-          };
-        }),
-      );
-      const totalCompositeMs = Math.round(performance.now() - tCompAll);
-
-      timings.composite = totalCompositeMs;
-      timings.api_total = Object.values(timings).reduce((a, v) => a + (typeof v === "number" ? v : 0), 0);
-
-      const chosenSummary = {
-        occasion: plan.occasion, color_scheme: plan.color_scheme, print_style: plan.print_style,
-        style_keywords: plan.style_keywords, footwear: plan.footwear, accessories: plan.accessories,
-        background_theme: plan.background_theme, model_ethnicity: plan.model_ethnicity, model_pose: plan.model_pose,
+      const config: DirectCompositeConfig = {
+        occasion:           occasionFinal           || undefined,
+        footwear:           footwearFinal            || undefined,
+        accessories:        accessories.length       ? accessories.join(", ")       : undefined,
+        bottomWear:         bw                      || undefined,
+        styleKeywords:      baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        modelPose:          modelPoseFinal           || undefined,
+        modelStylingNotes:  modelStylingNotesFinal   || undefined,
+        backgroundTheme:    backgroundThemeFinal     || undefined,
+        modelGender:        activeConfig.modelGender  || undefined,
+        modelAgeRange:      activeConfig.modelAgeRange || undefined,
+        modelEthnicity:     modelEthnicityFinal      || undefined,
+        modelCustomPrompt:  activeConfig.modelCustomPrompt || undefined,
       };
 
-      const firstResult = allPoseResults[0];
-      updateRuntime(sbId, {
-        lastPlan: safeClone(plan), lastFinalPrompt: finalPromptRes.prompt,
-        garmentRefMimeType: garmentRef.mimeType, garmentRefDataUrl,
-        resultMimeType: firstResult.mimeType, resultDataUrl: firstResult.dataUrl,
-        poseResults: allPoseResults,
-        resultTimingsMs: timings, chosenSummary,
-        debugSummary: { timings_ms: timings, plan_error: planError, ...debug },
+      const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
+      const modelImage    = rt.modelDataUrls[0]      ? dataUrlToInlineImage(rt.modelDataUrls[0])      : null;
+      const backgroundImage = rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null;
+      // Use first pose only (parallel pose generation removed — saves image API calls)
+      const poseImages    = rt.poseDataUrls.slice(0, 1).map((src) => dataUrlToInlineImage(src));
+
+      const result = await generatePrimaryImage({
+        imageModel: activeConfig.imageModel,
+        garmentImages, modelImage, poseImages, backgroundImage, config,
+        onStep: (step) => {
+          if (step === "garment_ref") setGenerationStepIndex(2);
+          else if (step === "composite") setGenerationStepIndex(3);
+        },
       });
-      const poseCount = allPoseResults.length;
-      showToast(poseCount > 1 ? `Generated ${poseCount} images for ${poseCount} poses!` : "Scene generated successfully!", "success");
+
+      const timings = {
+        garment_reference: result.timings.garmentRefMs,
+        composite: result.timings.compositeMs,
+        api_total: result.timings.totalMs,
+      };
+      const poseResult: PoseResult = {
+        dataUrl: result.compositeDataUrl, mimeType: result.compositeMimeType, poseIndex: 0,
+      };
+
+      updateRuntime(sbId, {
+        garmentRefDataUrl: result.garmentRefDataUrl, garmentRefMimeType: result.garmentRefMimeType,
+        resultDataUrl: result.compositeDataUrl, resultMimeType: result.compositeMimeType,
+        poseResults: [poseResult], resultTimingsMs: timings,
+        chosenSummary: config,
+        debugSummary: { timings_ms: timings, garment_ref_cache_hit: result.garmentRefCacheHit },
+      });
+
+      // Auto-save to library
+      saveImageToLibrary({
+        dataUrl: result.compositeDataUrl, mimeType: result.compositeMimeType,
+        title: `Look — ${storyboards.find((s) => s.id === sbId)?.title || "Untitled"}`,
+        kind: "main", fileName: `look-main-${Date.now()}.${mimeToExtension(result.compositeMimeType)}`,
+        notify: false,
+      }).catch(() => {});
+
+      showToast("Scene generated successfully!", "success");
     } catch (err: any) {
       updateRuntime(sbId, { generateError: err?.message || String(err) });
       showToast("Scene generation failed. Please try again.", "error");
@@ -1781,7 +1697,8 @@ export default function App() {
     const rt = storyboardRuntime[sbId]!;
     updateRuntime(sbId, { generateError: null });
 
-    if (!rt.resultDataUrl || !rt.garmentRefDataUrl || !rt.lastPlan || !rt.lastFinalPrompt) {
+    // lastPlan no longer required — config is rebuilt from current storyboard settings
+    if (!rt.resultDataUrl || !rt.garmentRefDataUrl) {
       updateRuntime(sbId, { generateError: "Generate the main image first, then you can retry." }); return;
     }
 
@@ -1790,76 +1707,70 @@ export default function App() {
     startGenerationTimer();
 
     try {
-      const overrides = {
-        occasion: occasionFinal || null,
-        background_theme: backgroundThemeFinal || null, footwear: footwearFinal || null,
-        model_ethnicity: modelEthnicityFinal || null, model_pose: modelPoseFinal || null,
-        model_styling_notes: modelStylingNotesFinal || null,
-      };
-
-      let plan = { ...rt.lastPlan };
-      if ((overrides.occasion || "").trim()) plan.occasion = overrides.occasion!.trim();
-      if ((overrides.background_theme || "").trim()) plan.background_theme = overrides.background_theme!.trim();
-      if ((overrides.footwear || "").trim()) plan.footwear = overrides.footwear!.trim();
-      if ((overrides.model_ethnicity || "").trim()) plan.model_ethnicity = overrides.model_ethnicity!.trim();
-      if ((overrides.model_pose || "").trim()) plan.model_pose = overrides.model_pose!.trim();
-      if ((overrides.model_styling_notes || "").trim()) plan.model_styling_notes = overrides.model_styling_notes!.trim();
-
       const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
       const bw = bottomWearFinal.trim();
-      const styleKeywords = bw ? [...baseStyleKeywords, bw] : baseStyleKeywords;
       const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
-      plan = applyFreeformOverrides(plan, {
-        styleKeywords: styleKeywords.length ? styleKeywords : undefined,
-        accessories: accessories.length ? accessories : undefined,
-        footwear: footwearFinal || null,
-      });
 
-      const modelRefDataUrl = rt.modelDataUrls[0] || null;
+      const config: DirectCompositeConfig = {
+        occasion:           occasionFinal           || undefined,
+        footwear:           footwearFinal            || undefined,
+        accessories:        accessories.length       ? accessories.join(", ")       : undefined,
+        bottomWear:         bw                      || undefined,
+        styleKeywords:      baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        modelPose:          modelPoseFinal           || undefined,
+        modelStylingNotes:  modelStylingNotesFinal   || undefined,
+        backgroundTheme:    backgroundThemeFinal     || undefined,
+        modelGender:        activeConfig.modelGender  || undefined,
+        modelAgeRange:      activeConfig.modelAgeRange || undefined,
+        modelEthnicity:     modelEthnicityFinal      || undefined,
+        modelCustomPrompt:  activeConfig.modelCustomPrompt || undefined,
+      };
+
+      const modelRefDataUrl     = rt.modelDataUrls[0]      || null;
       const backgroundRefDataUrl = rt.backgroundDataUrls[0] || null;
-      const hasModelReference = Boolean(modelRefDataUrl);
+      const hasModelReference     = Boolean(modelRefDataUrl);
       const hasBackgroundReference = Boolean(backgroundRefDataUrl);
 
-      const originalGarmentInlines = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
-      const compositePrompt = buildRetryCompositePrompt({
-        plan, finalPrompt: rt.lastFinalPrompt, hasModelReference, hasBackgroundReference, retryComment: retryComment || "",
-        originalGarmentCount: originalGarmentInlines.length,
+      const compositePrompt = buildDirectCompositePrompt({
+        hasModelReference, hasBackgroundReference, config,
+        isRetry: true, retryComment: retryComment || "",
+        model: activeConfig.imageModel,
       });
 
-      const t0 = performance.now();
-      // Image order matches buildCompositePrompt: garment ref → model → original garments → background
+      // Retry uses cached garment ref — no extra original garment images needed
       const compositeImages = [
         dataUrlToInlineImage(rt.garmentRefDataUrl),
-        ...(modelRefDataUrl ? [dataUrlToInlineImage(modelRefDataUrl)] : []),
-        ...originalGarmentInlines,
+        ...(modelRefDataUrl      ? [dataUrlToInlineImage(modelRefDataUrl)]      : []),
         ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
       ];
+
+      const t0 = performance.now();
       const composite = await generateImage({
-        model: "gemini-3-pro-image-preview", promptText: compositePrompt, images: compositeImages,
+        model: activeConfig.imageModel, promptText: compositePrompt, images: compositeImages,
         aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000,
       });
       const ms = Math.round(performance.now() - t0);
       if (!composite.imageBase64) throw new GeminiError("Retry generation returned no image data.");
 
-      const chosenSummary = {
-        occasion: plan.occasion, color_scheme: plan.color_scheme, print_style: plan.print_style,
-        style_keywords: plan.style_keywords, footwear: plan.footwear, accessories: plan.accessories,
-        background_theme: plan.background_theme, model_ethnicity: plan.model_ethnicity, model_pose: plan.model_pose,
-      };
-
+      const resultUrl = `data:${composite.mimeType};base64,${composite.imageBase64}`;
       updateRuntime(sbId, {
-        lastPlan: safeClone(plan),
-        resultMimeType: composite.mimeType,
-        resultDataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
-        poseResults: [{ dataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`, mimeType: composite.mimeType, poseIndex: 0 }],
+        resultMimeType: composite.mimeType, resultDataUrl: resultUrl,
+        poseResults: [{ dataUrl: resultUrl, mimeType: composite.mimeType, poseIndex: 0 }],
         angles: createDefaultAnglesRuntime(),
         resultTimingsMs: { composite: ms, api_total: ms },
-        chosenSummary,
-        debugSummary: { timings_ms: { composite: ms, api_total: ms }, retry_comment: retryComment || "", final_prompt: rt.lastFinalPrompt, composite_prompt: compositePrompt, negative_prompt: plan.negative_prompt },
+        chosenSummary: config,
+        debugSummary: { timings_ms: { composite: ms }, retry_comment: retryComment, composite_prompt: compositePrompt },
       });
 
+      // Auto-save retry result
+      saveImageToLibrary({
+        dataUrl: resultUrl, mimeType: composite.mimeType,
+        title: `Look (retry) — ${storyboards.find((s) => s.id === sbId)?.title || "Untitled"}`,
+        kind: "main", fileName: `look-retry-${Date.now()}.${mimeToExtension(composite.mimeType)}`,
+        notify: false,
+      }).catch(() => {});
+
       try {
-        const resultUrl = `data:${composite.mimeType};base64,${composite.imageBase64}`;
         const thumb = await createThumbnail(resultUrl);
         setStoryboards((prev) => prev.map((sb) => sb.id === sbId ? { ...sb, previewDataUrl: thumb } : sb));
       } catch { /* thumbnail is optional */ }
@@ -1872,88 +1783,66 @@ export default function App() {
     }
   }
 
+  // ── Cost-optimized multi-angle generation ────────────────────────────────
+  // Removed: all text LLM calls (prompts now built programmatically)
+  // Removed: extra original garment photos from reference set (cuts image tokens)
+  // Uses buildDirectMultiAnglePrompt (~500 tokens vs ~900 in old flow)
   async function generateMultipleAngles() {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId]!;
     if (isGenerating || rt.angles.generating) return;
     updateAngles(sbId, { error: null });
 
-    if (!rt.resultDataUrl) { updateAngles(sbId, { error: "Generate the main image first." }); return; }
+    if (!rt.resultDataUrl)    { updateAngles(sbId, { error: "Generate the main image first." }); return; }
     if (!rt.garmentRefDataUrl) { updateAngles(sbId, { error: "Missing garment reference. Please generate the main image again." }); return; }
-    if (!rt.lastPlan) { updateAngles(sbId, { error: "Missing generation context. Please generate the main image again." }); return; }
 
-    updateAngles(sbId, { generating: true, sideDataUrl: null, sideMimeType: null, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null });
+    updateAngles(sbId, { generating: true, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null });
 
     try {
-      const garmentRefInline = dataUrlToInlineImage(rt.garmentRefDataUrl);
-      const mainInline = dataUrlToInlineImage(rt.resultDataUrl);
-      const garmentAnglesInline = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
-      const modelRefInline = rt.modelDataUrls[0] ? dataUrlToInlineImage(rt.modelDataUrls[0]) : null;
-      const backgroundRefInline = rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null;
+      const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
+      const bw = bottomWearFinal.trim();
+      const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
 
-      const referenceImages = [
-        garmentRefInline, ...garmentAnglesInline, mainInline,
-        ...(modelRefInline ? [modelRefInline] : []),
-        ...(backgroundRefInline ? [backgroundRefInline] : []),
-      ];
-      const promptBase = {
-        plan: rt.lastPlan, finalPrompt: rt.lastFinalPrompt || "",
-        garmentAngleCount: garmentAnglesInline.length,
-        hasModelReference: Boolean(modelRefInline), hasBackgroundReference: Boolean(backgroundRefInline),
-        garmentType: activeStoryboard.garmentType ?? "",
+      const config: DirectCompositeConfig = {
+        occasion:        occasionFinal            || undefined,
+        footwear:        footwearFinal            || undefined,
+        accessories:     accessories.length       ? accessories.join(", ")      : undefined,
+        bottomWear:      bw                       || undefined,
+        styleKeywords:   baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        backgroundTheme: backgroundThemeFinal     || undefined,
+        modelGender:     activeConfig.modelGender  || undefined,
+        modelAgeRange:   activeConfig.modelAgeRange || undefined,
+        modelEthnicity:  modelEthnicityFinal      || undefined,
+        modelCustomPrompt: activeConfig.modelCustomPrompt || undefined,
       };
 
-      // Pick random angle pose templates
-      const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-      async function fetchAnglePose(folder: string, count: number): Promise<string | null> {
-        const n = Math.floor(Math.random() * count) + 1;
-        try {
-          const res = await fetch(`${baseUrl}/angle-poses/${folder}/${n}.jpg`);
-          if (!res.ok) return null;
-          const blob = await res.blob();
-          return await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        } catch { return null; }
-      }
-
-      const [sidePoseDataUrl, backPoseDataUrl] = await Promise.all([
-        fetchAnglePose("side", 5),
-        fetchAnglePose("back", 8),
-      ]);
-
-      const t0 = performance.now();
-      const [sideRes, backRes, detailRes] = await Promise.all([
-        (async () => {
-          const t = performance.now();
-          const sidePoseInline = sidePoseDataUrl ? dataUrlToInlineImage(sidePoseDataUrl) : null;
-          const sideImages = [...referenceImages, ...(sidePoseInline ? [sidePoseInline] : [])];
-          const res = await generateImage({ model: "gemini-3-pro-image-preview", promptText: buildMultiAnglePrompt({ ...promptBase, angle: "side", hasPoseReference: Boolean(sidePoseInline) }), images: sideImages, aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000 });
-          return { res, ms: Math.round(performance.now() - t) };
-        })(),
-        (async () => {
-          const t = performance.now();
-          const backPoseInline = backPoseDataUrl ? dataUrlToInlineImage(backPoseDataUrl) : null;
-          const backImages = [...referenceImages, ...(backPoseInline ? [backPoseInline] : [])];
-          const res = await generateImage({ model: "gemini-3-pro-image-preview", promptText: buildMultiAnglePrompt({ ...promptBase, angle: "back", hasPoseReference: Boolean(backPoseInline) }), images: backImages, aspectRatio: "3:4", width: 1080, height: 1440, timeoutMs: 180000 });
-          return { res, ms: Math.round(performance.now() - t) };
-        })(),
-        (async () => {
-          const t = performance.now();
-          const res = await generateImage({ model: "gemini-3-pro-image-preview", promptText: buildMultiAnglePrompt({ ...promptBase, angle: "detail" }), images: referenceImages, aspectRatio: "1:1", timeoutMs: 180000 });
-          return { res, ms: Math.round(performance.now() - t) };
-        })(),
-      ]);
+      const result = await generateMultiAngleImages({
+        imageModel: activeConfig.imageModel,
+        garmentRefImage:     dataUrlToInlineImage(rt.garmentRefDataUrl),
+        garmentBackRawImage: rt.garmentDataUrls[1] ? dataUrlToInlineImage(rt.garmentDataUrls[1]) : null,
+        mainResultImage:     dataUrlToInlineImage(rt.resultDataUrl),
+        modelImage:       rt.modelDataUrls[0]      ? dataUrlToInlineImage(rt.modelDataUrls[0])      : null,
+        backgroundImage:  rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null,
+        config,
+        garmentType: activeStoryboard.garmentType ?? "",
+        baseUrl: (import.meta.env.BASE_URL || "/").replace(/\/$/, ""),
+      });
 
       updateAngles(sbId, {
-        sideMimeType: sideRes.res.mimeType, sideDataUrl: `data:${sideRes.res.mimeType};base64,${sideRes.res.imageBase64}`,
-        backMimeType: backRes.res.mimeType, backDataUrl: `data:${backRes.res.mimeType};base64,${backRes.res.imageBase64}`,
-        detailMimeType: detailRes.res.mimeType, detailDataUrl: `data:${detailRes.res.mimeType};base64,${detailRes.res.imageBase64}`,
-        timingsMs: { side: sideRes.ms, back: backRes.ms, detail: detailRes.ms, total: Math.round(performance.now() - t0) },
+        backDataUrl:   result.back?.dataUrl   ?? null, backMimeType:   result.back?.mimeType   ?? null,
+        detailDataUrl: result.detail?.dataUrl ?? null, detailMimeType: result.detail?.mimeType ?? null,
+        timingsMs: { back: result.back?.ms ?? 0, detail: result.detail?.ms ?? 0, total: result.totalMs },
       });
+
+      // Auto-save all generated angles
+      const _aTs = Date.now();
+      const _aSbTitle = storyboards.find((s) => s.id === sbId)?.title || "Untitled";
+      const angleSaves = [
+        result.back   && saveImageToLibrary({ dataUrl: result.back.dataUrl,   mimeType: result.back.mimeType,   title: `Back view — ${_aSbTitle}`,   kind: "back",   fileName: `look-back-${_aTs}.${mimeToExtension(result.back.mimeType)}`,   notify: false }),
+        result.detail && saveImageToLibrary({ dataUrl: result.detail.dataUrl, mimeType: result.detail.mimeType, title: `Detail shot — ${_aSbTitle}`, kind: "detail", fileName: `look-detail-${_aTs}.${mimeToExtension(result.detail.mimeType)}`, notify: false }),
+      ].filter(Boolean);
+      Promise.all(angleSaves).catch(() => {});
+
       showToast("Multi-angle generation complete!", "success");
     } catch (err: any) {
       updateAngles(sbId, { error: err?.message || String(err) });
@@ -1994,14 +1883,13 @@ export default function App() {
 
   async function saveAllImages() {
     const rt = activeRuntime;
-    if (!rt.resultDataUrl || !rt.angles.sideDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) {
-      updateAngles(activeStoryboardId, { error: "Generate the main, side, back, and detail images before saving." }); return;
+    if (!rt.resultDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) {
+      updateAngles(activeStoryboardId, { error: "Generate the main, back, and detail images before saving." }); return;
     }
     try {
       const ts = Date.now(); const sbTitle = activeStoryboard.title;
       const saveOps = [];
 
-      // Save all pose results (or the single main result)
       if (rt.poseResults.length > 1) {
         for (let i = 0; i < rt.poseResults.length; i++) {
           const pr = rt.poseResults[i];
@@ -2012,7 +1900,6 @@ export default function App() {
       }
 
       saveOps.push(
-        saveImageToLibrary({ dataUrl: rt.angles.sideDataUrl, mimeType: rt.angles.sideMimeType, title: `Side view — ${sbTitle}`, kind: "side", fileName: `look-side-${ts}.${mimeToExtension(rt.angles.sideMimeType)}`, notify: false }),
         saveImageToLibrary({ dataUrl: rt.angles.backDataUrl, mimeType: rt.angles.backMimeType, title: `Back view — ${sbTitle}`, kind: "back", fileName: `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`, notify: false }),
         saveImageToLibrary({ dataUrl: rt.angles.detailDataUrl, mimeType: rt.angles.detailMimeType, title: `Detail shot — ${sbTitle}`, kind: "detail", fileName: `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`, notify: false }),
       );
@@ -2026,17 +1913,15 @@ export default function App() {
 
   function downloadAllImages() {
     const rt = activeRuntime;
-    if (!rt.resultDataUrl || !rt.angles.sideDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) return;
+    if (!rt.resultDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) return;
     const ts = Date.now();
 
-    // Download all pose results
     if (rt.poseResults.length > 1) {
       rt.poseResults.forEach((pr, i) => triggerDownload(pr.dataUrl, `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`));
     } else {
       triggerDownload(rt.resultDataUrl, `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`);
     }
 
-    triggerDownload(rt.angles.sideDataUrl, `look-side-${ts}.${mimeToExtension(rt.angles.sideMimeType)}`);
     triggerDownload(rt.angles.backDataUrl, `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`);
     triggerDownload(rt.angles.detailDataUrl, `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`);
   }
@@ -2147,8 +2032,6 @@ export default function App() {
                 onConfigUpdate={handleConfigUpdate}
                 onGenerate={() => generatePrintedGarment()}
                 onRetry={retryPrintedGarment}
-                onSave={savePrintedGarment}
-                isSaving={isSavingPrints}
                 onOpenImage={(src, title, alt, gallery) => openImageModal(src, title, alt ?? title, gallery)}
               />
             )}
@@ -2172,6 +2055,7 @@ export default function App() {
                     <StoryboardEditorHeader
                       title={activeStoryboard.title}
                       garmentType={activeStoryboard.garmentType ?? ""}
+                      imageModel={activeConfig.imageModel}
                       updatedAt={activeStoryboard.updatedAt}
                       disabled={isGenerating}
                       canDelete={storyboards.length > 1}
@@ -2181,6 +2065,7 @@ export default function App() {
                       onRequestDelete={requestDeleteActiveStoryboard}
                       onTitleChange={handleTitleChange}
                       onGarmentTypeChange={handleGarmentTypeChange}
+                      onImageModelChange={(model: ImageGenerationModelId) => handleConfigUpdate({ imageModel: model })}
                     />
 
                     <div className="divider storyboardEditorDivider" aria-hidden="true" />
@@ -2192,7 +2077,8 @@ export default function App() {
                           runtime={activeRuntime}
                           activeStoryboardId={activeStoryboardId}
                           isGenerating={isGenerating}
-                          onGarmentFileChange={onGarmentFileChange}
+                          onGarmentFrontFileChange={onGarmentFrontFileChange}
+                          onGarmentBackFileChange={onGarmentBackFileChange}
                           removeGarmentImage={removeGarmentImage}
                           removeBackgroundImage={removeBackgroundImage}
                           removeModelImage={removeModelImage}
@@ -2227,11 +2113,9 @@ export default function App() {
                           onResultImagePointerMove={onResultImagePointerMove}
                           onResultImagePointerLeave={onResultImagePointerLeave}
                           onOpenImage={openImageModal}
-                          onSaveImage={saveMainImage}
                           onRetry={retryMainImage}
                           onGenerateAngles={generateMultipleAngles}
                           onDownloadAll={downloadAllImages}
-                          onSaveAll={saveAllImages}
                         />
                       </div>
                     </div>

@@ -1,8 +1,9 @@
-import { GARMENT_TYPES } from "../lib/storyboards";
+import { GARMENT_TYPES, IMAGE_GENERATION_MODELS, type ImageGenerationModelId } from "../lib/storyboards";
 
 interface StoryboardEditorHeaderProps {
   title: string;
   garmentType: string;
+  imageModel: ImageGenerationModelId;
   updatedAt: string;
   disabled: boolean;
   canDelete: boolean;
@@ -12,11 +13,13 @@ interface StoryboardEditorHeaderProps {
   onRequestDelete: () => void;
   onTitleChange: (value: string) => void;
   onGarmentTypeChange: (value: string) => void;
+  onImageModelChange: (model: ImageGenerationModelId) => void;
 }
 
 export default function StoryboardEditorHeader({
   title,
   garmentType,
+  imageModel,
   updatedAt,
   disabled,
   canDelete,
@@ -26,6 +29,7 @@ export default function StoryboardEditorHeader({
   onRequestDelete,
   onTitleChange,
   onGarmentTypeChange,
+  onImageModelChange,
 }: StoryboardEditorHeaderProps) {
   return (
     <div className="storyboardEditorCardHeader" aria-label="Storyboard manager">
@@ -103,6 +107,40 @@ export default function StoryboardEditorHeader({
           {garmentType && !GARMENT_TYPES.includes(garmentType as typeof GARMENT_TYPES[number]) && (
             <span className="badge">{garmentType}</span>
           )}
+        </div>
+      </div>
+
+      {/* ── Image Generation Model ───────────────────────────────── */}
+      <div className="garmentTypeRow" style={{ marginTop: 16 }}>
+        <div className="sectionTitle" style={{ margin: "0 0 10px" }}>
+          Image generation model
+        </div>
+        <div className="modelSelectorCards">
+          {IMAGE_GENERATION_MODELS.map((m) => {
+            const active = imageModel === m.id;
+            return (
+              <button
+                key={m.id}
+                type="button"
+                disabled={disabled}
+                onClick={() => onImageModelChange(m.id)}
+                className={["modelCard", m.colorClass, active ? "modelCardActive" : ""].filter(Boolean).join(" ")}
+                title={m.id}
+              >
+                <div className="modelCardHeader">
+                  <span className="modelCardName">{m.label}</span>
+                  <span className="modelCardModeBadge">{m.mode}</span>
+                </div>
+                <div className="modelCardDesc">{m.desc}</div>
+                <div className="modelCardTokenBadge">
+                  {m.colorClass === "modelCard--pro" ? "⚡ Turbo — full custom controls" : "🌿 Eco — template-based generation"}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+          Model used for garment reference, composite, multi-angle, and prints generation.
         </div>
       </div>
 

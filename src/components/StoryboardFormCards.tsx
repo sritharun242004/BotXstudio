@@ -8,7 +8,9 @@ import { poseTemplates, type PoseTemplate } from "../lib/poseLibrary";
 import {
   backgroundThemeOptions,
   footwearPresetOptions,
+  modelAgeRangeOptions,
   modelEthnicityOptions,
+  modelGenderOptions,
   modelPosePresetOptions,
   modelStylingPresetOptions,
   occasionPresetOptions,
@@ -158,7 +160,8 @@ interface StoryboardFormCardsProps {
   runtime: RuntimeLite;
   activeStoryboardId: string;
   isGenerating: boolean;
-  onGarmentFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onGarmentFrontFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onGarmentBackFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onBackgroundFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onModelFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onPoseFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -186,7 +189,8 @@ export default function StoryboardFormCards({
   runtime,
   activeStoryboardId,
   isGenerating,
-  onGarmentFileChange,
+  onGarmentFrontFileChange,
+  onGarmentBackFileChange,
   onBackgroundFileChange,
   onModelFileChange,
   onPoseFileChange,
@@ -207,6 +211,8 @@ export default function StoryboardFormCards({
   onSubmit,
   onOpenImage,
 }: StoryboardFormCardsProps) {
+  const isFlashModel = (config.imageModel || "").toLowerCase().includes("flash");
+
   const [showSavedPrints, setShowSavedPrints] = useState(false);
   const [showSavedGarments, setShowSavedGarments] = useState(false);
   const [showSavedBackgrounds, setShowSavedBackgrounds] = useState(false);
@@ -295,7 +301,7 @@ export default function StoryboardFormCards({
         addModelFromDataUrl(b64, `template_${tmpl.id}.png`);
         
         onConfigUpdate({
-          modelPreset: "custom",
+          modelPreset: "",
           modelDetails: tmpl.ethnicityKeyword
         });
       };
@@ -341,7 +347,7 @@ export default function StoryboardFormCards({
         const b64 = reader.result as string;
         addPoseFromDataUrl(b64, `pose_template_${tmpl.id}.jpg`);
         onConfigUpdate({
-          modelPosePreset: "custom",
+          modelPosePreset: "",
           modelPoseDetails: tmpl.poseKeyword,
         });
       };
@@ -388,33 +394,64 @@ export default function StoryboardFormCards({
           {/* ── Garment Photos ── */}
           <div className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Garment photos</div>
-            <div>
-              <FieldLabel label="Photos" info="Upload 1–4 photos of the SAME garment." />
-              <label htmlFor="garmentPhoto" className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                Upload photos
-              </label>
-              <input id="garmentPhoto" type="file" accept="image/*" multiple onChange={onGarmentFileChange} style={{ display: "none" }} />
+
+            <div className="garmentSlotGrid">
+              {/* Front slot — required */}
+              <div className="garmentSlotWrapper">
+                <div className="garmentSlotLabel">
+                  Front view
+                  <span className="garmentSlotRequired">required</span>
+                </div>
+                {runtime.garmentDataUrls[0] ? (
+                  <div className="previewItem garmentSlotPreview">
+                    <img src={runtime.garmentDataUrls[0]} alt="Garment front" draggable={false} onClick={() => onOpenImage(runtime.garmentDataUrls[0]!, "Garment — front view")} />
+                    <button type="button" className="removePreviewButton" onClick={() => removeGarmentImage(0)} aria-label="Remove front garment" title="Remove">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <label htmlFor={`garmentFront-${activeStoryboardId}`} className="garmentUploadSlot">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Upload front</span>
+                  </label>
+                )}
+                <input id={`garmentFront-${activeStoryboardId}`} type="file" accept="image/*" onChange={onGarmentFrontFileChange} style={{ display: "none" }} />
+              </div>
+
+              {/* Back slot — optional */}
+              <div className="garmentSlotWrapper">
+                <div className="garmentSlotLabel">
+                  Back view
+                  <span className="garmentSlotOptional">optional</span>
+                </div>
+                {runtime.garmentDataUrls[1] ? (
+                  <div className="previewItem garmentSlotPreview">
+                    <img src={runtime.garmentDataUrls[1]} alt="Garment back" draggable={false} onClick={() => onOpenImage(runtime.garmentDataUrls[1]!, "Garment — back view")} />
+                    <button type="button" className="removePreviewButton" onClick={() => removeGarmentImage(1)} aria-label="Remove back garment" title="Remove">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor={`garmentBack-${activeStoryboardId}`}
+                    className={`garmentUploadSlot${!runtime.garmentDataUrls[0] ? " garmentUploadSlotDisabled" : ""}`}
+                    title={!runtime.garmentDataUrls[0] ? "Upload front view first" : ""}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span>Upload back</span>
+                  </label>
+                )}
+                <input id={`garmentBack-${activeStoryboardId}`} type="file" accept="image/*" disabled={!runtime.garmentDataUrls[0]} onChange={onGarmentBackFileChange} style={{ display: "none" }} />
+              </div>
             </div>
 
-            {runtime.garmentDataUrls.length > 0 && (
-              <div style={{ marginTop: 12 }}>
-                <label>Garment preview</label>
-                <div className="preview previewGarments">
-                  {runtime.garmentDataUrls.map((src, idx) => (
-                    <div key={`${activeStoryboardId}-${idx}`} className="previewItem">
-                      <img src={src} alt={`Garment angle ${idx + 1}`} draggable={false} onClick={() => onOpenImage(src, "Garment angle")} />
-                      <button type="button" className="removePreviewButton" onClick={() => removeGarmentImage(idx)} aria-label={`Remove garment image ${idx + 1}`} title="Remove image">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {runtime.garmentDataUrls.length < 3 && (
-                  <div className="muted" style={{ marginTop: 8 }}>Tip: upload 3–4 angles (front/side/back) for better accuracy.</div>
-                )}
+            {runtime.garmentDataUrls[0] && !runtime.garmentDataUrls[1] && (
+              <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
+                Tip: adding a back view improves garment accuracy in generated images.
               </div>
             )}
 
@@ -472,264 +509,120 @@ export default function StoryboardFormCards({
             </div>
           </div>
 
-          {/* ── Creative Direction ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Creative Direction</div>
-
-            <div>
-              <FieldLabel label="Occasion" info="Sets the vibe for styling and scene." />
-              <PillRadioGroup name="occasion" value={config.occasionPreset} options={occasionPresetOptions} onChange={(v) => onConfigUpdate({ occasionPreset: v })} />
-              <div style={{ height: 14 }} />
-              <input className="control" type="text" value={config.occasionDetails} onChange={(e) => onConfigUpdate({ occasionDetails: e.target.value })} placeholder="Optional: add details or type a custom occasion" />
-            </div>
-
-            <div style={{ height: 40 }} />
-
-            <div>
-              <FieldLabel label="Accessories" info="Optional add-ons." />
-              <div className="pillGroup" role="group" aria-label="Accessories presets" style={{ marginTop: 8 }}>
-                {accessoriesPresetOptions.map((opt) => (
-                  <label key={opt.value} className="pill">
-                    <input type="checkbox" value={opt.value} checked={accessoriesSelected.some((s) => normalizeToken(s) === normalizeToken(opt.value))} onChange={(e) => handleAccessoryToggle(opt.value, e.target.checked)} />
-                    <span>{opt.label}</span>
-                  </label>
-                ))}
-              </div>
-              <div style={{ height: 14 }} />
-              <input className="control" type="text" value={config.accessories} onChange={(e) => onConfigUpdate({ accessories: e.target.value })} placeholder="Optional: add custom accessories (comma separated)" />
-            </div>
-
-            <div style={{ height: 40 }} />
-
-            <div>
-              <FieldLabel label="Footwear" info="Choose footwear and optionally add details." />
-              <PillRadioGroup name="footwear" value={config.footwearPreset} options={footwearPresetOptions} onChange={(v) => onConfigUpdate({ footwearPreset: v })} />
-              <div style={{ height: 14 }} />
-              <input className="control" type="text" value={config.footwearDetails} onChange={(e) => onConfigUpdate({ footwearDetails: e.target.value })} placeholder="Optional: add details (e.g., white sneakers, nude heels)" />
-            </div>
-
-            <div style={{ height: 40 }} />
-
-            <div>
-              <FieldLabel label="Bottom Wear" info="Choose a bottom-wear pairing." />
-              <PillRadioGroup name="bottomWear" value={config.bottomWearPreset} options={bottomWearPresetOptions} onChange={(v) => onConfigUpdate({ bottomWearPreset: v })} />
-              <div style={{ height: 14 }} />
-              <input className="control" type="text" value={config.bottomWearDetails} onChange={(e) => onConfigUpdate({ bottomWearDetails: e.target.value })} placeholder="Optional: add details or type a custom bottom wear" />
-            </div>
-          </div>
-
-          {/* ── Background ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Background</div>
-            
-            <div className="pillGroup" role="group" aria-label="Background Reference Type" style={{ marginBottom: 16 }}>
-              <label className="pill">
-                <input type="radio" value="template" checked={bgTab === "template"} onChange={() => setBgTab("template")} />
-                <span>Template Backgrounds</span>
-              </label>
-              <label className="pill">
-                <input type="radio" value="custom" checked={bgTab === "custom"} onChange={() => setBgTab("custom")} />
-                <span>Custom Backgrounds</span>
-              </label>
-            </div>
-
-            {bgTab === "template" && (
-              <div className="templateModelsSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                <div style={{ marginBottom: 12 }} className="muted">Choose a pre-built background. It will automatically set your scene environment.</div>
-                <div className="pillGroup" role="group" aria-label="Background category" style={{ marginBottom: 14 }}>
-                  <button
-                    type="button"
-                    className={["garmentFilterPill", !bgCategoryFilter ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
-                    onClick={() => setBgCategoryFilter("")}
-                  >All</button>
-                  {bgCategories.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={["garmentFilterPill", bgCategoryFilter === cat ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
-                      onClick={() => setBgCategoryFilter(bgCategoryFilter === cat ? "" : cat)}
-                    >{cat}</button>
-                  ))}
-                </div>
-                <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                <div className="preview previewAssets">
-                  {filteredBgTemplates.map((tmpl) => (
-                    <div key={tmpl.id} className="previewItem" style={{ cursor: tmpl.url ? "pointer" : "not-allowed", opacity: tmpl.url ? 1 : 0.4 }} onClick={() => handleSelectBgTemplate(tmpl)} title={tmpl.label}>
-                      {tmpl.url ? (
-                        <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", background: "#333", color: "#888", textAlign: "center" }}>
-                          {tmpl.label}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                </div>
-                {isLoadingBgTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
-              </div>
-            )}
-
-            {bgTab === "custom" && (
-              <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                <div>
-                  <FieldLabel label="Background theme" info="Describes the environment you want." />
-                  <PillRadioGroup name="backgroundTheme" value={config.backgroundThemePreset} options={backgroundThemeOptions} onChange={(v) => onConfigUpdate({ backgroundThemePreset: v })} />
-                  <div style={{ height: 14 }} />
-                  <input className="control" type="text" value={config.backgroundThemeDetails} onChange={(e) => onConfigUpdate({ backgroundThemeDetails: e.target.value })} placeholder="Optional: add details (lighting, location, props)" />
-                </div>
-
-                <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <FieldLabel label="Upload Custom Background" info="Upload an image to serve as the background directly." />
-                    <label htmlFor={`upload-bg-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      Upload image
-                    </label>
-                    <input id={`upload-bg-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onBackgroundFileChange} />
-                  </div>
-
-                  <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedBackgrounds((v) => !v)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ transform: showSavedBackgrounds ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                    <span>Choose from Uploaded Backgrounds</span>
-                  </button>
-                  {showSavedBackgrounds && backgroundAssetImages.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <label>Saved Backgrounds</label>
-                      <div className="preview previewAssets">
-                        {backgroundAssetImages.map((asset, idx) => (
-                          <div key={asset.id} className="previewItem" onClick={() => addBackgroundFromDataUrl(asset.url, asset.fileName || `bg-asset-${idx}.png`)} title="Click to add as background">
-                            <img src={asset.url} alt={asset.title} draggable={false} />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {showSavedBackgrounds && !backgroundAssetImages.length && (
-                    <div className="muted" style={{ marginTop: 8 }}>No uploaded backgrounds found. Go to "Uploaded Assets" to add some.</div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {runtime.backgroundDataUrls.length > 0 && (
-              <div style={{ marginBottom: 24 }}>
-                <label>Selected Background Reference</label>
-                <div className="preview previewAssets">
-                  {runtime.backgroundDataUrls.map((src, idx) => (
-                    <div key={`${activeStoryboardId}-bg-ref-${idx}`} className="previewItem">
-                      <img src={src} alt={`Background reference ${idx + 1}`} draggable={false} onClick={() => onOpenImage(src, "Background reference", "Background reference")} />
-                      <button type="button" className="removePreviewButton" onClick={() => removeBackgroundImage(idx)} aria-label={`Remove background image ${idx + 1}`} title="Remove image">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Model ── */}
+          {/* ── Models ── */}
           <div className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Model Person</div>
-            
-            <div className="pillGroup" role="group" aria-label="Model Reference Type" style={{ marginBottom: 16 }}>
-              <label className="pill">
-                <input type="radio" value="template" checked={modelTab === "template"} onChange={() => setModelTab("template")} />
-                <span>Template Models</span>
-              </label>
-              <label className="pill">
-                <input type="radio" value="custom" checked={modelTab === "custom"} onChange={() => setModelTab("custom")} />
-                <span>Custom Models</span>
-              </label>
-            </div>
 
-            {modelTab === "template" && (
-              <div className="templateModelsSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                <div style={{ marginBottom: 12 }} className="muted">Choose a pre-built character. We will generate the look on this exact person.</div>
-                <div className="pillGroup" role="group" aria-label="Model ethnicity filter" style={{ marginBottom: 14 }}>
-                  <button
-                    type="button"
-                    className={["garmentFilterPill", !modelEthnicityFilter ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
-                    onClick={() => setModelEthnicityFilter("")}
-                  >All</button>
-                  {modelEthnicities.map((eth) => (
-                    <button
-                      key={eth}
-                      type="button"
-                      className={["garmentFilterPill", modelEthnicityFilter === eth ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
-                      onClick={() => setModelEthnicityFilter(modelEthnicityFilter === eth ? "" : eth)}
-                    >{eth}</button>
-                  ))}
+            {isFlashModel ? (
+              <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                <FieldLabel label="Gender" info="Select the model's gender." />
+                <PillRadioGroup name="modelGender" value={config.modelGender} options={modelGenderOptions} onChange={(v) => onConfigUpdate({ modelGender: v })} />
+                <div style={{ height: 14 }} />
+                <FieldLabel label="Age Range" info="Select the model's age range." />
+                <PillRadioGroup name="modelAgeRange" value={config.modelAgeRange} options={modelAgeRangeOptions} onChange={(v) => onConfigUpdate({ modelAgeRange: v })} />
+                <div style={{ height: 14 }} />
+                <FieldLabel label="Ethnicity" info="Use this to bias the generated model's ethnicity." />
+                <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
+                <div style={{ height: 14 }} />
+                <FieldLabel label="Custom notes" info="Optional extra description — e.g. curly hair, athletic build." />
+                <input className="control" type="text" value={config.modelCustomPrompt} onChange={(e) => onConfigUpdate({ modelCustomPrompt: e.target.value })} placeholder="e.g. curly hair, athletic build, confident expression" />
+              </div>
+            ) : (
+              <>
+                <div className="pillGroup" role="group" aria-label="Model Reference Type" style={{ marginBottom: 16 }}>
+                  <label className="pill">
+                    <input type="radio" value="template" checked={modelTab === "template"} onChange={() => setModelTab("template")} />
+                    <span>Template Models</span>
+                  </label>
+                  <label className="pill">
+                    <input type="radio" value="custom" checked={modelTab === "custom"} onChange={() => setModelTab("custom")} />
+                    <span>Custom Models</span>
+                  </label>
                 </div>
-                <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                {Array.from(filteredModelsByCategory.entries()).map(([cat, templates]) => (
-                  <div key={cat} style={{ marginBottom: 16 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)" }}>{cat}</div>
-                    <div className="preview previewAssets">
-                      {templates.map((tmpl) => (
-                        <div key={tmpl.id} className="previewItem" style={{ cursor: "pointer" }} onClick={() => handleSelectTemplate(tmpl)} title={`${tmpl.label} — ${tmpl.ethnicityLabel}`}>
-                          <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
-                        </div>
+
+                {modelTab === "template" && (
+                  <div className="templateModelsSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                    <div style={{ marginBottom: 12 }} className="muted">Choose a pre-built character. We will generate the look on this exact person.</div>
+                    <div className="pillGroup" role="group" aria-label="Model ethnicity filter" style={{ marginBottom: 14 }}>
+                      <button
+                        type="button"
+                        className={["garmentFilterPill", !modelEthnicityFilter ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
+                        onClick={() => setModelEthnicityFilter("")}
+                      >All</button>
+                      {modelEthnicities.map((eth) => (
+                        <button
+                          key={eth}
+                          type="button"
+                          className={["garmentFilterPill", modelEthnicityFilter === eth ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
+                          onClick={() => setModelEthnicityFilter(modelEthnicityFilter === eth ? "" : eth)}
+                        >{eth}</button>
                       ))}
                     </div>
-                  </div>
-                ))}
-                </div>
-                {isLoadingTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
-              </div>
-            )}
-
-            {modelTab === "custom" && (
-              <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                <div>
-                  <FieldLabel label="Model Preference" info="Use this to bias the generated model (ethnicity / vibe)." />
-                  <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
-                  <div style={{ height: 14 }} />
-                  <input className="control" type="text" value={config.modelDetails} onChange={(e) => onConfigUpdate({ modelDetails: e.target.value })} placeholder="Optional: add model description (ethnicity, vibe, etc.)" />
-                </div>
-
-                <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <FieldLabel label="Upload Custom Model" info="Upload an image to serve as the model directly." />
-                    <label htmlFor={`upload-model-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      Upload image
-                    </label>
-                    <input id={`upload-model-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onModelFileChange} />
-                  </div>
-
-                  <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedModels((v) => !v)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ transform: showSavedModels ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                    <span>Choose from Uploaded Models</span>
-                  </button>
-                  {showSavedModels && modelAssetImages.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <label>Saved Models</label>
-                      <div className="preview previewAssets">
-                        {modelAssetImages.map((asset, idx) => (
-                          <div key={asset.id} className="previewItem" onClick={() => addModelFromDataUrl(asset.url, asset.fileName || `model-asset-${idx}.png`)} title="Click to add as model">
-                            <img src={asset.url} alt={asset.title} draggable={false} />
-                          </div>
-                        ))}
+                    <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+                    {Array.from(filteredModelsByCategory.entries()).map(([cat, templates]) => (
+                      <div key={cat} style={{ marginBottom: 16 }}>
+                        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)" }}>{cat}</div>
+                        <div className="preview previewAssets">
+                          {templates.map((tmpl) => (
+                            <div key={tmpl.id} className="previewItem" style={{ cursor: "pointer" }} onClick={() => handleSelectTemplate(tmpl)} title={`${tmpl.label} — ${tmpl.ethnicityLabel}`}>
+                              <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
+                            </div>
+                          ))}
+                        </div>
                       </div>
+                    ))}
                     </div>
-                  )}
-                  {showSavedModels && !modelAssetImages.length && (
-                    <div className="muted" style={{ marginTop: 8 }}>No uploaded models found. Go to "Uploaded Assets" to add some.</div>
-                  )}
-                </div>
-              </div>
+                    {isLoadingTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
+                  </div>
+                )}
+
+                {modelTab === "custom" && (
+                  <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                    <div>
+                      <FieldLabel label="Model Preference" info="Use this to bias the generated model (ethnicity / vibe)." />
+                      <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
+                      <div style={{ height: 14 }} />
+                      <input className="control" type="text" value={config.modelDetails} onChange={(e) => onConfigUpdate({ modelDetails: e.target.value })} placeholder="Optional: add model description (ethnicity, vibe, etc.)" />
+                    </div>
+
+                    <div className="chooseFromAssets" style={{ marginTop: 16 }}>
+                      <div style={{ marginBottom: 12 }}>
+                        <FieldLabel label="Upload Custom Model" info="Upload an image to serve as the model directly." />
+                        <label htmlFor={`upload-model-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          Upload image
+                        </label>
+                        <input id={`upload-model-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onModelFileChange} />
+                      </div>
+
+                      <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedModels((v) => !v)}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          style={{ transform: showSavedModels ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                        <span>Choose from Uploaded Models</span>
+                      </button>
+                      {showSavedModels && modelAssetImages.length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                          <label>Saved Models</label>
+                          <div className="preview previewAssets">
+                            {modelAssetImages.map((asset, idx) => (
+                              <div key={asset.id} className="previewItem" onClick={() => addModelFromDataUrl(asset.url, asset.fileName || `model-asset-${idx}.png`)} title="Click to add as model">
+                                <img src={asset.url} alt={asset.title} draggable={false} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {showSavedModels && !modelAssetImages.length && (
+                        <div className="muted" style={{ marginTop: 8 }}>No uploaded models found. Go to "Uploaded Assets" to add some.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {runtime.modelDataUrls.length > 0 && (
@@ -747,8 +640,62 @@ export default function StoryboardFormCards({
                 </div>
               </div>
             )}
+          </div>
 
-            <div className="sectionTitle" style={{ marginTop: 24 }}>Model Pose</div>
+          {/* ── Accessories ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Accessories</div>
+            <div>
+              <FieldLabel label="Accessories" info="Optional add-ons." />
+              <div className="pillGroup" role="group" aria-label="Accessories presets" style={{ marginTop: 8 }}>
+                {accessoriesPresetOptions.map((opt) => (
+                  <label key={opt.value} className="pill">
+                    <input type="checkbox" value={opt.value} checked={accessoriesSelected.some((s) => normalizeToken(s) === normalizeToken(opt.value))} onChange={(e) => handleAccessoryToggle(opt.value, e.target.checked)} />
+                    <span>{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+              <div style={{ height: 14 }} />
+              <input className="control" type="text" value={config.accessories} onChange={(e) => onConfigUpdate({ accessories: e.target.value })} placeholder="Optional: add custom accessories (comma separated)" />
+            </div>
+          </div>
+
+          {/* ── Footwear ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Footwear</div>
+            <div>
+              <FieldLabel label="Footwear" info="Choose footwear and optionally add details." />
+              <PillRadioGroup name="footwear" value={config.footwearPreset} options={footwearPresetOptions} onChange={(v) => onConfigUpdate({ footwearPreset: v })} />
+              <div style={{ height: 14 }} />
+              <input className="control" type="text" value={config.footwearDetails} onChange={(e) => onConfigUpdate({ footwearDetails: e.target.value })} placeholder="Optional: add details (e.g., white sneakers, nude heels)" />
+            </div>
+          </div>
+
+          {/* ── Bottom Wear ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Bottom Wear</div>
+            <div>
+              <FieldLabel label="Bottom Wear" info="Choose a bottom-wear pairing." />
+              <PillRadioGroup name="bottomWear" value={config.bottomWearPreset} options={bottomWearPresetOptions} onChange={(v) => onConfigUpdate({ bottomWearPreset: v })} />
+              <div style={{ height: 14 }} />
+              <input className="control" type="text" value={config.bottomWearDetails} onChange={(e) => onConfigUpdate({ bottomWearDetails: e.target.value })} placeholder="Optional: add details or type a custom bottom wear" />
+            </div>
+          </div>
+
+          {/* ── Model Styling ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Model Styling</div>
+            <div>
+              <FieldLabel label="Model styling notes" info="Pick a preset for hair/makeup/jewelry." />
+              <PillRadioGroup name="modelStyling" value={config.modelStylingPreset} options={modelStylingPresetOptions} onChange={(v) => onConfigUpdate({ modelStylingPreset: v })} />
+              <div style={{ height: 14 }} />
+              <input className="control" type="text" value={config.modelStylingNotes} onChange={(e) => onConfigUpdate({ modelStylingNotes: e.target.value })} placeholder="Optional: add your own notes (hair/makeup/jewelry, vibe)" />
+            </div>
+          </div>
+
+          {/* ── Pose ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Model Pose</div>
 
             <div className="pillGroup" role="group" aria-label="Pose Reference Type" style={{ marginBottom: 16 }}>
               <label className="pill">
@@ -822,41 +769,43 @@ export default function StoryboardFormCards({
                   <input className="control" type="text" value={config.modelPoseDetails} onChange={(e) => onConfigUpdate({ modelPoseDetails: e.target.value })} placeholder="Optional: add pose details manually" />
                 </div>
 
-                <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                  <div style={{ marginBottom: 12 }}>
-                    <FieldLabel label="Upload Custom Pose" info="Upload an image to serve as the exact pose reference." />
-                    <label htmlFor={`upload-pose-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      Upload image
-                    </label>
-                    <input id={`upload-pose-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onPoseFileChange} />
-                  </div>
-
-                  <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedPoses((v) => !v)}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                      style={{ transform: showSavedPoses ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                    <span>Choose from Uploaded Poses</span>
-                  </button>
-                  {showSavedPoses && poseAssetImages.length > 0 && (
-                    <div style={{ marginTop: 12 }}>
-                      <label>Saved Poses</label>
-                      <div className="preview previewAssets">
-                        {poseAssetImages.map((asset, idx) => (
-                          <div key={asset.id} className="previewItem" onClick={() => addPoseFromDataUrl(asset.url, asset.fileName || `pose-asset-${idx}.png`)} title="Click to add as pose">
-                            <img src={asset.url} alt={asset.title} draggable={false} />
-                          </div>
-                        ))}
-                      </div>
+                {!isFlashModel && (
+                  <div className="chooseFromAssets" style={{ marginTop: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <FieldLabel label="Upload Custom Pose" info="Upload an image to serve as the exact pose reference." />
+                      <label htmlFor={`upload-pose-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        Upload image
+                      </label>
+                      <input id={`upload-pose-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onPoseFileChange} />
                     </div>
-                  )}
-                  {showSavedPoses && !poseAssetImages.length && (
-                    <div className="muted" style={{ marginTop: 8 }}>No uploaded poses found. Go to "Uploaded Assets" to add some.</div>
-                  )}
-                </div>
+
+                    <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedPoses((v) => !v)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: showSavedPoses ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                      <span>Choose from Uploaded Poses</span>
+                    </button>
+                    {showSavedPoses && poseAssetImages.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <label>Saved Poses</label>
+                        <div className="preview previewAssets">
+                          {poseAssetImages.map((asset, idx) => (
+                            <div key={asset.id} className="previewItem" onClick={() => addPoseFromDataUrl(asset.url, asset.fileName || `pose-asset-${idx}.png`)} title="Click to add as pose">
+                              <img src={asset.url} alt={asset.title} draggable={false} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {showSavedPoses && !poseAssetImages.length && (
+                      <div className="muted" style={{ marginTop: 8 }}>No uploaded poses found. Go to "Uploaded Assets" to add some.</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -875,14 +824,134 @@ export default function StoryboardFormCards({
                 </div>
               </div>
             )}
+          </div>
 
-            <div style={{ height: 40 }} />
+          {/* ── Background ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Background</div>
 
+            <div className="pillGroup" role="group" aria-label="Background Reference Type" style={{ marginBottom: 16 }}>
+              <label className="pill">
+                <input type="radio" value="template" checked={bgTab === "template"} onChange={() => setBgTab("template")} />
+                <span>Template Backgrounds</span>
+              </label>
+              <label className="pill">
+                <input type="radio" value="custom" checked={bgTab === "custom"} onChange={() => setBgTab("custom")} />
+                <span>Custom Backgrounds</span>
+              </label>
+            </div>
+
+            {bgTab === "template" && (
+              <div className="templateModelsSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                <div style={{ marginBottom: 12 }} className="muted">Choose a pre-built background. It will automatically set your scene environment.</div>
+                <div className="pillGroup" role="group" aria-label="Background category" style={{ marginBottom: 14 }}>
+                  <button
+                    type="button"
+                    className={["garmentFilterPill", !bgCategoryFilter ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
+                    onClick={() => setBgCategoryFilter("")}
+                  >All</button>
+                  {bgCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={["garmentFilterPill", bgCategoryFilter === cat ? "garmentFilterPillActive" : ""].filter(Boolean).join(" ")}
+                      onClick={() => setBgCategoryFilter(bgCategoryFilter === cat ? "" : cat)}
+                    >{cat}</button>
+                  ))}
+                </div>
+                <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
+                <div className="preview previewAssets">
+                  {filteredBgTemplates.map((tmpl) => (
+                    <div key={tmpl.id} className="previewItem" style={{ cursor: tmpl.url ? "pointer" : "not-allowed", opacity: tmpl.url ? 1 : 0.4 }} onClick={() => handleSelectBgTemplate(tmpl)} title={tmpl.label}>
+                      {tmpl.url ? (
+                        <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
+                      ) : (
+                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", background: "#333", color: "#888", textAlign: "center" }}>
+                          {tmpl.label}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                </div>
+                {isLoadingBgTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
+              </div>
+            )}
+
+            {bgTab === "custom" && (
+              <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
+                <div>
+                  <FieldLabel label="Background theme" info="Describes the environment you want." />
+                  <PillRadioGroup name="backgroundTheme" value={config.backgroundThemePreset} options={backgroundThemeOptions} onChange={(v) => onConfigUpdate({ backgroundThemePreset: v })} />
+                  <div style={{ height: 14 }} />
+                  <input className="control" type="text" value={config.backgroundThemeDetails} onChange={(e) => onConfigUpdate({ backgroundThemeDetails: e.target.value })} placeholder="Optional: add details (lighting, location, props)" />
+                </div>
+
+                {!isFlashModel && (
+                  <div className="chooseFromAssets" style={{ marginTop: 16 }}>
+                    <div style={{ marginBottom: 12 }}>
+                      <FieldLabel label="Upload Custom Background" info="Upload an image to serve as the background directly." />
+                      <label htmlFor={`upload-bg-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        Upload image
+                      </label>
+                      <input id={`upload-bg-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onBackgroundFileChange} />
+                    </div>
+
+                    <button type="button" className="toggle-assets-btn" onClick={() => setShowSavedBackgrounds((v) => !v)}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: showSavedBackgrounds ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                      <span>Choose from Uploaded Backgrounds</span>
+                    </button>
+                    {showSavedBackgrounds && backgroundAssetImages.length > 0 && (
+                      <div style={{ marginTop: 12 }}>
+                        <label>Saved Backgrounds</label>
+                        <div className="preview previewAssets">
+                          {backgroundAssetImages.map((asset, idx) => (
+                            <div key={asset.id} className="previewItem" onClick={() => addBackgroundFromDataUrl(asset.url, asset.fileName || `bg-asset-${idx}.png`)} title="Click to add as background">
+                              <img src={asset.url} alt={asset.title} draggable={false} />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {showSavedBackgrounds && !backgroundAssetImages.length && (
+                      <div className="muted" style={{ marginTop: 8 }}>No uploaded backgrounds found. Go to "Uploaded Assets" to add some.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {runtime.backgroundDataUrls.length > 0 && (
+              <div style={{ marginBottom: 24 }}>
+                <label>Selected Background Reference</label>
+                <div className="preview previewAssets">
+                  {runtime.backgroundDataUrls.map((src, idx) => (
+                    <div key={`${activeStoryboardId}-bg-ref-${idx}`} className="previewItem">
+                      <img src={src} alt={`Background reference ${idx + 1}`} draggable={false} onClick={() => onOpenImage(src, "Background reference", "Background reference")} />
+                      <button type="button" className="removePreviewButton" onClick={() => removeBackgroundImage(idx)} aria-label={`Remove background image ${idx + 1}`} title="Remove image">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Occasion ── */}
+          <div className="parameterSection">
+            <div className="sectionTitle" style={{ marginTop: 0 }}>Occasion</div>
             <div>
-              <FieldLabel label="Model styling notes" info="Pick a preset for hair/makeup/jewelry." />
-              <PillRadioGroup name="modelStyling" value={config.modelStylingPreset} options={modelStylingPresetOptions} onChange={(v) => onConfigUpdate({ modelStylingPreset: v })} />
+              <FieldLabel label="Occasion" info="Sets the vibe for styling and scene." />
+              <PillRadioGroup name="occasion" value={config.occasionPreset} options={occasionPresetOptions} onChange={(v) => onConfigUpdate({ occasionPreset: v })} />
               <div style={{ height: 14 }} />
-              <input className="control" type="text" value={config.modelStylingNotes} onChange={(e) => onConfigUpdate({ modelStylingNotes: e.target.value })} placeholder="Optional: add your own notes (hair/makeup/jewelry, vibe)" />
+              <input className="control" type="text" value={config.occasionDetails} onChange={(e) => onConfigUpdate({ occasionDetails: e.target.value })} placeholder="Optional: add details or type a custom occasion" />
             </div>
           </div>
 
