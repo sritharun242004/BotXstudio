@@ -74,9 +74,19 @@ export default function StoryboardEditorHeader({
       </div>
 
       {/* ── Garment Type ─────────────────────────────────────────── */}
-      <div className="garmentTypeRow">
-        <div className="sectionTitle" style={{ margin: "0 0 8px" }}>
+      <div id="section-garment-type" className="garmentTypeRow">
+        <div className="sectionTitle" style={{ margin: "0 0 8px", display: "flex", alignItems: "center", gap: 8 }}>
           What garment type are you generating?
+          <span style={{
+            fontSize: "0.65rem", fontWeight: 700,
+            color: garmentType ? "#4ade80" : "#f87171",
+            background: garmentType ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
+            padding: "2px 7px", borderRadius: 4,
+            letterSpacing: "0.06em", textTransform: "uppercase" as const,
+            transition: "color 0.2s, background 0.2s",
+          }}>
+            {garmentType ? "set" : "required"}
+          </span>
         </div>
         <div className="garmentTypePills">
           {GARMENT_TYPES.map((type) => (

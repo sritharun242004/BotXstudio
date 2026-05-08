@@ -7,19 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   name         String
   passwordHash String?  @map("password_hash")
   cognitoSub   String?  @unique @map("cognito_sub")
+  role         Role     @default(USER)
+  permissions  Json?
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  storyboards   Storyboard[]
-  images        Image[]
-  assets        Asset[]
-  apiLogs       ApiLog[]
+  storyboards        Storyboard[]
+  images             Image[]
+  assets             Asset[]
+  apiLogs            ApiLog[]
+  adminLogs          AdminLog[]
+  templates          Template[]
+  disabledTemplates  DisabledTemplate[]
 
   @@map("users")
 }
@@ -116,4 +127,56 @@ model ApiLog {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("api_logs")
+}
+
+model AdminLog {
+  id        String   @id @default(uuid())
+  adminId   String   @map("admin_id")
+  action    String
+  targetId  String?  @map("target_id")
+  details   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("admin_logs")
+}
+
+model SystemConfig {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("system_config")
+}
+
+model Template {
+  id         String   @id @default(uuid())
+  title      String
+  category   String
+  s3Key      String   @map("s3_key")
+  s3Bucket   String   @map("s3_bucket")
+  previewUrl String?  @map("preview_url")
+  metadata   Json?
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  createdByUser User @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+
+  @@map("templates")
+}
+
+model DisabledTemplate {
+  id          String   @id @default(uuid())
+  templateId  String   @unique @map("template_id")
+  category    String
+  disabledAt  DateTime @default(now()) @map("disabled_at")
+  disabledBy  String   @map("disabled_by")
+
+  disabledByUser User @relation(fields: [disabledBy], references: [id], onDelete: Cascade)
+
+  @@map("disabled_templates")
 }

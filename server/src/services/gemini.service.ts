@@ -116,18 +116,12 @@ async function fetchWithRetry(
   throw lastError ?? new GeminiError("Gemini API request failed after retries.");
 }
 
-const PROMPT_QUALITY_MARKER = "Photo quality requirements:";
+const PROMPT_QUALITY_MARKER = "Output style:";
 const PROMPT_PHOTOSHOOT_QUALITY_BLOCK = [
-  "Photo quality requirements:",
-  "- Output resolution: 1080×1440 pixels (3:4 portrait).",
-  "- Photorealistic, high-resolution, ultra-sharp detail, crisp focus (no motion blur).",
-  "- Professional high-end fashion/product photoshoot look (studio-grade lighting, clean color, high dynamic range).",
-  "- Accurate textures (skin/fabric), natural shadows, realistic perspective and depth.",
-  "- Shot on a high-end camera with a premium lens; clean, natural bokeh where applicable.",
-  "- Composition: keep the main subject large and fully in frame; avoid extreme wide shots with a tiny subject.",
-  "- Color & finish: balanced exposure, medium contrast, gentle highlight roll-off; natural skin tones; no crushed blacks or blown highlights.",
-  "- Detail: preserve natural skin texture (no plastic/over-smoothed retouching); enhance fabric micro-contrast so seams/weave/print read clearly.",
-  "- Avoid: low-res, blurry, noise, compression artifacts, over-smoothing/plastic look, CGI/cartoon look.",
+  "Output style: clean fashion catalog image, simple studio composition, photorealistic, consistent framing.",
+  "Lighting: balanced exposure, natural skin tones, soft shadows.",
+  "Fabric: accurate texture, visible seams and weave, realistic folds.",
+  "Negative: close-up shot, macro detail, cropped body, zoomed face, cut limbs, cinematic crop, extreme perspective, dramatic framing.",
 ].join("\n");
 
 function enhanceImagePrompt(promptText: string): string {
@@ -234,6 +228,8 @@ export async function generateImage(opts: {
     },
   };
 
+  const defaultTimeout = modelName.toLowerCase().includes("flash") ? 90_000 : 180_000;
+
   async function post(payload: any): Promise<any> {
     const { resp, body: rawBody } = await fetchWithRetry(
       url,
@@ -242,7 +238,7 @@ export async function generateImage(opts: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       },
-      typeof opts.timeoutMs === "number" ? opts.timeoutMs : 180_000,
+      typeof opts.timeoutMs === "number" ? opts.timeoutMs : defaultTimeout,
     );
 
     if (!resp.ok) {
@@ -256,6 +252,7 @@ export async function generateImage(opts: {
     }
   }
 
+  // ── Attempt 1: full payload ─────────────────────────────────────────────────
   let json: any;
   try {
     json = await post(payloadBase);
@@ -280,6 +277,41 @@ export async function generateImage(opts: {
     };
     delete payloadFallback.generationConfig.imageConfig;
     json = await post(payloadFallback);
+  }
+
+  // ── IMAGE_OTHER retry logic ──────────────────────────────────────────────────
+  // IMAGE_OTHER is HTTP 200 with no image — not caught by the 429/503 retry loop.
+  // CRITICAL: always strip imageConfig on retries — Flash rejects width/height in
+  // imageConfig with 400 INVALID_ARGUMENT, which kills the retry immediately.
+  const IMAGE_OTHER_MAX_RETRIES = 2;
+  for (let attempt = 1; attempt <= IMAGE_OTHER_MAX_RETRIES; attempt++) {
+    const finishReasonNow: string = json?.candidates?.[0]?.finishReason ?? "";
+    const hasImage = Boolean(pickResponseInlineImage(json));
+    if (hasImage || finishReasonNow !== "IMAGE_OTHER") break;
+
+    const delayMs = 3_000 * attempt; // 3s, 6s
+    console.warn(`[Gemini] IMAGE_OTHER on attempt ${attempt}, retrying in ${delayMs}ms…`, { model: modelName });
+    await sleep(delayMs);
+
+    // Always strip imageConfig — width/height are not supported by Flash and cause 400
+    const retryPayload = {
+      ...payloadBase,
+      generationConfig: { ...payloadBase.generationConfig },
+    };
+    delete retryPayload.generationConfig.imageConfig;
+
+    try {
+      json = await post(retryPayload);
+    } catch (retryErr: any) {
+      const retryMsg = String(retryErr?.message || retryErr).slice(0, 400);
+      const errKind = retryMsg.includes("Unknown name") || retryMsg.includes("Invalid JSON payload")
+        ? "INVALID_ARGUMENT"
+        : retryMsg.includes("IMAGE_OTHER")
+          ? "IMAGE_OTHER"
+          : `HTTP_ERROR`;
+      console.error(`[Gemini] Retry ${attempt} failed (${errKind}):`, retryMsg);
+      break;
+    }
   }
 
   const inline = pickResponseInlineImage(json);

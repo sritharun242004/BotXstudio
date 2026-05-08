@@ -1291,12 +1291,12 @@ export default function App() {
   async function addBackgroundFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
-    if (!rt || rt.backgroundDataUrls.length >= 4) return;
+    if (!rt) return;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [...r.backgroundDataUrls, dataUrl], backgroundFileNames: [...r.backgroundFileNames, fileName] } };
+        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [dataUrl], backgroundFileNames: [fileName] } };
       });
     } catch (err) { console.error("Failed to load background image", err); showToast("Failed to load background image.", "error"); }
   }
@@ -1322,12 +1322,12 @@ export default function App() {
   async function addPoseFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
-    if (!rt || rt.poseDataUrls.length >= 4) return;
+    if (!rt) return;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, poseDataUrls: [...r.poseDataUrls, dataUrl], poseFileNames: [...r.poseFileNames, fileName] } };
+        return { ...prev, [sbId]: { ...r, poseDataUrls: [dataUrl], poseFileNames: [fileName] } };
       });
     } catch (err) { console.error("Failed to load pose image", err); showToast("Failed to load pose image.", "error"); }
   }
@@ -1652,7 +1652,9 @@ export default function App() {
         garmentImages, modelImage, poseImages, backgroundImage, config,
         onStep: (step) => {
           if (step === "garment_ref") setGenerationStepIndex(2);
-          else if (step === "composite") setGenerationStepIndex(3);
+          else if (step === "look_plan") setGenerationStepIndex(3);
+          else if (step === "final_prompt") setGenerationStepIndex(4);
+          else if (step === "composite") setGenerationStepIndex(5);
         },
       });
 
@@ -1826,6 +1828,7 @@ export default function App() {
         config,
         garmentType: activeStoryboard.garmentType ?? "",
         baseUrl: (import.meta.env.BASE_URL || "/").replace(/\/$/, ""),
+        garmentImages: rt.garmentDataUrls.map((url) => dataUrlToInlineImage(url)),
       });
 
       updateAngles(sbId, {
@@ -2076,6 +2079,7 @@ export default function App() {
                           config={activeConfig}
                           runtime={activeRuntime}
                           activeStoryboardId={activeStoryboardId}
+                          garmentType={activeStoryboard.garmentType ?? ""}
                           isGenerating={isGenerating}
                           onGarmentFrontFileChange={onGarmentFrontFileChange}
                           onGarmentBackFileChange={onGarmentBackFileChange}

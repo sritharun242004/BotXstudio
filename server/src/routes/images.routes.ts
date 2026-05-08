@@ -17,6 +17,16 @@ const verifier = CognitoJwtVerifier.create({
   clientId: env.COGNITO_CLIENT_ID,
 });
 
+// In-memory JWT → userId cache with 4-minute TTL (Cognito tokens last 1h)
+const jwtCache = new Map<string, { userId: string; email: string; role: string; expiresAt: number }>();
+const JWT_CACHE_TTL_MS = 4 * 60 * 1000;
+
+function pruneJwtCache() {
+  const now = Date.now();
+  for (const [k, v] of jwtCache) if (v.expiresAt < now) jwtCache.delete(k);
+}
+setInterval(pruneJwtCache, 60_000).unref();
+
 // Raw image proxy — supports Bearer token OR ?token= query param (for <img> tags)
 async function authenticateFlexible(req: Request, _res: Response, next: NextFunction): Promise<void> {
   try {
@@ -25,10 +35,24 @@ async function authenticateFlexible(req: Request, _res: Response, next: NextFunc
     const token = header?.startsWith("Bearer ") ? header.slice(7) : queryToken;
     if (!token) return next(new UnauthorizedError("Missing authorization"));
 
+    const cached = jwtCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+      req.user = { userId: cached.userId, email: cached.email, role: cached.role as any, permissions: null };
+      return next();
+    }
+
     const payload = await verifier.verify(token);
     const dbUser = await findByCognitoSub(payload.sub);
     if (!dbUser) return next(new UnauthorizedError("User not found"));
-    req.user = { userId: dbUser.id, email: dbUser.email };
+
+    jwtCache.set(token, { userId: dbUser.id, email: dbUser.email, role: dbUser.role, expiresAt: Date.now() + JWT_CACHE_TTL_MS });
+
+    req.user = {
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: (dbUser.role as any) ?? "USER",
+      permissions: null,
+    };
     next();
   } catch {
     next(new UnauthorizedError("Invalid or expired token"));

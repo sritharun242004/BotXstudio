@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import LogoLoader from "./LogoLoader";
 
 type SavedImageView = {
   id: string;
@@ -173,7 +174,7 @@ function GroupCard({ group, formatTimestamp, onOpenImage, onDeleteGroup, isSelec
               }}
               aria-label={`Open ${img.title}`}
             >
-              <img src={img.url} alt={img.title} draggable={false} />
+              <img src={img.url} alt={img.title} draggable={false} loading="lazy" decoding="async" />
               {/* "+N more" overlay on the 4th slot when there are >4 images */}
               {i === 3 && count > 4 && (
                 <span className="atGroupMoreOverlay">+{count - 3}</span>
@@ -409,8 +410,7 @@ export default function SavedImagesPane({
       {/* ── Grid ── */}
       {isLoading ? (
         <div className="atLibraryLoading" style={{ marginTop: 40 }}>
-          <div className="atLoadingSpinner" />
-          <p style={{ marginTop: 12, color: "var(--text-muted)", fontSize: 14 }}>Loading saved images...</p>
+          <LogoLoader size={80} color="var(--text)" label="Loading saved images..." />
         </div>
       ) : filteredGroups.length === 0 ? (
         <div className="atLibraryEmpty" style={{ marginTop: 20 }}>

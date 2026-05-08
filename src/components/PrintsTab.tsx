@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import FieldLabel from "./FieldLabel";
+import GarmentColorPicker from "./GarmentColorPicker";
 import type { StoryboardConfig } from "../lib/storyboards";
 import { normalizeHexColor } from "../lib/utils";
 
@@ -105,19 +106,19 @@ export default function PrintsTab({
   mimeToExtension,
   onBaseGarmentFrontFileChange,
   onBaseGarmentBackFileChange,
-  onBaseGarmentSideFileChange,
+  onBaseGarmentSideFileChange: _onBaseGarmentSideFileChange,
   onLoadBuiltInFront,
   onLoadBuiltInBack,
-  onLoadBuiltInSide,
+  onLoadBuiltInSide: _onLoadBuiltInSide,
   onPrintDesignFrontFileChange,
   onPrintDesignBackFileChange,
-  onPrintDesignSideFileChange,
+  onPrintDesignSideFileChange: _onPrintDesignSideFileChange,
   removeBaseGarmentFront,
   removeBaseGarmentBack,
-  removeBaseGarmentSide,
+  removeBaseGarmentSide: _removeBaseGarmentSide,
   removePrintDesignFront,
   removePrintDesignBack,
-  removePrintDesignSide,
+  removePrintDesignSide: _removePrintDesignSide,
   printElapsedMs = 0,
   onGenerate,
   onRetry,
@@ -129,7 +130,6 @@ export default function PrintsTab({
 
   const frontFileRef = useRef<HTMLInputElement>(null);
   const backFileRef = useRef<HTMLInputElement>(null);
-  const sideFileRef = useRef<HTMLInputElement>(null);
 
   const timerText = useMemo(() => {
     const s = Math.floor(printElapsedMs / 1000);
@@ -148,16 +148,6 @@ export default function PrintsTab({
     runtime.prints.outputFrontDataUrl ||
     runtime.prints.outputBackDataUrl ||
     "";
-
-  function handleColorPickerInput(e: React.ChangeEvent<HTMLInputElement>) {
-    const value = (e.target.value || "").trim();
-    onConfigUpdate({ printColorHex: normalizeHexColor(value) || value });
-  }
-
-  function handleColorHexBlur() {
-    const normalized = normalizeHexColor(config.printColorHex);
-    if (normalized) onConfigUpdate({ printColorHex: normalized });
-  }
 
   function handleRetry() {
     onRetry(retryComments);
@@ -207,208 +197,185 @@ export default function PrintsTab({
       <div>
         <div className="sectionTitle" style={{ marginTop: 0 }}>Inputs</div>
 
-        {/* ── Garment Category + White Garment Photos (full-width) ── */}
-        <div className="card" style={{ marginTop: 10 }}>
-          <div style={{ marginBottom: 20 }}>
-            <FieldLabel label="Garment Category" info={selectedGarment.description} />
-            <select
-              className="control"
-              value={config.printGarmentCategory}
-              onChange={(e) => onConfigUpdate({ printGarmentCategory: e.target.value })}
-            >
-              {ALL_GARMENTS.map(g => (
-                <option key={g.id} value={g.name}>{g.name}</option>
-              ))}
-            </select>
-          </div>
+        {/* ── Two-column grid: garment inputs (left) + color picker (right) ── */}
+        <div className={showColorSelector ? "printsInputGrid" : ""} style={{ marginTop: 10 }}>
 
-          {selectedGarment.name !== "Saree" && <FieldLabel
-            label="White garment photos"
-            info={isFullCloth ? "A full view of the cloth is required." : "Front and back views are required."}
-          />}
-
-          {/* Loaded garment previews */}
-          {selectedGarment.name !== "Saree" && anyGarmentLoaded && (
-            <div style={{ marginBottom: 12 }}>
-              <div className="preview">
-                {runtime.prints.baseGarmentFrontDataUrl && (
-                  <div style={{ display: "grid", gap: 4, placeItems: "center" }}>
-                    <div className="previewItem">
-                      <img
-                        src={runtime.prints.baseGarmentFrontDataUrl}
-                        alt={isFullCloth ? "Garment photo" : "White garment — front"}
-                        draggable={false}
-                        onClick={() => onOpenImage(runtime.prints.baseGarmentFrontDataUrl!, isFullCloth ? "Garment photo" : "White garment — front")}
-                      />
-                      <button type="button" className="removePreviewButton" onClick={removeBaseGarmentFront} aria-label="Remove" title="Remove">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                    <span className="muted" style={{ fontSize: 11 }}>{isFullCloth ? "Full" : "Front"}</span>
-                  </div>
-                )}
-                {!isFullCloth && runtime.prints.baseGarmentBackDataUrl && (
-                  <div style={{ display: "grid", gap: 4, placeItems: "center" }}>
-                    <div className="previewItem">
-                      <img
-                        src={runtime.prints.baseGarmentBackDataUrl}
-                        alt="White garment — back"
-                        draggable={false}
-                        onClick={() => onOpenImage(runtime.prints.baseGarmentBackDataUrl!, "White garment — back")}
-                      />
-                      <button type="button" className="removePreviewButton" onClick={removeBaseGarmentBack} aria-label="Remove" title="Remove">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                      </button>
-                    </div>
-                    <span className="muted" style={{ fontSize: 11 }}>Back</span>
-                  </div>
-                )}
-              </div>
+          {/* LEFT: Garment Category + White Garment Photos */}
+          <div className="card">
+            <div style={{ marginBottom: 20 }}>
+              <FieldLabel label="Garment Category" info={selectedGarment.description} />
+              <select
+                className="control"
+                value={config.printGarmentCategory}
+                onChange={(e) => onConfigUpdate({ printGarmentCategory: e.target.value })}
+              >
+                {ALL_GARMENTS.map(g => (
+                  <option key={g.id} value={g.name}>{g.name}</option>
+                ))}
+              </select>
             </div>
-          )}
 
-          {/* Upload Custom button */}
-          {selectedGarment.name !== "Saree" && <div>
-            <button
-              type="button"
-              className="btnGhost"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}
-              onClick={() => setShowCustomUpload(v => !v)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              Upload Custom
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12, transform: showCustomUpload ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
+            {selectedGarment.name !== "Saree" && <FieldLabel
+              label="White garment photos"
+              info={isFullCloth ? "A full view of the cloth is required." : "Front and back views are required."}
+            />}
 
-            {showCustomUpload && (
-              <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", paddingLeft: 4 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <label htmlFor="printBaseGarmentFront" className="btnSecondary" style={{ fontSize: 12, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                    {uploadIcon}
-                    {isFullCloth ? "Full cloth" : "Front view"}
-                  </label>
-                  <input id="printBaseGarmentFront" ref={frontFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onBaseGarmentFrontFileChange} />
+            {/* Loaded garment previews */}
+            {selectedGarment.name !== "Saree" && anyGarmentLoaded && (
+              <div style={{ marginBottom: 12 }}>
+                <div className="preview">
+                  {runtime.prints.baseGarmentFrontDataUrl && (
+                    <div style={{ display: "grid", gap: 4, placeItems: "center" }}>
+                      <div className="previewItem">
+                        <img
+                          src={runtime.prints.baseGarmentFrontDataUrl}
+                          alt={isFullCloth ? "Garment photo" : "White garment — front"}
+                          draggable={false}
+                          onClick={() => onOpenImage(runtime.prints.baseGarmentFrontDataUrl!, isFullCloth ? "Garment photo" : "White garment — front")}
+                        />
+                        <button type="button" className="removePreviewButton" onClick={removeBaseGarmentFront} aria-label="Remove" title="Remove">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                      <span className="muted" style={{ fontSize: 11 }}>{isFullCloth ? "Full" : "Front"}</span>
+                    </div>
+                  )}
+                  {!isFullCloth && runtime.prints.baseGarmentBackDataUrl && (
+                    <div style={{ display: "grid", gap: 4, placeItems: "center" }}>
+                      <div className="previewItem">
+                        <img
+                          src={runtime.prints.baseGarmentBackDataUrl}
+                          alt="White garment — back"
+                          draggable={false}
+                          onClick={() => onOpenImage(runtime.prints.baseGarmentBackDataUrl!, "White garment — back")}
+                        />
+                        <button type="button" className="removePreviewButton" onClick={removeBaseGarmentBack} aria-label="Remove" title="Remove">
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                      <span className="muted" style={{ fontSize: 11 }}>Back</span>
+                    </div>
+                  )}
                 </div>
-                {!isFullCloth && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <label htmlFor="printBaseGarmentBack" className="btnSecondary" style={{ fontSize: 12, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
-                      {uploadIcon}
-                      Back view
-                    </label>
-                    <input id="printBaseGarmentBack" ref={backFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onBaseGarmentBackFileChange} />
-                  </div>
-                )}
               </div>
             )}
-          </div>}
-        </div>
 
-        {/* ── Garment Color Selector (T-shirt / Hoodie / Sweater only) ── */}
-        {showColorSelector && (
-          <div className="card" style={{ marginTop: 10 }}>
-            <FieldLabel label="Choose Garment Color" info="Select a base color for the garment before applying a print." />
+            {/* Upload Custom button */}
+            {selectedGarment.name !== "Saree" && <div>
+              <button
+                type="button"
+                className="btnGhost"
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}
+                onClick={() => setShowCustomUpload(v => !v)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 14, height: 14 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Upload Custom
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 12, height: 12, transform: showCustomUpload ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </button>
 
-            {/* Color picker + hex input */}
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-              <input
-                id="garmentColorPicker"
-                type="color"
-                value={colorPickerValue}
-                onChange={(e) => {
-                  handleColorPickerInput(e);
-                }}
-                aria-label="Pick garment color"
-                style={{ width: 48, height: 40, padding: 2, borderRadius: 8, border: "2px solid #E2E8F0", cursor: "pointer", flexShrink: 0 }}
-              />
-              <input
-                id="garmentColorHex"
-                className="control"
-                type="text"
-                value={config.printColorHex}
-                onChange={(e) => onConfigUpdate({ printColorHex: e.target.value })}
-                onBlur={handleColorHexBlur}
-                placeholder="#RRGGBB"
-                style={{ flex: 1 }}
-              />
-            </div>
-
-            {/* Preset color buttons */}
-            <div className="printColorPresets">
-              {PRESET_COLORS.map(({ label, hex }) => {
-                const isActive = config.printColorHex?.toUpperCase() === hex.toUpperCase();
-                return (
-                  <button
-                    key={hex}
-                    type="button"
-                    className={`printColorPresetBtn${isActive ? " printColorPresetBtnActive" : ""}`}
-                    onClick={() => handlePresetColor(hex)}
-                    title={label}
-                  >
-                    <span
-                      className="printColorSwatch"
-                      style={{
-                        background: hex,
-                        border: hex === "#FFFFFF" || hex === "#F0E6D3" ? "1.5px solid #D1D5DB" : "1.5px solid transparent",
-                      }}
-                    />
-                    <span>{label}</span>
-                  </button>
-                );
-              })}
-            </div>
+              {showCustomUpload && (
+                <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap", paddingLeft: 4 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <label htmlFor="printBaseGarmentFront" className="btnSecondary" style={{ fontSize: 12, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {uploadIcon}
+                      {isFullCloth ? "Full cloth" : "Front view"}
+                    </label>
+                    <input id="printBaseGarmentFront" ref={frontFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onBaseGarmentFrontFileChange} />
+                  </div>
+                  {!isFullCloth && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      <label htmlFor="printBaseGarmentBack" className="btnSecondary" style={{ fontSize: 12, padding: "6px 12px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}>
+                        {uploadIcon}
+                        Back view
+                      </label>
+                      <input id="printBaseGarmentBack" ref={backFileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onBaseGarmentBackFileChange} />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>}
           </div>
-        )}
+
+          {/* RIGHT: Garment Color Picker */}
+          {showColorSelector && (
+            <div className="card">
+              <FieldLabel label="Choose Garment Color" info="Select a base color for the garment before applying a print." />
+              <GarmentColorPicker
+                value={colorPickerValue}
+                onChange={(hex) => onConfigUpdate({ printColorHex: hex })}
+                presets={PRESET_COLORS}
+                activePreset={config.printColorHex || ""}
+                onPresetClick={handlePresetColor}
+              />
+            </div>
+          )}
+        </div>
 
         {/* ── Design Upload ── */}
         <div className="card" style={{ marginTop: 10 }}>
           <FieldLabel label="Print Design" info="Upload your design artwork. Back is optional — if omitted, the front design is applied to both views." />
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap", marginTop: 12 }}>
-            {/* Front Design */}
-            <div style={{ flex: 1, minWidth: 120 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: "var(--muted)", letterSpacing: "0.05em" }}>FRONT</div>
+          <div className="printDesignGrid">
+
+            {/* Front Design Card */}
+            <div className="printDesignCard">
+              <div className="printDesignCardLabel">Front</div>
               {runtime.prints.printDesignFrontDataUrl ? (
-                <div>
-                  <div className="previewItem" style={{ width: 90, height: 110, display: "inline-block" }}>
-                    <img src={runtime.prints.printDesignFrontDataUrl} alt="Front design" draggable={false}
-                      onClick={() => onOpenImage(runtime.prints.printDesignFrontDataUrl!, "Front design")} />
-                    <button type="button" className="removePreviewButton" onClick={removePrintDesignFront} aria-label="Remove" title="Remove">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                    </button>
-                  </div>
+                <div className="printDesignCardPreview">
+                  <img
+                    src={runtime.prints.printDesignFrontDataUrl}
+                    alt="Front design"
+                    draggable={false}
+                    onClick={() => onOpenImage(runtime.prints.printDesignFrontDataUrl!, "Front design")}
+                  />
+                  <button type="button" className="printDesignCardRemove" onClick={removePrintDesignFront} aria-label="Remove" title="Remove">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                  </button>
                 </div>
               ) : (
-                <label htmlFor="printDesignFront" className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12 }}>
-                  {uploadIcon} Upload front
+                <label htmlFor="printDesignFront" className="printDesignCardDrop">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28, opacity: 0.4 }}>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  <span className="printDesignCardDropText">Upload front</span>
                 </label>
               )}
               <input id="printDesignFront" type="file" accept="image/*" style={{ display: "none" }} onChange={onPrintDesignFrontFileChange} />
             </div>
 
-            {/* Back Design */}
+            {/* Back Design Card */}
             {!isFullCloth && (
-              <div style={{ flex: 1, minWidth: 120 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, marginBottom: 8, color: "var(--muted)", letterSpacing: "0.05em" }}>
-                  BACK <span style={{ fontWeight: 400, fontSize: 10 }}>(optional)</span>
+              <div className="printDesignCard">
+                <div className="printDesignCardLabel">
+                  Back <span className="printDesignCardOptional">(optional)</span>
                 </div>
                 {runtime.prints.printDesignBackDataUrl ? (
-                  <div>
-                    <div className="previewItem" style={{ width: 90, height: 110, display: "inline-block" }}>
-                      <img src={runtime.prints.printDesignBackDataUrl} alt="Back design" draggable={false}
-                        onClick={() => onOpenImage(runtime.prints.printDesignBackDataUrl!, "Back design")} />
-                      <button type="button" className="removePreviewButton" onClick={removePrintDesignBack} aria-label="Remove" title="Remove">
-                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                      </button>
-                    </div>
+                  <div className="printDesignCardPreview">
+                    <img
+                      src={runtime.prints.printDesignBackDataUrl}
+                      alt="Back design"
+                      draggable={false}
+                      onClick={() => onOpenImage(runtime.prints.printDesignBackDataUrl!, "Back design")}
+                    />
+                    <button type="button" className="printDesignCardRemove" onClick={removePrintDesignBack} aria-label="Remove" title="Remove">
+                      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                    </button>
                   </div>
                 ) : (
-                  <label htmlFor="printDesignBack" className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12 }}>
-                    {uploadIcon} Upload back
+                  <label htmlFor="printDesignBack" className="printDesignCardDrop">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 28, height: 28, opacity: 0.4 }}>
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    <span className="printDesignCardDropText">Upload back</span>
                   </label>
                 )}
                 <input id="printDesignBack" type="file" accept="image/*" style={{ display: "none" }} onChange={onPrintDesignBackFileChange} />
@@ -420,11 +387,11 @@ export default function PrintsTab({
           )}
         </div>
 
-        <div style={{ height: 10 }} />
+        <div style={{ height: 8 }} />
 
         <div>
           <FieldLabel htmlFor="printAdditionalPrompt" label="Additional prompt" info="Optional notes for how the print should be applied." />
-          <textarea id="printAdditionalPrompt" className="control" rows={4} value={config.printAdditionalPrompt} onChange={(e) => onConfigUpdate({ printAdditionalPrompt: e.target.value })} placeholder="Optional: e.g., all-over small repeating pattern; align with seams; keep neckline and cuffs clean." />
+          <textarea id="printAdditionalPrompt" className="control" rows={2} value={config.printAdditionalPrompt} onChange={(e) => onConfigUpdate({ printAdditionalPrompt: e.target.value })} placeholder="e.g., all-over repeating pattern; align with seams; keep neckline clean." style={{ resize: "none" }} />
         </div>
 
         <div className="actions" style={{ marginTop: 14, justifyContent: "space-between" }}>

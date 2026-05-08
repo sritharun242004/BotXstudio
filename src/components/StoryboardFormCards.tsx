@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import FieldLabel from "./FieldLabel";
+import LogoLoader from "./LogoLoader";
 import PillRadioGroup from "./PillRadioGroup";
 import type { StoryboardConfig } from "../lib/storyboards";
 import { modelTemplates, type ModelTemplate } from "../lib/modelLibrary";
 import { backgroundTemplates, type BackgroundTemplate } from "../lib/backgroundLibrary";
 import { poseTemplates, type PoseTemplate } from "../lib/poseLibrary";
+import { apiGet } from "../lib/api";
 import {
   backgroundThemeOptions,
   footwearPresetOptions,
@@ -15,6 +17,11 @@ import {
   modelStylingPresetOptions,
   occasionPresetOptions,
 } from "../lib/presets";
+
+// Extended types that allow backend proxy URLs for admin-uploaded templates
+type ModelTemplateExt = ModelTemplate & { imageProxyUrl?: string };
+type PoseTemplateExt = PoseTemplate & { imageProxyUrl?: string };
+type BackgroundTemplateExt = BackgroundTemplate & { imageProxyUrl?: string };
 
 type RuntimeLite = {
   garmentDataUrls: string[];
@@ -159,6 +166,7 @@ interface StoryboardFormCardsProps {
   onConfigUpdate: (updates: Partial<StoryboardConfig>) => void;
   runtime: RuntimeLite;
   activeStoryboardId: string;
+  garmentType: string;
   isGenerating: boolean;
   onGarmentFrontFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onGarmentBackFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -188,6 +196,7 @@ export default function StoryboardFormCards({
   onConfigUpdate,
   runtime,
   activeStoryboardId,
+  garmentType,
   isGenerating,
   onGarmentFrontFileChange,
   onGarmentBackFileChange,
@@ -227,59 +236,123 @@ export default function StoryboardFormCards({
   const [poseCategoryFilter, setPoseCategoryFilter] = useState<string>("");
   const [bgCategoryFilter, setBgCategoryFilter] = useState<string>("");
   const [modelEthnicityFilter, setModelEthnicityFilter] = useState<string>("");
+  const [autoConfigEnabled, setAutoConfigEnabled] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ id: string; label: string; hint: string; sectionId: string }[]>([]);
+  const [showValidationPopup, setShowValidationPopup] = useState(false);
+
+  // DB templates (admin-uploaded) merged with static libraries
+  const [dbTemplates, setDbTemplates] = useState<any[]>([]);
+  const [disabledStaticIds, setDisabledStaticIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    apiGet("/api/templates")
+      .then((d: any) => {
+        setDbTemplates(d.templates ?? []);
+        setDisabledStaticIds(new Set((d.disabledIds ?? []) as string[]));
+      })
+      .catch(() => { });
+  }, []);
+
+  const allModelTemplates = useMemo<ModelTemplateExt[]>(() => [
+    ...modelTemplates.filter((t) => !disabledStaticIds.has(t.id)),
+    ...dbTemplates
+      .filter((t) => t.category === "model" && t.imageProxyUrl)
+      .map((t): ModelTemplateExt => ({
+        id: t.id,
+        category: (t.metadata as any)?.subCategory ?? "Other",
+        label: t.title,
+        ethnicityLabel: (t.metadata as any)?.ethnicityLabel ?? "",
+        url: "",
+        ethnicityKeyword: (t.metadata as any)?.ethnicityKeyword ?? t.title,
+        imageProxyUrl: t.imageProxyUrl,
+      })),
+  ], [dbTemplates, disabledStaticIds]);
+
+  const allPoseTemplates = useMemo<PoseTemplateExt[]>(() => [
+    ...poseTemplates.filter((t) => !disabledStaticIds.has(t.id)),
+    ...dbTemplates
+      .filter((t) => t.category === "pose" && t.imageProxyUrl)
+      .map((t): PoseTemplateExt => ({
+        id: t.id,
+        category: (t.metadata as any)?.garmentCategory ?? "Other",
+        label: (t.metadata as any)?.poseLabel ?? t.title,
+        url: "",
+        poseKeyword: (t.metadata as any)?.poseKeyword ?? t.title,
+        imageProxyUrl: t.imageProxyUrl,
+      })),
+  ], [dbTemplates, disabledStaticIds]);
+
+  const allBgTemplates = useMemo<BackgroundTemplateExt[]>(() => [
+    ...backgroundTemplates.filter((t) => !disabledStaticIds.has(t.id)),
+    ...dbTemplates
+      .filter((t) => t.category === "background" && t.imageProxyUrl)
+      .map((t): BackgroundTemplateExt => ({
+        id: t.id,
+        category: (t.metadata as any)?.bgCategory ?? "Environments",
+        label: t.title,
+        url: "",
+        themePreset: (t.metadata as any)?.themePreset ?? "custom",
+        themeDetails: (t.metadata as any)?.themeDetails ?? "",
+        imageProxyUrl: t.imageProxyUrl,
+      })),
+  ], [dbTemplates, disabledStaticIds]);
 
   const bgCategories = useMemo(() => {
     const seen = new Set<string>();
-    for (const t of backgroundTemplates) seen.add(t.category);
+    for (const t of allBgTemplates) seen.add(t.category);
     return Array.from(seen);
-  }, []);
+  }, [allBgTemplates]);
 
   const filteredBgTemplates = useMemo(() => {
-    if (!bgCategoryFilter) return backgroundTemplates;
-    return backgroundTemplates.filter((t) => t.category === bgCategoryFilter);
-  }, [bgCategoryFilter]);
+    if (!bgCategoryFilter) return allBgTemplates;
+    return allBgTemplates.filter((t) => t.category === bgCategoryFilter);
+  }, [bgCategoryFilter, allBgTemplates]);
 
   const modelEthnicities = useMemo(() => {
     const seen = new Set<string>();
-    for (const t of modelTemplates) seen.add(t.ethnicityLabel);
+    for (const t of allModelTemplates) seen.add(t.ethnicityLabel);
     return Array.from(seen);
-  }, []);
+  }, [allModelTemplates]);
 
   const filteredModelsByCategory = useMemo(() => {
     const filtered = modelEthnicityFilter
-      ? modelTemplates.filter((t) => t.ethnicityLabel === modelEthnicityFilter)
-      : modelTemplates;
-    const map = new Map<string, ModelTemplate[]>();
+      ? allModelTemplates.filter((t) => t.ethnicityLabel === modelEthnicityFilter)
+      : allModelTemplates;
+    const map = new Map<string, ModelTemplateExt[]>();
     for (const t of filtered) {
       if (!map.has(t.category)) map.set(t.category, []);
       map.get(t.category)!.push(t);
     }
     return map;
-  }, [modelEthnicityFilter]);
+  }, [modelEthnicityFilter, allModelTemplates]);
 
-  const handleSelectBgTemplate = async (tmpl: BackgroundTemplate) => {
-    if (!tmpl.url) {
+  // imageProxyUrl = same-origin backend proxy (works for both <img> and fetch())
+  // url = static bundled asset path for built-in templates
+  function getTemplateImageUrl(tmpl: { url: string; imageProxyUrl?: string }): string {
+    if ((tmpl as any).imageProxyUrl) return (tmpl as any).imageProxyUrl as string;
+    return (import.meta.env.BASE_URL || "/").replace(/\/$/, "") + tmpl.url;
+  }
+
+  const handleSelectBgTemplate = async (tmpl: BackgroundTemplateExt) => {
+    const imageUrl = getTemplateImageUrl(tmpl);
+    if (!imageUrl) {
       alert("This template is currently a placeholder and pending generation due to API limits. It will be available later!");
       return;
     }
     setIsLoadingBgTemplate(true);
     try {
-      const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-      const fullUrl = baseUrl + tmpl.url;
-      const res = await fetch(fullUrl);
+      const res = await fetch(imageUrl);
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
         const b64 = reader.result as string;
         addBackgroundFromDataUrl(b64, `bg_template_${tmpl.id}.png`);
-        
         onConfigUpdate({
           backgroundThemePreset: tmpl.themePreset,
-          backgroundThemeDetails: tmpl.themeDetails
+          backgroundThemeDetails: tmpl.themeDetails,
         });
       };
       reader.readAsDataURL(blob);
-    } catch(e) {
+    } catch (e) {
       console.error("Failed to load background template", e);
       alert("Failed to load template background. Please try again.");
     } finally {
@@ -287,26 +360,23 @@ export default function StoryboardFormCards({
     }
   };
 
-
-  const handleSelectTemplate = async (tmpl: ModelTemplate) => {
+  const handleSelectTemplate = async (tmpl: ModelTemplateExt) => {
     setIsLoadingTemplate(true);
     try {
-      const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-      const fullUrl = baseUrl + tmpl.url;
-      const res = await fetch(fullUrl);
+      const imageUrl = getTemplateImageUrl(tmpl);
+      const res = await fetch(imageUrl);
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
         const b64 = reader.result as string;
         addModelFromDataUrl(b64, `template_${tmpl.id}.png`);
-        
         onConfigUpdate({
           modelPreset: "",
-          modelDetails: tmpl.ethnicityKeyword
+          modelDetails: tmpl.ethnicityKeyword,
         });
       };
       reader.readAsDataURL(blob);
-    } catch(e) {
+    } catch (e) {
       console.error("Failed to load template", e);
       alert("Failed to load template model. Please try again.");
     } finally {
@@ -316,16 +386,15 @@ export default function StoryboardFormCards({
 
   const poseCategories = useMemo(() => {
     const seen = new Set<string>();
-    for (const t of poseTemplates) seen.add(t.category);
+    for (const t of allPoseTemplates) seen.add(t.category);
     return Array.from(seen);
-  }, []);
+  }, [allPoseTemplates]);
 
-  // Map<garment, Map<poseName, PoseTemplate[]>>
   const filteredPosesByCategory = useMemo(() => {
     const filtered = poseCategoryFilter
-      ? poseTemplates.filter((t) => t.category === poseCategoryFilter)
-      : poseTemplates;
-    const outer = new Map<string, Map<string, PoseTemplate[]>>();
+      ? allPoseTemplates.filter((t) => t.category === poseCategoryFilter)
+      : allPoseTemplates;
+    const outer = new Map<string, Map<string, PoseTemplateExt[]>>();
     for (const t of filtered) {
       if (!outer.has(t.category)) outer.set(t.category, new Map());
       const inner = outer.get(t.category)!;
@@ -333,14 +402,13 @@ export default function StoryboardFormCards({
       inner.get(t.label)!.push(t);
     }
     return outer;
-  }, [poseCategoryFilter]);
+  }, [poseCategoryFilter, allPoseTemplates]);
 
-  const handleSelectPoseTemplate = async (tmpl: PoseTemplate) => {
+  const handleSelectPoseTemplate = async (tmpl: PoseTemplateExt) => {
     setIsLoadingPoseTemplate(true);
     try {
-      const baseUrl = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-      const fullUrl = baseUrl + tmpl.url;
-      const res = await fetch(fullUrl);
+      const imageUrl = getTemplateImageUrl(tmpl);
+      const res = await fetch(imageUrl);
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -387,13 +455,92 @@ export default function StoryboardFormCards({
     onConfigUpdate({ accessories: Array.from(current.values()).join(", ") });
   }
 
+  function getValidationErrors() {
+    const errors: { id: string; label: string; hint: string; sectionId: string }[] = [];
+
+    if (!garmentType?.trim()) {
+      errors.push({ id: "garment", label: "Garment type", hint: "Select a type (T-shirt, Shirt…) or type a custom one", sectionId: "section-garment-type" });
+    }
+
+    if (!isFlashModel && runtime.modelDataUrls.length === 0) {
+      errors.push({ id: "model", label: "Model selection", hint: "Select a template model or upload a model photo", sectionId: "section-model-person" });
+    }
+
+    const hasPose = (runtime.poseDataUrls?.length ?? 0) > 0 || !!config.modelPosePreset || !!config.modelPoseDetails;
+    if (!hasPose) {
+      errors.push({ id: "pose", label: "Model pose", hint: "Select a pose template or choose a pose preset", sectionId: "section-model-pose" });
+    }
+
+    const hasBg = runtime.backgroundDataUrls.length > 0 || !!config.backgroundThemePreset;
+    if (!hasBg) {
+      errors.push({ id: "background", label: "Background", hint: "Select a background template or choose a theme", sectionId: "section-background" });
+    }
+
+    return errors;
+  }
+
+  function scrollToSection(sectionId: string) {
+    setShowValidationPopup(false);
+    setTimeout(() => {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  }
+
+  function handleAutoConfigToggle(enabled: boolean) {
+    setAutoConfigEnabled(enabled);
+    if (!enabled) return;
+
+    // Pick a random pose keyword (text only) from the garment's template category
+    const normalizedGarment = (garmentType || "").trim().toLowerCase();
+    const poseKeywords = allPoseTemplates
+      .filter((t) => t.category.toLowerCase() === normalizedGarment)
+      .map((t) => t.poseKeyword);
+    const poseKeyword = poseKeywords.length > 0
+      ? poseKeywords[Math.floor(Math.random() * poseKeywords.length)]
+      : "";
+
+    onConfigUpdate({
+      accessories: "none",
+      footwearPreset: "",
+      footwearDetails: "",
+      bottomWearPreset: "",
+      bottomWearDetails: "",
+      modelStylingPreset: "",
+      modelStylingNotes: "",
+      occasionPreset: "",
+      occasionDetails: "",
+      backgroundThemePreset: "studio — bright modern ecommerce studio set; seamless backdrop or clean wall; soft diffused daylight; neutral tones; minimal props",
+      backgroundThemeDetails: "",
+      modelPosePreset: "",
+      modelPoseDetails: poseKeyword,
+    });
+    setBgTab("custom");
+
+    setTimeout(() => {
+      document.getElementById("flash-generate-section")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 150);
+  }
+
   return (
-    <form className="storyboardForm" onSubmit={(e) => { e.preventDefault(); onSubmit(); }}>
+    <form className="storyboardForm" onSubmit={(e) => {
+      e.preventDefault();
+      const errors = getValidationErrors();
+      if (errors.length > 0) {
+        setValidationErrors(errors);
+        setShowValidationPopup(true);
+        setTimeout(() => {
+          document.getElementById(errors[0].sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80);
+        return;
+      }
+      onSubmit();
+    }}>
       <fieldset className="formFieldset" disabled={isGenerating}>
         <div className="storyboardCards">
           {/* ── Garment Photos ── */}
           <div className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Garment photos</div>
+            <div className="uploadNote">Upload only garment or clothing photos — flat lay, on hanger, or worn on a mannequin. Do not include models or backgrounds.</div>
 
             <div className="garmentSlotGrid">
               {/* Front slot — required */}
@@ -509,26 +656,122 @@ export default function StoryboardFormCards({
             </div>
           </div>
 
+          {/* ── Flash Auto Configure ── */}
+          {isFlashModel && (
+            <div
+              className="parameterSection"
+              style={{
+                background: autoConfigEnabled
+                  ? "linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)"
+                  : "var(--surface, #f8f8f8)",
+                border: `1.5px solid ${autoConfigEnabled ? "#c4b5fd" : "var(--border, #e2e8f0)"}`,
+                borderRadius: 12,
+                transition: "background 0.3s, border-color 0.3s",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                {/* Icon */}
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 10,
+                    background: autoConfigEnabled ? "#7c3aed" : "#ede9fe",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    transition: "background 0.3s",
+                    boxShadow: autoConfigEnabled ? "0 2px 8px rgba(124,58,237,0.35)" : "none",
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                    stroke={autoConfigEnabled ? "#ffffff" : "#7c3aed"}
+                    strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transition: "stroke 0.3s" }}>
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                    <path d="M4.93 4.93a10 10 0 0 0 0 14.14" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    <path d="M8.46 8.46a5 5 0 0 0 0 7.07" />
+                  </svg>
+                </div>
+
+                {/* Label */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
+                    <span style={{
+                      fontWeight: 700,
+                      fontSize: "0.9rem",
+                      color: autoConfigEnabled ? "#5b21b6" : "var(--text, #1e293b)",
+                      transition: "color 0.3s",
+                      fontFamily: "var(--font-body)",
+                    }}>
+                      Auto Configure
+                    </span>
+                    <span style={{
+                      fontSize: "0.6rem",
+                      fontWeight: 800,
+                      background: "#7c3aed",
+                      color: "#fff",
+                      padding: "2px 7px",
+                      borderRadius: 6,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase" as const,
+                    }}>
+                      Flash
+                    </span>
+                  </div>
+                  <div style={{ fontSize: "0.75rem", color: "var(--text-muted, #64748b)", lineHeight: 1.4 }}>
+                    Sets footwear · bottomwear · pose · background · occasion automatically
+                  </div>
+                </div>
+
+                {/* Toggle switch */}
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoConfigEnabled}
+                  onClick={() => handleAutoConfigToggle(!autoConfigEnabled)}
+                  style={{
+                    width: 46,
+                    height: 26,
+                    borderRadius: 999,
+                    border: `1.5px solid ${autoConfigEnabled ? "#7c3aed" : "#d1d5db"}`,
+                    cursor: "pointer",
+                    background: autoConfigEnabled ? "#7c3aed" : "#e5e7eb",
+                    position: "relative",
+                    transition: "background 0.25s, border-color 0.25s",
+                    flexShrink: 0,
+                    padding: 0,
+                    outline: "none",
+                    boxShadow: autoConfigEnabled ? "0 0 0 3px rgba(124,58,237,0.2)" : "none",
+                  }}
+                >
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: 2,
+                      left: autoConfigEnabled ? 20 : 2,
+                      width: 20,
+                      height: 20,
+                      borderRadius: "50%",
+                      background: "white",
+                      transition: "left 0.25s cubic-bezier(0.4,0,0.2,1)",
+                      display: "block",
+                      boxShadow: "0 1px 4px rgba(0,0,0,0.25)",
+                    }}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Models ── */}
-          <div className="parameterSection">
+          <div id="section-model-person" className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Model Person</div>
 
-            {isFlashModel ? (
-              <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                <FieldLabel label="Gender" info="Select the model's gender." />
-                <PillRadioGroup name="modelGender" value={config.modelGender} options={modelGenderOptions} onChange={(v) => onConfigUpdate({ modelGender: v })} />
-                <div style={{ height: 14 }} />
-                <FieldLabel label="Age Range" info="Select the model's age range." />
-                <PillRadioGroup name="modelAgeRange" value={config.modelAgeRange} options={modelAgeRangeOptions} onChange={(v) => onConfigUpdate({ modelAgeRange: v })} />
-                <div style={{ height: 14 }} />
-                <FieldLabel label="Ethnicity" info="Use this to bias the generated model's ethnicity." />
-                <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
-                <div style={{ height: 14 }} />
-                <FieldLabel label="Custom notes" info="Optional extra description — e.g. curly hair, athletic build." />
-                <input className="control" type="text" value={config.modelCustomPrompt} onChange={(e) => onConfigUpdate({ modelCustomPrompt: e.target.value })} placeholder="e.g. curly hair, athletic build, confident expression" />
-              </div>
-            ) : (
-              <>
+            <>
                 <div className="pillGroup" role="group" aria-label="Model Reference Type" style={{ marginBottom: 16 }}>
                   <label className="pill">
                     <input type="radio" value="template" checked={modelTab === "template"} onChange={() => setModelTab("template")} />
@@ -536,7 +779,7 @@ export default function StoryboardFormCards({
                   </label>
                   <label className="pill">
                     <input type="radio" value="custom" checked={modelTab === "custom"} onChange={() => setModelTab("custom")} />
-                    <span>Custom Models</span>
+                    <span>Custom</span>
                   </label>
                 </div>
 
@@ -559,31 +802,48 @@ export default function StoryboardFormCards({
                       ))}
                     </div>
                     <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                    {Array.from(filteredModelsByCategory.entries()).map(([cat, templates]) => (
-                      <div key={cat} style={{ marginBottom: 16 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)" }}>{cat}</div>
-                        <div className="preview previewAssets">
-                          {templates.map((tmpl) => (
-                            <div key={tmpl.id} className="previewItem" style={{ cursor: "pointer" }} onClick={() => handleSelectTemplate(tmpl)} title={`${tmpl.label} — ${tmpl.ethnicityLabel}`}>
-                              <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
-                            </div>
-                          ))}
+                      {Array.from(filteredModelsByCategory.entries()).map(([cat, templates]) => (
+                        <div key={cat} style={{ marginBottom: 16 }}>
+                          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "rgba(255,255,255,0.6)" }}>{cat}</div>
+                          <div className="preview previewAssets">
+                            {templates.map((tmpl) => (
+                              <div key={tmpl.id} className="previewItem" style={{ cursor: "pointer" }} onClick={() => handleSelectTemplate(tmpl)} title={`${tmpl.label} — ${tmpl.ethnicityLabel}`}>
+                                <img src={getTemplateImageUrl(tmpl)} alt={tmpl.label} draggable={false} />
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
                     </div>
-                    {isLoadingTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
+                    {isLoadingTemplate && <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}><LogoLoader size={52} color="var(--text)" label="Loading template..." /></div>}
                   </div>
                 )}
 
                 {modelTab === "custom" && (
                   <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
-                    <div>
-                      <FieldLabel label="Model Preference" info="Use this to bias the generated model (ethnicity / vibe)." />
-                      <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
-                      <div style={{ height: 14 }} />
-                      <input className="control" type="text" value={config.modelDetails} onChange={(e) => onConfigUpdate({ modelDetails: e.target.value })} placeholder="Optional: add model description (ethnicity, vibe, etc.)" />
-                    </div>
+                    {isFlashModel ? (
+                      <>
+                        <FieldLabel label="Gender" info="Select the model's gender." />
+                        <PillRadioGroup name="modelGender" value={config.modelGender} options={modelGenderOptions} onChange={(v) => onConfigUpdate({ modelGender: v })} />
+                        <div style={{ height: 14 }} />
+                        <FieldLabel label="Age Range" info="Select the model's age range." />
+                        <PillRadioGroup name="modelAgeRange" value={config.modelAgeRange} options={modelAgeRangeOptions} onChange={(v) => onConfigUpdate({ modelAgeRange: v })} />
+                        <div style={{ height: 14 }} />
+                        <FieldLabel label="Ethnicity" info="Use this to bias the generated model's ethnicity." />
+                        <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
+                        <div style={{ height: 14 }} />
+                        <FieldLabel label="Custom notes" info="Optional extra description — e.g. curly hair, athletic build." />
+                        <input className="control" type="text" value={config.modelCustomPrompt} onChange={(e) => onConfigUpdate({ modelCustomPrompt: e.target.value })} placeholder="e.g. curly hair, athletic build, confident expression" />
+                        <div style={{ height: 14 }} />
+                      </>
+                    ) : (
+                      <div>
+                        <FieldLabel label="Model Preference" info="Use this to bias the generated model (ethnicity / vibe)." />
+                        <PillRadioGroup name="modelPreference" value={config.modelPreset} options={modelEthnicityOptions} onChange={(v) => onConfigUpdate({ modelPreset: v })} />
+                        <div style={{ height: 14 }} />
+                        <input className="control" type="text" value={config.modelDetails} onChange={(e) => onConfigUpdate({ modelDetails: e.target.value })} placeholder="Optional: add model description (ethnicity, vibe, etc.)" />
+                      </div>
+                    )}
 
                     <div className="chooseFromAssets" style={{ marginTop: 16 }}>
                       <div style={{ marginBottom: 12 }}>
@@ -622,8 +882,7 @@ export default function StoryboardFormCards({
                     </div>
                   </div>
                 )}
-              </>
-            )}
+            </>
 
             {runtime.modelDataUrls.length > 0 && (
               <div style={{ marginBottom: 24 }}>
@@ -694,7 +953,7 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Pose ── */}
-          <div className="parameterSection">
+          <div id="section-model-pose" className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Model Pose</div>
 
             <div className="pillGroup" role="group" aria-label="Pose Reference Type" style={{ marginBottom: 16 }}>
@@ -730,7 +989,7 @@ export default function StoryboardFormCards({
                   {Array.from(filteredPosesByCategory.entries()).map(([garment, poseMap]) => (
                     <div key={garment} style={{ marginBottom: 20 }}>
                       {/* Garment header */}
-                      <div style={{ fontWeight: 700, marginBottom: 10, fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent)", borderBottom: "1px solid rgba(139,92,246,0.2)", paddingBottom: 4 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 10, fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--accent)", borderBottom: "1px solid rgba(0,0,0,0.05)", paddingBottom: 4 }}>
                         {garment}
                       </div>
                       {/* Pose sub-groups */}
@@ -743,7 +1002,7 @@ export default function StoryboardFormCards({
                             {templates.map((tmpl) => (
                               <div key={tmpl.id} className="previewItem" style={{ cursor: "pointer" }} onClick={() => handleSelectPoseTemplate(tmpl)} title={`${garment} — ${poseName}`}>
                                 <img
-                                  src={(import.meta.env.BASE_URL || "/").replace(/\/$/, "") + tmpl.url}
+                                  src={getTemplateImageUrl(tmpl)}
                                   alt={poseName}
                                   draggable={false}
                                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -756,7 +1015,7 @@ export default function StoryboardFormCards({
                     </div>
                   ))}
                 </div>
-                {isLoadingPoseTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading pose template...</div>}
+                {isLoadingPoseTemplate && <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}><LogoLoader size={52} color="var(--text)" label="Loading template..." /></div>}
               </div>
             )}
 
@@ -827,7 +1086,7 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Background ── */}
-          <div className="parameterSection">
+          <div id="section-background" className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Background</div>
 
             <div className="pillGroup" role="group" aria-label="Background Reference Type" style={{ marginBottom: 16 }}>
@@ -860,21 +1119,24 @@ export default function StoryboardFormCards({
                   ))}
                 </div>
                 <div style={{ maxHeight: 260, overflowY: "auto", paddingRight: 4 }}>
-                <div className="preview previewAssets">
-                  {filteredBgTemplates.map((tmpl) => (
-                    <div key={tmpl.id} className="previewItem" style={{ cursor: tmpl.url ? "pointer" : "not-allowed", opacity: tmpl.url ? 1 : 0.4 }} onClick={() => handleSelectBgTemplate(tmpl)} title={tmpl.label}>
-                      {tmpl.url ? (
-                        <img src={(import.meta.env.BASE_URL || "/").replace(/\/$/, '') + tmpl.url} alt={tmpl.label} draggable={false} />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", background: "#333", color: "#888", textAlign: "center" }}>
-                          {tmpl.label}
+                  <div className="preview previewAssets">
+                    {filteredBgTemplates.map((tmpl) => {
+                      const hasImage = !!(tmpl as any).imageProxyUrl || !!tmpl.url;
+                      return (
+                        <div key={tmpl.id} className="previewItem" style={{ cursor: hasImage ? "pointer" : "not-allowed", opacity: hasImage ? 1 : 0.4 }} onClick={() => handleSelectBgTemplate(tmpl)} title={tmpl.label}>
+                          {hasImage ? (
+                            <img src={getTemplateImageUrl(tmpl)} alt={tmpl.label} draggable={false} />
+                          ) : (
+                            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "0.75rem", background: "#333", color: "#888", textAlign: "center" }}>
+                              {tmpl.label}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
                 </div>
-                </div>
-                {isLoadingBgTemplate && <div className="muted" style={{ marginTop: 8 }}>Loading template...</div>}
+                {isLoadingBgTemplate && <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}><LogoLoader size={52} color="var(--text)" label="Loading template..." /></div>}
               </div>
             )}
 
@@ -891,6 +1153,7 @@ export default function StoryboardFormCards({
                   <div className="chooseFromAssets" style={{ marginTop: 16 }}>
                     <div style={{ marginBottom: 12 }}>
                       <FieldLabel label="Upload Custom Background" info="Upload an image to serve as the background directly." />
+                      <div className="uploadNote" style={{ marginBottom: 8 }}>Upload only background images — studio scenes, outdoor settings, or plain surfaces. No garments or models.</div>
                       <label htmlFor={`upload-bg-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
@@ -956,7 +1219,7 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Generate ── */}
-          <div className="parameterSection">
+          <div id="flash-generate-section" className="parameterSection">
             <div className="sectionTitle" style={{ marginTop: 0 }}>Generate</div>
             <div className="actions">
               <button type="submit" className="btnPrimary" disabled={isGenerating}>
@@ -968,6 +1231,95 @@ export default function StoryboardFormCards({
           </div>
         </div>
       </fieldset>
+
+      {/* ── Validation popup ── */}
+      {showValidationPopup && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setShowValidationPopup(false)}
+        >
+          <div
+            style={{
+              background: "#14121f",
+              border: "1px solid rgba(239,68,68,0.25)",
+              borderRadius: 14,
+              padding: "24px 24px 20px",
+              maxWidth: 370,
+              width: "90%",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 8,
+                background: "rgba(239,68,68,0.12)",
+                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+              }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "0.92rem", color: "rgba(255,255,255,0.95)", marginBottom: 3 }}>
+                  Configure required settings
+                </div>
+                <div style={{ fontSize: "0.76rem", color: "rgba(255,255,255,0.4)" }}>
+                  Complete these before generating
+                </div>
+              </div>
+            </div>
+
+            {/* Error list */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 18 }}>
+              {validationErrors.map((err) => (
+                <button
+                  key={err.id}
+                  type="button"
+                  onClick={() => scrollToSection(err.sectionId)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px",
+                    background: "rgba(239,68,68,0.07)",
+                    border: "1px solid rgba(239,68,68,0.18)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f87171", flexShrink: 0, display: "block" }} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.83rem", fontWeight: 600, color: "rgba(255,255,255,0.88)" }}>{err.label}</div>
+                    <div style={{ fontSize: "0.71rem", color: "rgba(255,255,255,0.38)", marginTop: 2 }}>{err.hint}</div>
+                  </div>
+                  <span style={{ fontSize: "0.73rem", color: "#000000", fontWeight: 600, flexShrink: 0 }}>Go →</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowValidationPopup(false)}
+              style={{
+                width: "100%", padding: "9px",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 8, cursor: "pointer",
+                color: "rgba(255,255,255,0.5)", fontSize: "0.82rem",
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

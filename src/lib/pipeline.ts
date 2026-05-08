@@ -770,6 +770,7 @@ export function buildMultiAnglePrompt(opts: {
     lines.push(
       "Requested view: DETAIL SHOT (zoomed-in garment close-up).",
       `Focus region: ${focusRegion}.`,
+      "Angle: IMAGE 1 (garment reference) and IMAGE 2 (main result) are both straight front-facing. This detail shot MUST use a DIFFERENT angle — a slight 3/4 turn or slight side angle — to provide visual variety and reveal garment depth and fabric texture.",
       "Framing: crop tightly so the garment fills most of the frame; keep minimal background visible; exclude face and irrelevant body parts (e.g. legs for upper-body garments, head/face for lower-body garments).",
       "Garment must be centered and occupy at least 80% of the frame.",
       "Highlight fine fabric details: folds, stitching, seams, texture, and realistic shadows. Sharp focus, high resolution.",
@@ -802,7 +803,8 @@ export function buildMultiAnglePrompt(opts: {
   if (opts.angle === "detail") {
     lines.push(
       "FINAL CHECK (non-negotiable):",
-      "This is a DETAIL SHOT — do NOT output a full-body image. Crop tightly to the garment focus region.",
+      "This is a DETAIL SHOT — do NOT output a full-body image. Use a different angle than IMAGE 1 and IMAGE 2 (slight 3/4 or side turn).",
+      "Crop tightly to the garment focus region. Garment fills at least 80% of frame.",
       MODEL_AGE_RULE,
       "Garment must match IMAGE 1 and the MAIN RESULT exactly (no extra fabric, no added layers, no design changes).",
       "One person only; correct anatomy; no face visible; no extra limbs.",
@@ -1127,9 +1129,9 @@ export type DirectCompositeConfig = {
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
 // ────────────────────────────────────────────────────────────────────────────
-// Flash-specific composite prompt builder
-// Strategy: highly-structured sections, numbered rules, explicit REJECT list.
-// Flash models are more literal — every requirement must be spelled out clearly.
+// Flash master prompt builder (composite / front view)
+// Architecture: isolated reference images, one attribute per image slot.
+// IMAGE 1 = garment · IMAGE 2 = model · IMAGE 3 = pose · IMAGE 4 = background
 // ────────────────────────────────────────────────────────────────────────────
 function buildFlashDirectCompositePrompt(opts: {
   hasModelReference: boolean;
@@ -1141,13 +1143,12 @@ function buildFlashDirectCompositePrompt(opts: {
 }): string {
   const lines: string[] = [];
 
-  // FLASH IMAGE ORDER: pose comes BEFORE model photo intentionally.
-  // Flash has a recency bias — the last human face seen tends to dominate the output.
-  // By placing the MODEL PHOTO last among human-containing images, its face takes priority.
+  // Flash image order: garment(1) → pose(2) → background(3) → model_LAST(4)
+  // Model placed LAST for recency bias — reduces IMAGE_OTHER content rejection.
   let _idx = 2;
-  const I_POSE  = opts.hasPoseReference       ? _idx++ : null;  // pose first (body-only)
-  const I_MODEL = opts.hasModelReference      ? _idx++ : null;  // model last (face-dominant)
-  const I_BG    = opts.hasBackgroundReference ? _idx++ : null;
+  const I_POSE  = opts.hasPoseReference       ? _idx++ : null;  // IMAGE 2
+  const I_BG    = opts.hasBackgroundReference ? _idx++ : null;  // IMAGE 3
+  const I_MODEL = opts.hasModelReference      ? _idx++ : null;  // IMAGE 4 (LAST)
 
   if (opts.isRetry) {
     lines.push(
@@ -1157,234 +1158,199 @@ function buildFlashDirectCompositePrompt(opts: {
     );
   }
 
-  // Face-source disambiguation must come first so Flash reads it before any image index
-  if (I_MODEL !== null && I_POSE !== null) {
+  // ── MODEL CONFIG values ───────────────────────────────────────────────────
+  const gender     = (opts.config.modelGender    || "Female").trim();
+  const ageRange   = opts.config.modelAgeRange?.trim() || "18–23";
+  const ethnicity  = opts.config.modelEthnicity?.trim() || "";
+  const occasion   = opts.config.occasion?.trim()        || "casual";
+  const accessories = opts.config.accessories?.trim()   || "minimal, matching the outfit";
+  const footwear   = opts.config.footwear?.trim()        || "appropriate for occasion";
+  const bottomWear = opts.config.bottomWear?.trim()      || "matching bottom wear";
+  const stylingNotes = [
+    !opts.hasModelReference && opts.config.modelStylingNotes?.trim(),
+    opts.config.styleKeywords?.trim() && `style: ${opts.config.styleKeywords}`,
+  ].filter(Boolean).join("; ") || "natural glam, commercial ecommerce";
+  const poseName   = opts.hasPoseReference ? "from POSE REFERENCE (IMAGE 3)" : (opts.config.modelPose?.trim() || "natural standing, weight shift, relaxed hands");
+  const bgTheme    = opts.config.backgroundTheme || opts.config.occasion || "clean lifestyle setting";
+
+  // ── REFERENCE ISOLATION RULES ────────────────────────────────────────────
+  lines.push(
+    "You are generating a photorealistic ecommerce fashion image.",
+    "",
+    "========================================",
+    "REFERENCE ISOLATION RULES",
+    "========================================",
+    "",
+    "Each reference image controls ONLY its assigned attribute.",
+    "",
+    "IMAGE 1 = GARMENT REFERENCE",
+    "Use ONLY for: garment design, garment color, garment texture, garment print, garment structure, garment stitching, garment silhouette.",
+    "Do NOT copy from IMAGE 1: model identity, pose, background, lighting.",
+    "",
+  );
+
+  if (I_MODEL !== null) {
     lines.push(
-      "⚠️ FACE SOURCE — READ BEFORE PROCESSING ANY IMAGE:",
-      `IMAGE ${I_MODEL} = MODEL PHOTO → the ONLY permitted face in the output.`,
-      `IMAGE ${I_POSE}  = POSE SKELETON → face in this image is BLOCKED. Never use it. Never blend it.`,
-      `Rule: output face = IMAGE ${I_MODEL} | output body pose = IMAGE ${I_POSE} | output garment = IMAGE 1`,
+      `IMAGE ${I_MODEL} = MODEL REFERENCE`,
+      "Use ONLY for: face identity, skin tone, hair, body type, age appearance, gender appearance.",
+      `Do NOT copy from IMAGE ${I_MODEL}: garment, pose, background, accessories.`,
       "",
     );
   }
 
-  lines.push(
-    "STRICT MODE.",
-    "",
-    "PRIORITY:",
-    "1. GARMENT (highest) — IMAGE 1 is the source of truth. Do NOT change it.",
-    I_MODEL !== null ? "2. MODEL IDENTITY — reproduce exact person from MODEL PHOTO." : "2. MODEL — generate consistent single model.",
-    I_POSE  !== null ? "3. POSE — copy exact body structure from POSE IMAGE." : "",
-    I_BG    !== null ? "4. BACKGROUND — use exact background from BACKGROUND IMAGE." : "",
-    "",
-    "--------------------------------",
-    "",
-    "Generate a photorealistic ecommerce fashion image.",
-    "",
-    "⚠️ CRITICAL: This is a CONTROLLED GENERATION task.",
-    "You MUST strictly follow ALL provided image references.",
-    "",
-    "--------------------------------",
-    "🔒 ASSET LOCK RULES (HIGHEST PRIORITY)",
-    "--------------------------------",
-    "",
-    "IMAGE 1 = GARMENT REFERENCE (source of truth for garment design, color, print, texture, stitching, silhouette).",
-    "PRIORITY: GARMENT is highest priority. Do NOT change it.",
-    I_POSE  !== null ? `IMAGE ${I_POSE}  = POSE REFERENCE — body skeleton ONLY. Face in this image is BLOCKED.` : "",
-    I_MODEL !== null ? `IMAGE ${I_MODEL} = MODEL PHOTO — the ONLY source of the output person's face, hair, skin, and identity.` : "",
-    I_BG    !== null ? `IMAGE ${I_BG}    = BACKGROUND PHOTO — the exact scene/location to use.` : "",
-  );
-
-  // 1. MODEL LOCK
-  lines.push("", "1. MODEL LOCK" + (I_MODEL !== null ? "" : " (no model photo provided — generate a suitable model)") + ":");
-  if (I_MODEL !== null) {
-    lines.push(
-      `- The generated person MUST be the EXACT same individual as in IMAGE ${I_MODEL} (MODEL IMAGE).`,
-      "- Preserve face identity exactly: facial structure, eyes, nose, lips, skin tone, hair, body type.",
-      "- DO NOT generate a different person.",
-      "- DO NOT beautify, modify, or average the face.",
-      "- Any mismatch = WRONG OUTPUT.",
-    );
-    if (I_POSE !== null) {
-      lines.push(
-        `- ⚠ IMAGE ${I_POSE} (pose reference) contains a different person's face — IGNORE it completely.`,
-        `- Output face = IMAGE ${I_MODEL} ONLY. No blending, no averaging.`,
-      );
-    }
-  } else {
-    const _gender = (opts.config.modelGender || "Female").trim();
-    const _ageRange = opts.config.modelAgeRange?.trim();
-    const _agePart = _ageRange ? `${_ageRange} years old` : "young adult (18–23)";
-    const _ethnicity = opts.config.modelEthnicity?.trim();
-    const _ethnicityPart = _ethnicity ? ` ${_ethnicity}` : "";
-    const _styling = opts.config.modelStylingNotes?.trim();
-    const _custom  = opts.config.modelCustomPrompt?.trim();
-    lines.push(
-      "── MODEL FROM CONFIG (STRICT) ──",
-      `- Gender: ${_gender}`,
-      `- Age range: ${_agePart}`,
-      ...(  _ethnicityPart ? [`- Ethnicity:${_ethnicityPart}`] : []),
-      ...(_custom  ? [`- Notes: ${_custom}`]  : []),
-      `- Generate exactly ONE ${_gender.toLowerCase()} fashion model matching ALL of the above. Clearly adult — not a minor.`,
-      _styling ? `- Styling: ${_styling}.` : "- Styling: natural glam — fresh, clean, commercial ecommerce appearance.",
-      "- This SAME model MUST appear in ALL generated images (main + every angle).",
-      "- Do NOT change: gender, face, body type between images.",
-      "- Do NOT generate a different person in any other angle.",
-      "✗ REJECT if model does not match config exactly or differs across images.",
-    );
-  }
-
-  // 2. GARMENT LOCK
-  lines.push(
-    "",
-    "2. GARMENT LOCK (ZERO TOLERANCE — garment MUST remain EXACTLY as in IMAGE 1):",
-    "- The model MUST wear the EXACT garment from IMAGE 1. No exceptions.",
-    "- COLOR: reproduce the exact color — DO NOT lighten, darken, or shift the hue in any way.",
-    "- PRINT/GRAPHICS: reproduce all patterns, logos, text, and graphics exactly — pixel-accurate, no simplification.",
-    "- SHAPE: match neckline, collar, sleeve length/style, and hem exactly.",
-    "- TEXTURE: preserve fabric weave, seam placement, and material detail.",
-    "- DO NOT redesign, recolor, or change any element of the garment.",
-    "- DO NOT add extra clothing layers (no jacket, cardigan, shawl, cape, scarf).",
-    "- DO NOT hallucinate details not visible in IMAGE 1.",
-    I_POSE !== null ? `- DO NOT copy the garment from IMAGE ${I_POSE} (pose reference) — output garment = IMAGE 1 ONLY.` : "",
-    "✗ REJECT if garment color, print, silhouette, or any design detail differs from IMAGE 1.",
-  );
-
-  // 3. POSE LOCK
-  lines.push("", "3. POSE LOCK" + (I_POSE !== null ? "" : " (no pose reference — use config pose)") + ":");
   if (I_POSE !== null) {
     lines.push(
-      `- Copy the EXACT pose from IMAGE ${I_POSE} (POSE REFERENCE).`,
-      "- Match body posture, limb angles, stance, and orientation precisely.",
-      "- DO NOT change the pose.",
-      `- Copy skeleton/joint angles ONLY from IMAGE ${I_POSE}. Face, garment, shoes, accessories, background all come from their own references.`,
-      `✓ COPY from IMAGE ${I_POSE}: shoulder/elbow/wrist/hip/knee/ankle angles, stance, weight distribution, foot placement, head tilt angle.`,
-      `✗ BLOCK from IMAGE ${I_POSE}: face, hair, skin tone, top garment, bottom garment, shoes, accessories, background, lighting.`,
+      `IMAGE ${I_POSE} = POSE REFERENCE`,
+      "Use ONLY for: body pose, skeleton structure, arm angles, leg placement, stance, body orientation.",
+      `Do NOT copy from IMAGE ${I_POSE}: face, garment, hairstyle, background, lighting, accessories.`,
+      "",
     );
-  } else if (opts.config.modelPose?.trim()) {
-    lines.push(`- Pose: ${opts.config.modelPose}.`);
-  } else {
-    lines.push("- Natural standing pose. Weight shift to one leg. Relaxed hands. Slight head tilt. Soft smile.");
   }
 
-  // 4. BACKGROUND LOCK
-  lines.push("", "4. BACKGROUND LOCK" + (I_BG !== null ? "" : " (no background photo — generate from config)") + ":");
   if (I_BG !== null) {
     lines.push(
-      `- Use the EXACT background from IMAGE ${I_BG} (BACKGROUND IMAGE).`,
-      "- DO NOT change location, objects, layout, or structure.",
-      "- DO NOT replace the environment.",
-      "- Only integrate the model naturally into this background.",
-    );
-  } else {
-    const bg = opts.config.backgroundTheme || opts.config.occasion;
-    lines.push(
-      bg ? `- Background: photorealistic "${bg}" setting.` : "- Background: clean lifestyle or studio setting.",
-      "- Atmosphere: warm, sunny, polished, approachable. Natural daylight.",
+      `IMAGE ${I_BG} = BACKGROUND REFERENCE`,
+      "Use ONLY for: environment, scene layout, atmosphere, background colors, location style.",
+      `Do NOT copy from IMAGE ${I_BG}: people, pose, clothing, accessories.`,
+      "",
     );
   }
 
-  // STYLING section
-  const occasion   = opts.config.occasion?.trim()           || "(match the garment)";
-  const accessories = opts.config.accessories?.trim()       || "minimal, matching the outfit";
-  const footwear   = opts.config.footwear?.trim()           || "appropriate for the occasion";
-  const bottomWear = opts.config.bottomWear?.trim()         || "matching bottom wear appropriate for the outfit";
-  const stylingParts: string[] = [];
-  if (!opts.hasModelReference && opts.config.modelStylingNotes?.trim()) stylingParts.push(opts.config.modelStylingNotes);
-  if (opts.config.styleKeywords?.trim()) stylingParts.push(`style: ${opts.config.styleKeywords}`);
-  if (opts.config.modelPose?.trim() && !opts.hasPoseReference) stylingParts.push(`pose: ${opts.config.modelPose}`);
-  const stylingNotes = stylingParts.join("; ") || "(auto — match the garment and occasion)";
-
+  // ── OUTPUT GOAL ──────────────────────────────────────────────────────────
   lines.push(
+    "========================================",
+    "OUTPUT GOAL",
+    "========================================",
     "",
-    "--------------------------------",
-    "🎯 STYLING (APPLY WITHOUT BREAKING LOCKS)",
-    "--------------------------------",
-    `- Occasion: ${occasion}`,
-    `- Accessories: ${accessories}`,
-    `- Footwear: ${footwear}`,
-    `- Bottom wear: ${bottomWear}`,
-    `- Styling notes: ${stylingNotes}`,
+    "Generate: FRONT VIEW",
+    "",
+    "Output must show:",
+    "- same model identity across all views",
+    "- same garment",
+    "- same styling",
+    "- consistent environment",
+    "",
   );
 
-  // IMAGE REQUIREMENTS
+  // ── FRONT VIEW RULES ─────────────────────────────────────────────────────
   lines.push(
+    "========================================",
+    "FRONT VIEW RULES",
+    "========================================",
     "",
-    "--------------------------------",
-    "📸 IMAGE REQUIREMENTS",
-    "--------------------------------",
-    "- Full body (head to toe fully visible)",
-    "- No cropping at head or feet",
-    "- 3:4 portrait (1080x1440)",
-    "- Sharp, high-quality, realistic lighting",
-    "- Commercial ecommerce style",
-    "- Model fills ~80–85% of frame height",
-    "- Natural daylight: warm, soft, even front-side illumination; medium contrast; no harsh shadows",
+    "Generate a clean ecommerce fashion image.",
+    "",
+    "Requirements:",
+    "- full-body portrait",
+    "- head and feet fully visible",
+    "- centered subject",
+    "- natural body proportions",
+    "- realistic anatomy",
+    "- photorealistic lighting",
+    "- consistent framing",
+    "- 3:4 portrait composition",
+    "- commercial catalog quality",
+    "",
+    "Use:",
+    "- garment from IMAGE 1",
+    I_MODEL !== null ? `- identity from IMAGE ${I_MODEL}` : `- identity from MODEL CONFIG below`,
+    I_POSE  !== null ? `- pose from IMAGE ${I_POSE}` : `- pose from MODEL CONFIG below`,
+    I_BG    !== null ? `- background from IMAGE ${I_BG}` : `- background from MODEL CONFIG below`,
+    "",
+    "Garment must remain accurate:",
+    "- exact color",
+    "- exact print",
+    "- exact silhouette",
+    "- exact sleeve shape",
+    "- exact neckline",
+    "- exact texture",
+    "",
   );
 
-  // STRICT NEGATIVE RULES
-  lines.push(
-    "",
-    "--------------------------------",
-    "🚫 STRICT NEGATIVE RULES",
-    "--------------------------------",
-    I_MODEL !== null
-      ? `- No different model — output face MUST match IMAGE ${I_MODEL} exactly`
-      : opts.config.modelAgeRange?.trim()
-        ? `- Model must appear ${opts.config.modelAgeRange} years old — clearly adult, not a minor`
-        : "- No child or underage appearance",
-    I_POSE !== null
-      ? `- No pose deviation — body MUST match IMAGE ${I_POSE} skeleton exactly`
-      : "- No extreme or unnatural poses",
-    I_BG !== null
-      ? `- No background changes — scene MUST match IMAGE ${I_BG} exactly`
-      : "- No inconsistent or placeholder background",
-    "- No extra garments or layers",
-    "- No blur, distortion, or extra limbs",
-    "- No text, watermark, or logo",
-    "- No extra people, no duplicates",
-    "- No cropped head or feet",
-    I_MODEL !== null && I_POSE !== null
-      ? `- No face bleed: output face must NOT resemble IMAGE ${I_POSE} person`
-      : "",
-  );
-
-  // FINAL GOAL
-  lines.push(
-    "",
-    "--------------------------------",
-    "✅ FINAL GOAL",
-    "--------------------------------",
-    "The output MUST be a perfect combination of:",
-    "MODEL (identity) + GARMENT (design) + POSE (structure) + BACKGROUND (scene)",
-    "",
-    "If ANY of these do not match the provided images exactly, the output is incorrect.",
-  );
-
-  // Final identity/pose checks for extra reinforcement
   if (I_MODEL !== null) {
     lines.push(
+      "Model must remain consistent:",
+      `- same face as IMAGE ${I_MODEL}`,
+      `- same hair as IMAGE ${I_MODEL}`,
+      `- same body type as IMAGE ${I_MODEL}`,
       "",
-      `FINAL IDENTITY CHECK: Face in output MUST match IMAGE ${I_MODEL} — same eyes, nose, lips, jawline, skin tone, hair. Different face → REJECT.`,
-      I_POSE !== null
-        ? `⚠ If face resembles IMAGE ${I_POSE} person instead of IMAGE ${I_MODEL} → REJECT.`
-        : "",
-    );
-  }
-  if (I_POSE !== null) {
-    lines.push(
-      `FINAL POSE CHECK: Body pose MUST replicate IMAGE ${I_POSE} skeleton. Output garment = IMAGE 1 ONLY. Output person = IMAGE ${I_MODEL ?? "model spec"} ONLY.`,
     );
   }
 
+  if (I_POSE !== null) {
+    lines.push(
+      "Pose must follow:",
+      `- same stance as IMAGE ${I_POSE}`,
+      `- same limb positioning as IMAGE ${I_POSE}`,
+      `- same orientation as IMAGE ${I_POSE}`,
+      `- copy skeleton/joint angles ONLY from IMAGE ${I_POSE}`,
+      "",
+    );
+  }
+
+  // ── MODEL CONFIG ─────────────────────────────────────────────────────────
   lines.push(
+    "========================================",
+    "MODEL CONFIG",
+    "========================================",
     "",
-    "--------------------------------",
-    "FINAL CHECK:",
-    "Garment must match IMAGE 1 exactly. Do NOT change color, print, or shape.",
-    I_POSE  !== null ? `Pose must match IMAGE ${I_POSE} template exactly.` : "",
-    I_MODEL !== null ? `Same person as IMAGE ${I_MODEL} must appear.` : "Same consistent model must appear.",
-    "If not → output is incorrect.",
+    `Garment Type: ${opts.config.styleKeywords || "(from IMAGE 1)"}`,
+    "Generation Model: gemini-2.5-flash-image",
+    `Gender: ${gender}`,
+    `Age Range: ${ageRange}`,
+    ...(ethnicity ? [`Ethnicity: ${ethnicity}`] : []),
+    `Accessories: ${accessories}`,
+    `Footwear: ${footwear}`,
+    `Bottom Wear: ${bottomWear}`,
+    `Styling Notes: ${stylingNotes}`,
+    `Occasion: ${occasion}`,
+    I_BG === null ? `Background Theme: ${bgTheme}` : "",
+    I_POSE === null ? `Pose: ${poseName}` : "",
+    I_MODEL === null ? `[Generate a ${gender.toLowerCase()}, ${ageRange} years old${ethnicity ? `, ${ethnicity}` : ""}, clearly adult — not a minor]` : "",
+    "",
+  );
+
+  // ── STYLE RULES ──────────────────────────────────────────────────────────
+  lines.push(
+    "========================================",
+    "STYLE RULES",
+    "========================================",
+    "",
+    "Style:",
+    "- modern ecommerce fashion",
+    "- photorealistic",
+    "- balanced lighting",
+    "- clean composition",
+    "- realistic fabric behavior",
+    "- accurate garment rendering",
+    "",
+    "Avoid:",
+    "- cinematic framing",
+    "- dramatic lighting",
+    "- extreme close-up",
+    "- macro shots",
+    "- cropped limbs",
+    "- distorted anatomy",
+    "- extra people",
+    "- duplicate body parts",
+    "- exaggerated fashion poses",
+    "- inconsistent framing",
+    "- background contamination",
+    "- pose contamination",
+    "- garment contamination",
+    "- identity blending",
+    "",
+  );
+
+  // ── PERFORMANCE OPTIMIZATION ─────────────────────────────────────────────
+  lines.push(
+    "========================================",
+    "PERFORMANCE OPTIMIZATION",
+    "========================================",
+    "",
+    "Keep outputs: stable, fast, low latency, composition consistent.",
+    "Use: simple framing, moderate detail, realistic perspective, minimal scene complexity.",
+    "Avoid: excessive cinematic styling, heavy editorial composition, complex camera angles, extreme perspective distortion.",
   );
 
   return lines.filter(Boolean).join("\n").trim();
@@ -1558,8 +1524,13 @@ export function buildDirectMultiAnglePrompt(opts: {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Flash-specific multi-angle prompt builder
-// Provides explicitly-structured prompts for back-view and detail-shot.
+// Flash master multi-angle prompt builder (back view + detail shot)
+// Architecture: isolated reference images, master prompt style.
+// IMAGE 1: garment reference (or back photo for back view)
+// IMAGE 2: main result (identity + scene anchor)
+// IMAGE 3: pose reference (if any — inserted by genAngle)
+// IMAGE 4: background reference (if any)
+// IMAGE 5: model photo (if any — extra identity reference, placed last)
 // ────────────────────────────────────────────────────────────────────────────
 function buildFlashMultiAnglePrompt(opts: {
   angle: "side" | "back" | "detail";
@@ -1614,9 +1585,7 @@ function buildFlashMultiAnglePrompt(opts: {
   ];
 
   if (isDetail) {
-    // ── Detail shot ────────────────────────────────────────────────────────────
     const gType = (opts.garmentType || "").toLowerCase();
-
     let focusRule: string;
     if (["t-shirt", "shirt", "hoodie", "sweater", "blazer"].some((g) => gType.includes(g))) {
       focusRule = "upper body only, crop from chin to hip, exclude legs, face partially visible or cropped above lips";
@@ -1627,9 +1596,7 @@ function buildFlashMultiAnglePrompt(opts: {
     } else {
       focusRule = "upper body only, crop from chin to hip, garment clearly centered";
     }
-
     const angleHint = Math.random() > 0.5 ? "slight right angle" : "slight left angle";
-
     lines.push(
       "Ultra-realistic fashion product detail shot.",
       "",
@@ -1662,12 +1629,10 @@ function buildFlashMultiAnglePrompt(opts: {
       `• Print/graphics: MUST match IMAGE ${I_GARMENT} exactly. No simplification.`,
       `• Design: must also be consistent with IMAGE ${I_MAIN}.`,
     );
-
   } else if (isBack) {
-    // ── Back view ──────────────────────────────────────────────────────────────
     lines.push(
       "TASK: Generate a photorealistic ecommerce fashion photo — BACK VIEW.",
-      "FORMAT: 3:4 portrait · 1080×1440 px · FULL BODY head-to-toe.",
+      "FORMAT: 3:4 portrait · FULL BODY head-to-toe.",
       "",
       "━━━ INPUT IMAGES ━━━",
       isBackWithPhoto
@@ -1680,75 +1645,49 @@ function buildFlashMultiAnglePrompt(opts: {
       "",
       "━━━ VIEW SPECIFICATION ━━━",
       "• Model faces AWAY from camera. Camera sees the model's BACK.",
-      "• Head turn: slight, 15–20° maximum (small profile glimpse only). Front face is NOT visible.",
-      "• Arms relaxed slightly away from body — back garment panel is fully exposed.",
-      "• Hair swept aside or pulled forward so back neckline of the garment is visible.",
+      "• Head turn: slight, 15–20° maximum. Front face is NOT visible.",
+      "• Arms relaxed slightly away from body — back garment panel fully exposed.",
+      "• Hair swept aside so back neckline of the garment is visible.",
       "",
     );
-
     if (isBackWithPhoto) {
       lines.push(
         "━━━ GARMENT BACK DESIGN ━━━",
         `All back garment details MUST come from IMAGE ${I_GARMENT} ONLY.`,
-        `• Reproduce exactly from IMAGE ${I_GARMENT}: back neckline, back seams, rear hem, any back print or logo.`,
+        `• Reproduce exactly: back neckline, back seams, rear hem, any back print or logo.`,
         "• Do NOT show the front garment design on the back output.",
         "• Do NOT mirror the front design. Do NOT invent back details.",
-        `• If IMAGE ${I_GARMENT} shows no back print, the back output must have no print.`,
       );
     } else {
       lines.push(
         "━━━ GARMENT BACK DESIGN ━━━",
         `Infer the back design from IMAGE ${I_GARMENT} (garment construction, fabric, and style).`,
-        "• Show: back seams, rear neckline shape, back hem, fabric texture — consistent with the garment front.",
+        "• Show: back seams, rear neckline shape, back hem, fabric texture — consistent with garment front.",
         "• Do NOT copy or mirror the front print or logo to the back.",
-        "• Keep construction details consistent with the garment type and silhouette.",
       );
     }
-
     if (I_POSE !== null) {
       lines.push(
         "",
-        `━━━ POSE — WIRE-FRAME SKELETON FROM IMAGE ${I_POSE} ━━━`,
-        `Adopt the back-facing body position from IMAGE ${I_POSE} — joint angles and stance ONLY.`,
-        `✓ COPY: shoulder angle, arm position, hip angle, knee angle, foot placement, head direction`,
-        `✗ BLOCK — do NOT copy from IMAGE ${I_POSE}:`,
-        `  • Face or hair → from MODEL PHOTO`,
-        `  • Top garment → from IMAGE ${I_GARMENT} (garment reference)`,
-        `  • Pants / bottom garment → from bottom wear spec only`,
-        `  • Shoes / footwear → from footwear spec only`,
-        `  • Accessories → from accessories spec only`,
-        `  • Background, floor, walls → from BACKGROUND spec only`,
+        `━━━ POSE — SKELETON FROM IMAGE ${I_POSE} ━━━`,
+        `Copy back-facing body position from IMAGE ${I_POSE} — joint angles and stance ONLY.`,
+        `✗ BLOCK from IMAGE ${I_POSE}: face, hair, garments, shoes, background.`,
       );
     }
-
     lines.push(
       "",
       "━━━ CONSISTENCY — MUST MATCH IMAGE 2 (MAIN RESULT) ━━━",
-      "• Same model identity (seen from behind/side profile — match hair, makeup, body proportions)",
-      "• Same accessories worn",
-      `• Same footwear${opts.config.footwear ? ` (${opts.config.footwear})` : ""} — must be visible at bottom of frame`,
-      opts.config.bottomWear ? `• Same bottom wear: ${opts.config.bottomWear}` : "",
-      "• Same background/scene",
-      "• Same lighting quality and direction",
+      "• Same model identity — match hair, body proportions",
+      "• Same accessories, footwear, bottom wear",
+      "• Same background/scene and lighting",
       "",
       "━━━ FRAMING ━━━",
-      "• FULL BODY: model head (from back/profile) to shoes — all visible, no cropping.",
-      "• Same framing proportions as the MAIN RESULT (IMAGE 2).",
-      "• 3:4 portrait, full head-to-toe.",
-      "",
-      "━━━ REJECT IF ANY CONDITION IS TRUE ━━━",
-      "✗ Model facing toward the camera (must face AWAY)",
-      "✗ Front face clearly visible (slight profile is OK)",
-      isBackWithPhoto ? `✗ Front garment design appears on the back (back design MUST come from IMAGE ${I_GARMENT})` : "✗ Front design mirrored to the back",
-      "✗ Head or feet cropped from frame",
-      `✗ Different background than IMAGE ${I_MAIN}`,
+      "• FULL BODY: head to shoes — all visible, no cropping.",
     );
-
   } else {
-    // ── Side view ──────────────────────────────────────────────────────────────
     lines.push(
       "TASK: Generate a photorealistic ecommerce fashion photo — SIDE VIEW.",
-      "FORMAT: 3:4 portrait · 1080×1440 px · FULL BODY head-to-toe.",
+      "FORMAT: 3:4 portrait · FULL BODY head-to-toe.",
       "",
       "━━━ INPUT IMAGES ━━━",
       `IMAGE ${I_GARMENT}: GARMENT REFERENCE — match garment design exactly.`,
@@ -1757,20 +1696,12 @@ function buildFlashMultiAnglePrompt(opts: {
       I_BG    !== null ? `IMAGE ${I_BG}: BACKGROUND PHOTO — scene reference.` : "",
       "",
       "━━━ VIEW SPECIFICATION ━━━",
-      "• True SIDE VIEW: model rotated approximately 70°. Camera sees the model's profile.",
-      "• This is NOT a 3/4 front turn — model must NOT face toward the camera.",
+      "• True SIDE VIEW: model rotated approximately 70°. Camera sees model's profile.",
       "• Head and feet both fully in frame. Side seam of garment clearly visible.",
-      "• Pose: S-curve weight shift, one foot slightly forward, arms relaxed along sides.",
-      "• Arms must not block the side seam.",
-      "",
-      "━━━ FRAMING ━━━",
-      "• Full body head-to-toe. No cropping.",
-      `• Footwear visible at bottom${opts.config.footwear ? ` (${opts.config.footwear})` : ""}.`,
       "",
       "━━━ REJECT IF ━━━",
-      "✗ Model facing front or at 3/4 angle (must be side profile)",
+      "✗ Model facing front or at 3/4 angle",
       "✗ Head or feet cropped",
-      "✗ Garment design differs from IMAGE 1",
     );
   }
 
@@ -1923,13 +1854,19 @@ export function buildOptimizedMultiAnglePrompt(opts: {
         "• Arms relaxed slightly away from body — back garment panel fully exposed.",
         "• Hair moved aside or tucked to reveal back neckline and back fabric.",
         "",
+        `FRAMING — CAMERA LOCK (match IMAGE ${I_MAIN} exactly):`,
+        `• Use the SAME camera distance, zoom level, and body scale as IMAGE ${I_MAIN}.`,
+        "• DO NOT zoom closer than the front view. DO NOT crop to torso only.",
+        "• Model fills same ~80–85% of frame height. Full head-to-toe body visible.",
+        "• 85mm fashion photography perspective — same focal length as front view.",
+        "",
         "GARMENT BACK DESIGN (non-negotiable):",
         `• Reproduce the back design from IMAGE ${I_GARMENT} exactly: back neckline, back seams, rear hem, any back print or logo.`,
         "• Zero bleed from front design. Do not mirror the front. Do not fabricate back details.",
         "• If IMAGE 1 shows no back print, the back output must have no print.",
         I_POSE ? `IMAGE ${I_POSE}: BACK POSE REFERENCE — skeleton/joint angles ONLY. Block: face, hair, top garment, pants/bottom garment, shoes, accessories, background.` : "",
         "",
-        "Avoid: front design on back output, mirrored front print, front neckline style on back, model facing forward.",
+        "Avoid: front design on back output, mirrored front print, front neckline style on back, model facing forward, over-zoomed crop.",
       ];
     } else {
       // No back photo — infer from front garment ref
@@ -1942,57 +1879,45 @@ export function buildOptimizedMultiAnglePrompt(opts: {
         "• Do NOT copy the front print or logo onto the back unless it is a back-print garment.",
         "• Slight head turn 15–20° (partial profile); front face NOT visible.",
         "• Arms relaxed slightly away from body to reveal back panel.",
+        "",
+        `FRAMING — CAMERA LOCK (match IMAGE ${I_MAIN} exactly):`,
+        `• Use the SAME camera distance, zoom level, and body scale as IMAGE ${I_MAIN}.`,
+        "• DO NOT zoom closer than the front view. DO NOT crop to torso only.",
+        "• Model fills same ~80–85% of frame height. Full head-to-toe body visible.",
+        "• 85mm fashion photography perspective — same focal length as front view.",
         I_POSE ? `IMAGE ${I_POSE}: BACK POSE REFERENCE — skeleton/joint angles ONLY. Block: face, hair, top garment, pants/bottom garment, shoes, accessories, background.` : "",
         "",
-        "Avoid: model facing forward, front design mirrored on back, hair covering back garment.",
+        "Avoid: model facing forward, front design mirrored on back, hair covering back garment, over-zoomed crop.",
       ];
     }
   } else {
-    // ── Detail shot ────────────────────────────────────────────────────────
+    // ── Detail shot — Pro prompt (angle-aware) ────────────────────────────────
     const gType = (opts.garmentType || "").toLowerCase();
 
-    let cropZone: string;
-    let focusItems: string;
+    let focusRegion: string;
     if (["t-shirt", "shirt", "hoodie", "sweater"].some((g) => gType.includes(g))) {
-      cropZone   = "chest to hem (shoulders → bottom hem)";
-      focusItems = "chest print, neckline, sleeve cuff, fabric weave";
+      focusRegion = "from shoulders to waist — capturing the neckline, chest, and hem of the upper body garment";
     } else if (["jacket", "blazer"].some((g) => gType.includes(g))) {
-      cropZone   = "chest to below waist (lapels → hem)";
-      focusItems = "lapels, buttons, pocket detail, lining edge, fabric structure";
+      focusRegion = "from shoulders to slightly below waist — capturing lapels, buttons, and the structured silhouette of the outerwear";
     } else if (["pant", "jeans", "shorts"].some((g) => gType.includes(g))) {
-      cropZone   = "waist to mid-thigh";
-      focusItems = "waistband, fly, pocket stitching, inseam, leg fabric";
+      focusRegion = "from waist to knee or thigh — capturing the waistband, fly, pockets, and leg fabric of the lower body garment";
     } else if (gType.includes("saree")) {
-      cropZone   = "pallu drape and waist pleats";
-      focusItems = "border pattern, pallu embellishment, pleat folds, fabric sheen";
+      focusRegion = "the draped area around the waist and the flowing pallu fabric — highlighting pleats, border, and textile texture of the saree";
     } else {
-      cropZone   = "garment-rich zone (torso for tops, waist-thigh for bottoms)";
-      focusItems = "fabric texture, print, stitching, seam detail";
+      focusRegion = "the most garment-rich region of the body (typically shoulders to waist for upper body, or waist to knee for lower body)";
     }
 
     viewBlock = [
       "",
-      "VIEW: MACRO CLOSE-UP GARMENT DETAIL SHOT — product photography, NOT a portrait or full-body.",
-      "",
-      "FRAMING (non-negotiable, 3:4 portrait):",
-      `• Crop zone: ${cropZone}.`,
-      "• Garment surface fills 85–95% of frame. Extreme close-up — macro product lens equivalent.",
-      "• HEAD, FACE, and full body are FORBIDDEN in this shot.",
-      "• No wide shot. No 3/4 body. No portrait.",
-      "",
-      "FOCUS & CAMERA (macro product photography):",
-      `• Tack-sharp focus on ${focusItems} — every thread, stitch, and texture must be crisp.`,
-      "• 90mm macro equivalent, f/8–f/11 for maximum fabric sharpness.",
-      "• Background: pure studio neutral or softly out-of-focus continuation of MAIN RESULT scene.",
-      "",
-      "LIGHTING: even diffused studio light; no harsh shadows obscuring fabric detail; match MAIN RESULT tone.",
-      "",
-      "GARMENT ACCURACY (critical):",
-      "• Color, print, logo, and texture MUST match GARMENT REFERENCE exactly — pixel-accurate fidelity.",
-      "• No redesign, reinterpretation, or simplification of the garment surface.",
-      "• Every graphic, text, and pattern element must appear at full resolution detail.",
-      "",
-      "OUTPUT: commercial-grade macro product shot — ultra-sharp fabric detail, no face, no full body.",
+      "Requested view: DETAIL SHOT (zoomed-in garment close-up).",
+      `Focus region: ${focusRegion}.`,
+      `Angle: IMAGE ${I_GARMENT} (garment reference) and IMAGE ${I_MAIN} (main result) are both straight front-facing. This detail shot MUST use a DIFFERENT angle — a slight 3/4 turn or slight side angle — to provide visual variety and reveal garment depth and fabric texture.`,
+      "Framing: crop tightly so the garment fills most of the frame; keep minimal background visible; exclude face and irrelevant body parts (e.g. legs for upper-body garments, head/face for lower-body garments).",
+      "Garment must be centered and occupy at least 80% of the frame.",
+      "Highlight fine fabric details: folds, stitching, seams, texture, and realistic shadows. Sharp focus, high resolution.",
+      "Maintain the exact same garment design, color, texture, fit, and print as seen in the MAIN RESULT image. Do not alter the outfit.",
+      "Style: professional fashion e-commerce detail shot, clean composition, realistic lighting, high detail.",
+      "Do NOT show a full body. Do NOT include the face. Do NOT add new garment elements.",
     ];
   }
 
@@ -2008,7 +1933,7 @@ export function buildOptimizedMultiAnglePrompt(opts: {
   // ── Output check ──────────────────────────────────────────────────────────
   const outputCheck: string[] = isDetail ? [
     "",
-    "OUTPUT CHECK: macro garment detail — 85–95% garment fill, tack-sharp fabric surface, no face, no full body.",
+    "OUTPUT CHECK: detail shot — different angle from IMAGE 1 and IMAGE 2, garment fills 80%+ of frame, no full body, no face, garment design unchanged.",
   ] : isBackWithPhoto ? [
     "",
     "OUTPUT CHECK: model fully facing away. Back garment design matches IMAGE 1 exactly. No front design on back.",
@@ -2036,7 +1961,7 @@ export type PrimaryGenerationOpts = {
   poseImages: GeminiInlineImage[];
   backgroundImage: GeminiInlineImage | null;
   config: DirectCompositeConfig;
-  onStep?: (step: "garment_ref" | "composite") => void;
+  onStep?: (step: "garment_ref" | "look_plan" | "final_prompt" | "composite") => void;
 };
 
 export type PrimaryGenerationResult = {
@@ -2046,18 +1971,28 @@ export type PrimaryGenerationResult = {
   garmentRefMimeType: string;
   /** true when garment reference was served from cache (saved one image API call) */
   garmentRefCacheHit: boolean;
-  timings: { garmentRefMs: number; compositeMs: number; totalMs: number };
+  garmentRefPrompt: string;
+  compositePrompt: string;
+  /** Flash only: LookPlan from Step 2 */
+  lookPlan?: LookPlan;
+  /** Flash only: final text prompt from Step 3 */
+  finalPrompt?: string;
+  timings: { garmentRefMs: number; lookPlanMs?: number; finalPromptMs?: number; compositeMs: number; totalMs: number };
 };
 
 /**
- * Cost-optimized primary image generation.
+ * Primary image generation.
  *
- * Eliminates planLookFromGarment() and generateFinalPrompt() (2 text LLM calls).
- * Caches garment reference by SHA-256 hash so repeated runs with the same garment
- * skip the most expensive step.
+ * Flash (gemini-2.5-flash-image): full 5-step pipeline per spec —
+ *   Step 1: garment reference (cached by SHA-256)
+ *   Step 2: look plan via planLookFromGarment() (text LLM)
+ *   Step 3: final prompt via generateFinalPrompt() (text LLM)
+ *   Step 4: composite via buildCompositePrompt() + generateImage()
+ *           images: garmentRef → model? → originalGarments → pose? → bg?
  *
- * Image inputs to composite are limited to: garmentRef + model + pose + background
- * (original garment photos excluded — saves 1–4 image token blocks per call).
+ * Pro (gemini-3-pro-image-preview): cost-optimized path — no text LLM calls,
+ *   buildDirectCompositePrompt() builds the prompt programmatically.
+ *   images: garmentRef → model? → pose? → bg?
  */
 export async function generatePrimaryImage(
   opts: PrimaryGenerationOpts,
@@ -2068,7 +2003,10 @@ export async function generatePrimaryImage(
   let garmentRefMs = 0;
   let cacheHit = false;
 
-  // Step 1: garment reference — serve from cache or generate once
+  const garmentRefPrompt = buildGarmentReferencePrompt(opts.garmentImages.length > 1, opts.imageModel);
+  const isFlash = isFlashModel(opts.imageModel);
+
+  // ── Step 1: garment reference — shared between Flash and Pro ─────────────
   const hash = await hashImages(opts.garmentImages);
   const cached = await getCachedGarmentRef(hash);
 
@@ -2081,27 +2019,133 @@ export async function generatePrimaryImage(
     const t1 = performance.now();
     const refResult = await generateImage({
       model: opts.imageModel,
-      promptText: buildGarmentReferencePrompt(opts.garmentImages.length > 1, opts.imageModel),
+      promptText: garmentRefPrompt,
       images: opts.garmentImages,
       aspectRatio: "3:4",
-      width: 1080,
-      height: 1440,
+      ...(isFlash ? {} : { width: 1080, height: 1440 }),
       timeoutMs: 180_000,
     });
     garmentRefMs = Math.round(performance.now() - t1);
     if (!refResult.imageBase64) throw new GeminiError("Garment reference returned no image.");
     garmentRefDataUrl = `data:${refResult.mimeType};base64,${refResult.imageBase64}`;
     garmentRefMimeType = refResult.mimeType;
-    // Store in cache — fire-and-forget, failure is non-fatal
     storeCachedGarmentRef(hash, garmentRefDataUrl, garmentRefMimeType).catch(() => {});
   }
 
-  // Step 2: composite — build prompt from config (no LLM call)
-  opts.onStep?.("composite");
   const hasPoseReference = opts.poseImages.length > 0;
   const hasModelReference = Boolean(opts.modelImage);
   const hasBackgroundReference = Boolean(opts.backgroundImage);
 
+  // ── Flash: Steps 2–4 (full pipeline with text LLM calls) ─────────────────
+  if (isFlash) {
+    const flashTextModel = opts.imageModel.replace(/-image$/, "");
+
+    // Step 2: Look Plan
+    opts.onStep?.("look_plan");
+    let plan: LookPlan;
+    let lookPlanMs = 0;
+    const tPlan = performance.now();
+    try {
+      const planResult = await planLookFromGarment({
+        model: flashTextModel,
+        garmentImages: opts.garmentImages,
+        availableBackgroundThemes: opts.config.backgroundTheme ? [opts.config.backgroundTheme] : [],
+        availableModelEthnicities: opts.config.modelEthnicity ? [opts.config.modelEthnicity] : [],
+        userOverrides: {
+          occasion:             opts.config.occasion            ?? null,
+          background_theme:     opts.config.backgroundTheme     ?? null,
+          footwear:             opts.config.footwear            ?? null,
+          model_ethnicity:      opts.config.modelEthnicity      ?? null,
+          model_pose:           opts.config.modelPose           ?? null,
+          model_styling_notes:  opts.config.modelStylingNotes   ?? null,
+        },
+      });
+      plan = planResult.plan;
+    } catch {
+      plan = {
+        occasion:            opts.config.occasion            || "casual",
+        color_scheme:        "natural, balanced",
+        print_style:         "as-is",
+        style_keywords:      coerceStrList(opts.config.styleKeywords),
+        background_theme:    opts.config.backgroundTheme     || "clean lifestyle setting",
+        footwear:            opts.config.footwear            || "appropriate footwear",
+        accessories:         coerceStrList(opts.config.accessories),
+        negative_prompt:     "",
+        model_ethnicity:     opts.config.modelEthnicity      || "",
+        model_pose:          opts.config.modelPose           || "natural standing, weight shift, relaxed hands",
+        model_styling_notes: opts.config.modelStylingNotes   || "natural glam, commercial ecommerce",
+      };
+    }
+    lookPlanMs = Math.round(performance.now() - tPlan);
+
+    // Step 3: Final Prompt
+    opts.onStep?.("final_prompt");
+    let finalPrompt = "";
+    let finalPromptMs = 0;
+    const tPrompt = performance.now();
+    try {
+      const promptResult = await generateFinalPrompt({
+        model: flashTextModel,
+        plan,
+        background: null,
+        chosenModel: null,
+        hasBackgroundReference,
+        hasModelReference,
+      });
+      finalPrompt = promptResult.prompt;
+    } catch { /* empty finalPrompt is fine — buildCompositePrompt handles it gracefully */ }
+    finalPromptMs = Math.round(performance.now() - tPrompt);
+
+    // Step 4: Composite
+    // Image order: garmentRef(1) → model?(2) → originalGarments(3-N) → pose?(N+1) → bg?(N+2)
+    opts.onStep?.("composite");
+    const compositePrompt = buildCompositePrompt({
+      plan,
+      finalPrompt,
+      hasModelReference,
+      hasPoseReference,
+      hasBackgroundReference,
+      originalGarmentCount: opts.garmentImages.length,
+    });
+
+    const compositeImages: GeminiInlineImage[] = [
+      dataUrlToInlineImage(garmentRefDataUrl),
+      ...(opts.modelImage      ? [opts.modelImage]      : []),
+      ...opts.garmentImages,
+      ...(hasPoseReference     ? [opts.poseImages[0]!]  : []),
+      ...(opts.backgroundImage ? [opts.backgroundImage] : []),
+    ];
+
+    const t2 = performance.now();
+    const composite = await generateImage({
+      model: opts.imageModel,
+      promptText: compositePrompt,
+      images: compositeImages,
+      aspectRatio: "3:4",
+      timeoutMs: 180_000,
+      temperature: 0.2,
+    });
+    const compositeMs = Math.round(performance.now() - t2);
+
+    if (!composite.imageBase64) throw new GeminiError("Composite generation returned no image.");
+
+    return {
+      compositeDataUrl: `data:${composite.mimeType};base64,${composite.imageBase64}`,
+      compositeMimeType: composite.mimeType,
+      garmentRefDataUrl,
+      garmentRefMimeType,
+      garmentRefCacheHit: cacheHit,
+      garmentRefPrompt,
+      compositePrompt,
+      lookPlan: plan,
+      finalPrompt,
+      timings: { garmentRefMs, lookPlanMs, finalPromptMs, compositeMs, totalMs: Math.round(performance.now() - t0) },
+    };
+  }
+
+  // ── Pro: cost-optimized composite (no text LLM calls) ────────────────────
+  // Image order: garmentRef(1) → model?(2) → pose?(3) → bg?(4)
+  opts.onStep?.("composite");
   const compositePrompt = buildDirectCompositePrompt({
     hasModelReference,
     hasPoseReference,
@@ -2110,23 +2154,12 @@ export async function generatePrimaryImage(
     model: opts.imageModel,
   });
 
-  // Image order must match the IMAGE N labels in buildDirectCompositePrompt / buildFlashDirectCompositePrompt.
-  // Flash image order: garment → pose → model → background
-  //   Pose comes BEFORE model so the MODEL PHOTO is the last human face seen (recency = identity dominance).
-  // Pro image order: garment → model → pose → background (unchanged)
-  const compositeImages: GeminiInlineImage[] = isFlashModel(opts.imageModel)
-    ? [
-        dataUrlToInlineImage(garmentRefDataUrl),
-        ...(hasPoseReference ? [opts.poseImages[0]!] : []),
-        ...(opts.modelImage ? [opts.modelImage] : []),
-        ...(opts.backgroundImage ? [opts.backgroundImage] : []),
-      ]
-    : [
-        dataUrlToInlineImage(garmentRefDataUrl),
-        ...(opts.modelImage ? [opts.modelImage] : []),
-        ...(hasPoseReference ? [opts.poseImages[0]!] : []),
-        ...(opts.backgroundImage ? [opts.backgroundImage] : []),
-      ];
+  const compositeImages: GeminiInlineImage[] = [
+    dataUrlToInlineImage(garmentRefDataUrl),
+    ...(opts.modelImage      ? [opts.modelImage]      : []),
+    ...(hasPoseReference     ? [opts.poseImages[0]!]  : []),
+    ...(opts.backgroundImage ? [opts.backgroundImage] : []),
+  ];
 
   const t2 = performance.now();
   const composite = await generateImage({
@@ -2137,8 +2170,6 @@ export async function generatePrimaryImage(
     width: 1080,
     height: 1440,
     timeoutMs: 180_000,
-    // Flash: low temperature reduces creative drift in garment/identity
-    temperature: isFlashModel(opts.imageModel) ? 0.1 : undefined,
   });
   const compositeMs = Math.round(performance.now() - t2);
 
@@ -2150,6 +2181,8 @@ export async function generatePrimaryImage(
     garmentRefDataUrl,
     garmentRefMimeType,
     garmentRefCacheHit: cacheHit,
+    garmentRefPrompt,
+    compositePrompt,
     timings: { garmentRefMs, compositeMs, totalMs: Math.round(performance.now() - t0) },
   };
 }
@@ -2160,8 +2193,8 @@ export type MultiAngleGenerationOpts = {
   garmentRefImage: GeminiInlineImage;
   /**
    * Original back garment photo (if user uploaded one).
-   * When provided, the back view uses this as IMAGE 1 instead of the front garment ref,
-   * enforcing strict back-design isolation.
+   * Pro: used as IMAGE 1 for back view instead of the front garment ref.
+   * Flash: included in garmentImages array as additional design reference.
    */
   garmentBackRawImage: GeminiInlineImage | null;
   mainResultImage: GeminiInlineImage;
@@ -2171,6 +2204,12 @@ export type MultiAngleGenerationOpts = {
   garmentType?: string;
   /** Base URL for fetching /angle-poses/{folder}/{n}.jpg templates. */
   baseUrl?: string;
+  /**
+   * All original garment photos (front + back + any angles uploaded by user).
+   * Flash: passed as IMAGES 2–N (secondary design reference) between garmentRef and mainResult.
+   * Pro: not used (excluded for token savings).
+   */
+  garmentImages?: GeminiInlineImage[];
 };
 
 export type MultiAngleGenerationResult = {
@@ -2180,66 +2219,60 @@ export type MultiAngleGenerationResult = {
 };
 
 /**
- * View-isolated multi-angle generation.
+ * Multi-angle image generation (back view + detail shot).
  *
- * Back view isolation:
- *   When garmentBackRawImage is provided, the back view receives the back photo
- *   as IMAGE 1 (not the front garment ref), with a prompt that explicitly blocks
- *   all front design from appearing on the back output.
+ * Flash (gemini-2.5-flash-image): document-spec approach.
+ *   Image order per angle: garmentRef(1) → originalGarments(2-N) → mainResult(N+1) → model?(N+2) → bg?(N+3)
+ *   Prompt: buildMultiAnglePrompt() with LookPlan derived from config (no extra LLM call).
+ *   Errors: caught internally — each angle returns null on failure.
+ *   Execution: parallel via Promise.all.
  *
- * Side / detail use the front garment reference as IMAGE 1 (unchanged).
- * Per-angle errors are non-fatal and return null for that angle.
+ * Pro (gemini-3-pro-image-preview): view-isolated approach.
+ *   Back view uses garmentBackRawImage as IMAGE 1 (when provided).
+ *   3-attempt progressive fallback for back view.
+ *   Execution: sequential to stay within rate limits.
  */
 export async function generateMultiAngleImages(
   opts: MultiAngleGenerationOpts,
 ): Promise<MultiAngleGenerationResult> {
   const t0 = performance.now();
-  const hasModelReference     = Boolean(opts.modelImage);
+  const hasModelReference      = Boolean(opts.modelImage);
   const hasBackgroundReference = Boolean(opts.backgroundImage);
-  const hasBackGarmentPhoto   = Boolean(opts.garmentBackRawImage);
-
+  const hasBackGarmentPhoto    = Boolean(opts.garmentBackRawImage);
   const base = (opts.baseUrl || "/").replace(/\/$/, "");
-
   const isFlash = isFlashModel(opts.imageModel);
 
-  // Flash image order (identity-optimised):
-  //   garment → main_result → pose(added later) → background → model_photo(LAST for recency)
-  // Pro image order (unchanged):
-  //   garment → main_result → model_photo → background → pose(added later)
+  // ── Flash: LookPlan from config (no extra LLM call) ──────────────────────
+  const flashLookPlan: LookPlan | null = isFlash ? {
+    occasion:            opts.config.occasion            || "casual",
+    color_scheme:        "natural, balanced",
+    print_style:         "as-is",
+    style_keywords:      coerceStrList(opts.config.styleKeywords),
+    background_theme:    opts.config.backgroundTheme     || "clean lifestyle setting",
+    footwear:            opts.config.footwear            || "appropriate footwear",
+    accessories:         coerceStrList(opts.config.accessories),
+    negative_prompt:     "",
+    model_ethnicity:     opts.config.modelEthnicity      || "",
+    model_pose:          opts.config.modelPose           || "natural standing",
+    model_styling_notes: opts.config.modelStylingNotes   || "natural glam, commercial ecommerce",
+  } : null;
 
-  // Standard references used by side and detail views
-  const frontRefs: GeminiInlineImage[] = isFlash
+  // ── Pro refs ──────────────────────────────────────────────────────────────
+  const frontRefs: GeminiInlineImage[] = [
+    opts.garmentRefImage,
+    opts.mainResultImage,
+    ...(opts.modelImage      ? [opts.modelImage]      : []),
+    ...(opts.backgroundImage ? [opts.backgroundImage] : []),
+  ];
+
+  const backRefs: GeminiInlineImage[] = hasBackGarmentPhoto
     ? [
-        opts.garmentRefImage,          // IMAGE 1: front garment reference (highest priority)
-        opts.mainResultImage,          // IMAGE 2: main result (identity + scene anchor)
-        // pose added later in genAngle (IMAGE 3 if any)
-        ...(opts.backgroundImage ? [opts.backgroundImage] : []),  // IMAGE 4 if bg
-        ...(opts.modelImage      ? [opts.modelImage]      : []),  // IMAGE 5 LAST — recency = identity dominance
-      ]
-    : [
-        opts.garmentRefImage,          // IMAGE 1: front garment reference
-        opts.mainResultImage,          // IMAGE 2: main result (identity/scene)
+        opts.garmentBackRawImage!,
+        opts.mainResultImage,
         ...(opts.modelImage      ? [opts.modelImage]      : []),
         ...(opts.backgroundImage ? [opts.backgroundImage] : []),
-      ];
-
-  // Back view references — back photo replaces front garment ref as IMAGE 1
-  const backRefs: GeminiInlineImage[] = hasBackGarmentPhoto
-    ? isFlash
-      ? [
-          opts.garmentBackRawImage!,   // IMAGE 1: back garment photo (SOLE design source)
-          opts.mainResultImage,        // IMAGE 2: main result (identity/scene anchor)
-          // pose added later in genAngle
-          ...(opts.backgroundImage ? [opts.backgroundImage] : []),
-          ...(opts.modelImage      ? [opts.modelImage]      : []),  // LAST for recency
-        ]
-      : [
-          opts.garmentBackRawImage!,   // IMAGE 1: back garment photo
-          opts.mainResultImage,        // IMAGE 2: main result
-          ...(opts.modelImage      ? [opts.modelImage]      : []),
-          ...(opts.backgroundImage ? [opts.backgroundImage] : []),
-        ]
-    : frontRefs;                       // fallback: same as front refs, model infers back
+      ]
+    : frontRefs;
 
   const promptBase = {
     hasModelReference,
@@ -2273,22 +2306,49 @@ export async function generateMultiAngleImages(
     angle: "back" | "detail",
     poseRef: GeminiInlineImage | null,
   ): Promise<{ dataUrl: string; mimeType: string; ms: number } | null> {
+    // ── Flash path: document-spec image order + buildMultiAnglePrompt ────────
+    if (isFlash) {
+      const t = performance.now();
+      const garmentImages = opts.garmentImages ?? [];
+      // Image order: garmentRef(1) → originalGarments(2-N) → mainResult(N+1) → model?(N+2) → bg?(N+3)
+      const flashImages: GeminiInlineImage[] = [
+        opts.garmentRefImage,
+        ...garmentImages,
+        opts.mainResultImage,
+        ...(opts.modelImage      ? [opts.modelImage]      : []),
+        ...(opts.backgroundImage ? [opts.backgroundImage] : []),
+      ];
+      const flashPrompt = buildMultiAnglePrompt({
+        angle,
+        plan: flashLookPlan!,
+        finalPrompt: "",
+        garmentAngleCount: garmentImages.length,
+        hasModelReference,
+        hasBackgroundReference,
+        hasPoseReference: false,
+        garmentType: opts.garmentType,
+      });
+      try {
+        const res = await generateImage({
+          model: opts.imageModel,
+          promptText: flashPrompt,
+          images: flashImages,
+          aspectRatio: "3:4",
+          timeoutMs: 180_000,
+          temperature: 0.1,
+        });
+        if (!res.imageBase64) return null;
+        return { dataUrl: `data:${res.mimeType};base64,${res.imageBase64}`, mimeType: res.mimeType, ms: Math.round(performance.now() - t) };
+      } catch { return null; }
+    }
+
+    // ── Pro path: view-isolated (exact committed behavior) ────────────────────
     try {
       const t = performance.now();
-
       const isBack = angle === "back";
       const refImages = isBack ? backRefs : frontRefs;
 
-      // Flash: insert pose AFTER main_result (index 1) so bg and model follow, model stays last
-      // Pro:   append pose at end (unchanged)
-      let images: GeminiInlineImage[];
-      if (isFlash && poseRef) {
-        images = [refImages[0]!, refImages[1]!, poseRef, ...refImages.slice(2)];
-      } else {
-        images = [...refImages, ...(poseRef ? [poseRef] : [])];
-      }
-
-      // Use the caller-selected model for every angle — no silent upgrades.
+      const images: GeminiInlineImage[] = [...refImages, ...(poseRef ? [poseRef] : [])];
       const effectiveModel = opts.imageModel;
 
       const prompt = buildOptimizedMultiAnglePrompt({
@@ -2304,9 +2364,9 @@ export async function generateMultiAngleImages(
         promptText: prompt,
         images,
         aspectRatio: "3:4",
-        width: 1080, height: 1440,
+        width: 1080,
+        height: 1440,
         timeoutMs: 180_000,
-        // Flash: low temperature reduces drift across angles
         temperature: isFlashModel(effectiveModel) ? 0.1 : undefined,
       });
       if (!res.imageBase64) return null;
@@ -2314,6 +2374,7 @@ export async function generateMultiAngleImages(
     } catch { return null; }
   }
 
+  // Fetch back pose for both Flash and Pro (Pro uses it; Flash genAngle ignores poseRef)
   const backPose = await fetchPoseImage("back", 8);
 
   const [back, detail] = await Promise.all([

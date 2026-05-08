@@ -7,6 +7,8 @@ import { findByCognitoSub, findOrCreateUser } from "../services/auth.service.js"
 export type AccessTokenPayload = {
   userId: string;
   email: string;
+  role: "SUPER_ADMIN" | "ADMIN" | "USER";
+  permissions: Record<string, boolean> | null;
 };
 
 declare global {
@@ -41,7 +43,12 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     // Try to find existing user by Cognito sub
     const dbUser = await findByCognitoSub(cognitoSub);
     if (dbUser) {
-      req.user = { userId: dbUser.id, email: dbUser.email };
+      req.user = {
+        userId: dbUser.id,
+        email: dbUser.email,
+        role: dbUser.role as AccessTokenPayload["role"],
+        permissions: (dbUser.permissions as Record<string, boolean> | null) ?? null,
+      };
       return next();
     }
 
@@ -51,11 +58,16 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
 
     if (email) {
       const newUser = await findOrCreateUser(cognitoSub, email, name);
-      req.user = { userId: newUser.id, email: newUser.email };
+      req.user = {
+        userId: newUser.id,
+        email: newUser.email,
+        role: (newUser.role as AccessTokenPayload["role"]) ?? "USER",
+        permissions: null,
+      };
     } else {
       // No email in access token and user not in DB yet —
       // controller (POST /me) will handle creation with body data
-      req.user = { userId: "", email: "" };
+      req.user = { userId: "", email: "", role: "USER", permissions: null };
     }
     next();
   } catch (err) {

@@ -20,5 +20,15 @@ export default defineConfig({
   },
   build: {
     outDir: "docs",
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          "vendor-react":    ["react", "react-dom", "react-router-dom"],
+          "vendor-motion":   ["framer-motion"],
+          "vendor-charts":   ["recharts"],
+          "vendor-cognito":  ["amazon-cognito-identity-js"],
+        },
+      },
+    },
   },
 });

@@ -26,6 +26,7 @@ type RuntimeLite = {
   resultTimingsMs: Record<string, number> | null;
   angles: AnglesRuntime;
   poseResults: PoseResult[];
+  lastPrompts?: { garmentRef: string; composite: string } | null;
 };
 
 interface StoryboardResultsPaneProps {
@@ -63,6 +64,7 @@ export default function StoryboardResultsPane({
 }: StoryboardResultsPaneProps) {
   const [retryOpen, setRetryOpen] = useState(false);
   const [retryComments, setRetryComments] = useState("");
+  const [showPrompts, setShowPrompts] = useState(false);
 
   const hasMultiplePoses = runtime.poseResults.length > 1;
 
@@ -149,7 +151,7 @@ export default function StoryboardResultsPane({
                 <div key={i} className="poseResultTile">
                   <div className="poseResultLabel">Pose {i + 1}</div>
                   <div className="poseResultImageWrap">
-                    <img src={pr.dataUrl} alt={`Generated look – Pose ${i + 1}`} draggable={false} />
+                    <img src={pr.dataUrl} alt={`Generated look – Pose ${i + 1}`} draggable={false} loading="lazy" decoding="async" />
                     <div className="poseResultOverlay">
                       <button
                         type="button"
@@ -183,7 +185,7 @@ export default function StoryboardResultsPane({
               onPointerMove={onResultImagePointerMove}
               onPointerLeave={onResultImagePointerLeave}
             >
-              <img className="resultImage" src={runtime.resultDataUrl} alt="Generated look" draggable={false} />
+              <img className="resultImage" src={runtime.resultDataUrl} alt="Generated look" draggable={false} decoding="async" />
             </div>
           )}
 
@@ -227,7 +229,58 @@ export default function StoryboardResultsPane({
                 <path d="M21 12a9 9 0 1 1-2.64-6.36" /><path d="M21 3v6h-6" />
               </svg>
             </button>
+            {runtime.lastPrompts && (
+              <button
+                type="button"
+                className="btnGhost"
+                style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+                onClick={() => setShowPrompts((v) => !v)}
+                aria-expanded={showPrompts}
+                title="View prompts used to generate this image"
+              >
+                {showPrompts ? "Hide Prompts" : "View Prompts"}
+              </button>
+            )}
           </div>
+
+          {showPrompts && runtime.lastPrompts && (
+            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+              {runtime.lastPrompts.garmentRef && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted, #888)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                    Garment Reference Prompt
+                  </div>
+                  <pre style={{
+                    margin: 0, padding: "10px 12px",
+                    background: "var(--surface2, rgba(255,255,255,0.04))",
+                    border: "1px solid var(--border, rgba(255,255,255,0.08))",
+                    borderRadius: 8, fontSize: 11, lineHeight: 1.6,
+                    whiteSpace: "pre-wrap", wordBreak: "break-word",
+                    color: "var(--text, #e2e8f0)", maxHeight: 200, overflowY: "auto",
+                    fontFamily: "inherit",
+                  }}>
+                    {runtime.lastPrompts.garmentRef}
+                  </pre>
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted, #888)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>
+                  Composite Prompt
+                </div>
+                <pre style={{
+                  margin: 0, padding: "10px 12px",
+                  background: "var(--surface2, rgba(255,255,255,0.04))",
+                  border: "1px solid var(--border, rgba(255,255,255,0.08))",
+                  borderRadius: 8, fontSize: 11, lineHeight: 1.6,
+                  whiteSpace: "pre-wrap", wordBreak: "break-word",
+                  color: "var(--text, #e2e8f0)", maxHeight: 300, overflowY: "auto",
+                  fontFamily: "inherit",
+                }}>
+                  {runtime.lastPrompts.composite}
+                </pre>
+              </div>
+            </div>
+          )}
 
           {retryOpen && (
             <div style={{ marginTop: 14 }}>

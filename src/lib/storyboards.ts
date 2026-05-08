@@ -139,7 +139,7 @@ export function createDefaultStoryboardConfig(): StoryboardConfig {
     imageModel: DEFAULT_IMAGE_MODEL,
     occasionPreset: "",
     occasionDetails: "",
-    accessories: "",
+    accessories: "none",
     bottomWearPreset: "",
     bottomWearDetails: "",
     printInputKind: "image",

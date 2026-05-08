@@ -4,6 +4,7 @@ export type Session = {
   id: string;
   email: string;
   name: string;
+  role?: "SUPER_ADMIN" | "ADMIN" | "USER";
 };
 
 const SESSION_KEY = "bsx_session_v1";

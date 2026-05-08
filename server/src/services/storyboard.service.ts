@@ -1,11 +1,9 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma.js";
 import { NotFoundError, ForbiddenError } from "../utils/errors.js";
 import type {
   CreateStoryboardInput,
   UpdateStoryboardInput,
 } from "../validators/storyboard.validators.js";
-
-const prisma = new PrismaClient();
 
 // Config fields that map from camelCase input to Prisma column names
 const CONFIG_FIELDS = [

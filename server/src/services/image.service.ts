@@ -1,10 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma.js";
 import * as s3Service from "./s3.service.js";
 import { NotFoundError, ForbiddenError } from "../utils/errors.js";
 import type { UploadImageInput } from "../validators/image.validators.js";
 import crypto from "crypto";
-
-const prisma = new PrismaClient();
 
 export async function upload(userId: string, input: UploadImageInput) {
   const imageId = crypto.randomUUID();
