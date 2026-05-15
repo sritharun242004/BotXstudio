@@ -41,11 +41,13 @@ export async function redirectToLogin(provider?: "Google" | "Apple") {
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   localStorage.setItem("pkce_code_verifier", codeVerifier);
 
+  const scope = provider ? "openid+email" : "openid+email+phone";
+
   let url =
     `${COGNITO_DOMAIN}/oauth2/authorize?` +
     `client_id=${CLIENT_ID}` +
     `&response_type=code` +
-    `&scope=openid+email+phone` +
+    `&scope=${scope}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
     `&code_challenge=${codeChallenge}` +
     `&code_challenge_method=S256`;
