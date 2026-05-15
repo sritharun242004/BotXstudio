@@ -36,7 +36,7 @@ function base64UrlEncode(buffer: Uint8Array): string {
 
 // ─── Cognito Hosted UI redirect ──────────────────────────────────────────────
 
-export async function redirectToLogin(provider?: "Google" | "Apple") {
+export async function redirectToLogin(provider?: "Google" | "Apple", signup?: boolean) {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   localStorage.setItem("pkce_code_verifier", codeVerifier);
@@ -54,6 +54,17 @@ export async function redirectToLogin(provider?: "Google" | "Apple") {
 
   if (provider) {
     url += `&identity_provider=${provider}`;
+  }
+
+  // Direct new users to Cognito's sign-up form
+  if (signup) {
+    url = `${COGNITO_DOMAIN}/signup?` +
+      `client_id=${CLIENT_ID}` +
+      `&response_type=code` +
+      `&scope=${scope}` +
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&code_challenge=${codeChallenge}` +
+      `&code_challenge_method=S256`;
   }
 
   window.location.href = url;
