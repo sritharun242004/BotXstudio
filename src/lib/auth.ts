@@ -136,7 +136,22 @@ export async function handleCallback(code: string): Promise<Session> {
   name = name || email.split("@")[0] || "";
 
   // Sync user profile with our backend (findOrCreate with proper email/name)
-  const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
+  const data = await apiPost<{ user?: Session; needsEmail?: boolean }>("/api/auth/me", { email, name });
+
+  // Google SSO: Cognito may not provide email due to attribute mapping config.
+  // Signal the callback page to collect email from the user.
+  if (data.needsEmail) {
+    throw new Error("NEEDS_EMAIL");
+  }
+
+  localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+  return data.user!;
+}
+
+// ─── Complete profile for Google SSO users who need to provide email ─────────
+
+export async function completeProfile(email: string, name?: string): Promise<Session> {
+  const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name: name || email.split("@")[0] });
   localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
   return data.user;
 }

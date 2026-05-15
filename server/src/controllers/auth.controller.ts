@@ -59,7 +59,9 @@ export async function syncMe(req: Request, res: Response, next: NextFunction) {
       const user = await authService.getMe(req.user.userId);
       res.json({ user });
     } else {
-      res.status(400).json({ error: "Email is required for new users" });
+      // Google SSO users: Cognito attribute mapping may not include email.
+      // Return a flag so the frontend can collect it from the user.
+      res.json({ needsEmail: true });
     }
   } catch (err) {
     next(err);
