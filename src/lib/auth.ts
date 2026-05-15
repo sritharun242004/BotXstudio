@@ -104,8 +104,25 @@ export async function handleCallback(code: string): Promise<Session> {
 
   // Decode the ID token to get email/name (access token doesn't include them)
   const idPayload = decodeJwtPayload(tokens.id_token);
-  const email = idPayload.email || "";
-  const name = idPayload.name || email.split("@")[0] || "";
+  let email = idPayload.email || "";
+  let name = idPayload.name || "";
+
+  // Fallback: for federated users (Google), ID token may lack email —
+  // call the Cognito userInfo endpoint which always returns it
+  if (!email && tokens.access_token) {
+    try {
+      const uiResp = await fetch(`${COGNITO_DOMAIN}/oauth2/userInfo`, {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (uiResp.ok) {
+        const userInfo = await uiResp.json();
+        email = userInfo.email || "";
+        name = name || userInfo.name || "";
+      }
+    } catch { /* userInfo fallback failed, continue with what we have */ }
+  }
+
+  name = name || email.split("@")[0] || "";
 
   // Sync user profile with our backend (findOrCreate with proper email/name)
   const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
@@ -174,8 +191,23 @@ export async function restoreSession(): Promise<Session | null> {
       if (stored.idToken) {
         const idPayload = decodeJwtPayload(stored.idToken);
         email = idPayload.email || "";
-        name = idPayload.name || email.split("@")[0] || "";
+        name = idPayload.name || "";
       }
+
+      // Fallback: for federated users (Google), ID token may lack email
+      if (!email && stored.accessToken) {
+        try {
+          const uiResp = await fetch(`${COGNITO_DOMAIN}/oauth2/userInfo`, {
+            headers: { Authorization: `Bearer ${stored.accessToken}` },
+          });
+          if (uiResp.ok) {
+            const userInfo = await uiResp.json();
+            email = userInfo.email || "";
+            name = name || userInfo.name || "";
+          }
+        } catch { /* continue without email */ }
+      }
+      name = name || email.split("@")[0] || "";
 
       // If token not expired, use it directly
       if (stored.accessToken && stored.expiresAt > Date.now()) {
