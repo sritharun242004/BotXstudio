@@ -45,6 +45,23 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   text-decoration: none;
   color: var(--text);
 }
+.lp-nav-bz {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  box-shadow: 2px 2px 0px 0px var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: "Outfit", sans-serif;
+  font-weight: 900;
+  font-size: 13px;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
 .lp-nav-logo {
   width: 36px;
   height: 36px;
@@ -763,6 +780,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   background: var(--text);
   padding: 56px 40px 32px;
   color: rgba(255,255,255,0.7);
+  overflow: hidden;
 }
 .lp-footer-inner {
   max-width: 1100px;
@@ -877,4 +895,21 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-steps, .lp-steps-5 { grid-template-columns: 1fr; }
   .lp-footer-top { grid-template-columns: 1fr; }
   .lp-nav-links { display: none; }
+}
+
+/* ─── Footer wordmark ────────────────────────────────── */
+.lp-footer-wordmark {
+  width: 100%;
+  margin-top: 40px;
+  margin-bottom: -0.22em;
+  line-height: 1;
+  font-family: "Outfit", sans-serif;
+  font-weight: 900;
+  font-size: clamp(110px, 20vw, 340px);
+  letter-spacing: -0.03em;
+  color: rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  text-align: center;
 }

@@ -9,15 +9,15 @@ export default function LandingPage() {
       {/* ── Nav ── */}
       <nav className="lp-nav">
         <a href="https://thebotcompany.in" target="_blank" rel="noreferrer" className="lp-nav-brand">
-          <div className="lp-nav-logo"><img src={`${BASE}logo.png`} alt="Botzudio" /></div>
-          <span className="lp-nav-name">The Bot Company</span>
+          <div className="lp-nav-bz">BZ</div>
+          <span className="lp-nav-name">Botzudio</span>
         </a>
         <div className="lp-nav-links">
-          <a href="#features" className="lp-nav-link">Features</a>
+          <a href="#pain" className="lp-nav-link">Why Botzudio</a>
           <a href="#how-it-works" className="lp-nav-link">How it works</a>
-          <a href="#product" className="lp-nav-link">Product</a>
+          <a href="#product" className="lp-nav-link">Features</a>
           <Link to="/login" className="lp-nav-link">Sign In</Link>
-          <Link to={APP} className="lp-nav-cta">Get Started →</Link>
+          <Link to={APP} className="lp-nav-cta">Try Free →</Link>
         </div>
       </nav>
 
@@ -25,59 +25,55 @@ export default function LandingPage() {
       <section className="lp-hero">
         <div>
           <div className="lp-hero-badge">
-            <span>✨</span> AI-Powered Fashion Imaging
+            <span>📸</span> For Fashion Brands & Sellers
           </div>
           <h1>
-            Generate Studio-Quality<br />
-            <em>Product Scenes</em><br />
-            with AI
+            Photoshoot cancelled.<br />
+            <em>AI did it faster.</em>
           </h1>
           <p className="lp-hero-sub">
-            Botzudio turns your garment photos into
-            photorealistic e-commerce scenes — complete with models, backgrounds, and
-            multi-angle views. No studio. No photographer. Just results.
+            Stop spending ₹20,000+ on studio shoots that take two weeks to book.
+            Upload your garment photo and get professional model shots, multiple angles,
+            and scene variations — in under 30 seconds.
           </p>
           <div className="lp-hero-actions">
             <Link to={APP} className="lp-btn-primary">
-              Get Started →
+              Try Free — 6 images on us →
             </Link>
-            <a href="#how-it-works" className="lp-btn-secondary">
-              See how it works
+            <a href="#pain" className="lp-btn-secondary">
+              See the problem we solve
             </a>
           </div>
         </div>
 
         <div className="lp-hero-visual">
           <div className="lp-floating-badge top-right">
-            🤖 Powered by Gemini AI
+            💸 Save ₹20,000+ per shoot
           </div>
           <div className="lp-hero-card">
             <div className="lp-hero-card-title">
               <span style={{ background: "#EF4444" }} />
               <span style={{ background: "#FBBF24" }} />
               <span style={{ background: "#34D399" }} />
-              Botzudio — Scene Generator
+              Botzudio — Generating your look
             </div>
 
             <div className="lp-process-flow">
-              {/* Input garment */}
               <div className="lp-process-input-wrap">
-                <div className="lp-process-chip lp-chip-in">📥 Input</div>
+                <div className="lp-process-chip lp-chip-in">📦 Your garment</div>
                 <div className="lp-process-img-single">
                   <img src={`${BASE}garment-templates/S1.png`} alt="Garment flat-lay" />
                 </div>
-                <div className="lp-process-sublabel">Garment photo</div>
+                <div className="lp-process-sublabel">Flat-lay photo</div>
               </div>
 
-              {/* AI divider */}
               <div className="lp-process-divider">
                 <div className="lp-process-ai-pill">✨ AI</div>
                 <div className="lp-process-arrow-line" />
               </div>
 
-              {/* Output angles */}
               <div className="lp-process-output-wrap">
-                <div className="lp-process-chip lp-chip-out">✅ Generated</div>
+                <div className="lp-process-chip lp-chip-out">✅ Ready to publish</div>
                 <div className="lp-scene-grid">
                   <div className="lp-scene-slot">
                     <img src={`${BASE}garment-templates/S1.png`} alt="Front view" />
@@ -98,76 +94,74 @@ export default function LandingPage() {
             <div className="lp-progress-bar">
               <div className="lp-progress-fill lp-progress-done" />
             </div>
-            <div className="lp-progress-label">✅ 3 scenes ready in 24s</div>
+            <div className="lp-progress-label">✅ 3 model shots ready in 24s</div>
           </div>
           <div className="lp-floating-badge bottom-left">
-            ⚡ 3 angles in &lt; 30s
+            ⚡ No studio. No photographer.
           </div>
         </div>
       </section>
 
       {/* ── Trust bar ── */}
       <div className="lp-trust">
-        <div className="lp-trust-label">Built on enterprise-grade AI</div>
+        <div className="lp-trust-label">Trusted by fashion sellers across India</div>
         <div className="lp-trust-pills">
-          {["Google Gemini", "Photorealistic Output", "Multi-Angle Generation", "Print Application", "Storyboard Library", "IndexedDB Storage"].map((t) => (
+          {["₹0 Studio Cost", "30s Per Look", "Front + Side + Back", "Print Visualisation", "Any Background", "6 Free Images"].map((t) => (
             <div key={t} className="lp-trust-pill">{t}</div>
           ))}
         </div>
       </div>
 
-      {/* ── Features ── */}
-      <section className="lp-section" id="features">
-        <div className="lp-section-label">✦ Features</div>
+      {/* ── Pain points ── */}
+      <section className="lp-section" id="pain">
+        <div className="lp-section-label">✦ The Real Problem</div>
         <h2 className="lp-section-title">
-          Everything you need for<br />professional product photography
+          Running a fashion brand is hard.<br />Product photography makes it harder.
         </h2>
         <p className="lp-section-sub">
-          From garment upload to finished scene — our AI handles the entire creative process
-          so your team can focus on what matters.
+          Every seller knows the frustration. You have great clothes — but getting them in front of
+          customers the right way costs a fortune and takes forever.
         </p>
         <div className="lp-features-grid">
           {[
             {
-              icon: "🖼️",
-              color: "#EDE9FE",
-              title: "AI Scene Generation",
-              desc: "Upload a garment photo and instantly receive photorealistic product scenes with professional lighting and composition.",
+              icon: "💸",
+              color: "#FEF2F2",
+              title: "Shoots cost ₹20,000–₹1 lakh",
+              desc: "Booking a photographer, renting a studio, hiring models, and post-editing adds up fast — before you've sold a single piece.",
             },
             {
-              icon: "🧍",
-              color: "#FDF2F8",
-              title: "Model References",
-              desc: "Provide a reference image to control model appearance, pose style, and body type for consistent brand visuals.",
-            },
-            {
-              icon: "🏞️",
+              icon: "🗓️",
               color: "#FFF7ED",
-              title: "Background Control",
-              desc: "Supply your own background or let the AI choose — from studio whites to editorial outdoor settings.",
+              title: "Weeks just to get a shoot date",
+              desc: "Good photographers and studios are booked out. By the time your photos are ready, the trend has moved on.",
             },
             {
-              icon: "🔄",
+              icon: "📦",
               color: "#F0FDF4",
-              title: "Multi-Angle Shots",
-              desc: "Automatically generate front, side, and back views in a single run. Full 360° product coverage, no extra shoots.",
-              comingSoon: true,
+              title: "Customers can't see the full product",
+              desc: "One or two front shots aren't enough. Buyers want to see the back, the side, the fit — and leave when they can't.",
             },
             {
               icon: "🎨",
               color: "#FEF3C7",
-              title: "Print Application",
-              desc: "Apply graphic designs and print patterns directly onto garments and see how they look on a finished product.",
+              title: "Print sampling wastes money",
+              desc: "You print 50 samples just to see how a design looks on cloth. Half of them never sell. That's dead inventory.",
             },
             {
-              icon: "📚",
-              color: "#ECFDF5",
-              title: "Storyboard Library",
-              desc: "Organise every shoot into named storyboards. Save, reload, and compare configurations across your entire catalogue.",
+              icon: "📋",
+              color: "#EDE9FE",
+              title: "Every product looks different",
+              desc: "Different shoots, different lighting, different models. Your catalogue looks inconsistent and unprofessional.",
+            },
+            {
+              icon: "😤",
+              color: "#FDF2F8",
+              title: "New stock waits weeks to go live",
+              desc: "You received the garments. They're sitting in a box. But you can't list them until the photoshoot happens.",
             },
           ].map((f) => (
-            <div className={`lp-feature-card${f.comingSoon ? " lp-feature-card-soon" : ""}`} key={f.title}>
-              {f.comingSoon && <div className="lp-coming-soon-badge">Coming Soon</div>}
+            <div className="lp-feature-card" key={f.title}>
               <div className="lp-feature-icon" style={{ background: f.color }}>
                 {f.icon}
               </div>
@@ -180,10 +174,10 @@ export default function LandingPage() {
 
       {/* ── How it works ── */}
       <section className="lp-section" id="how-it-works" style={{ paddingTop: 0 }}>
-        <div className="lp-section-label">✦ Process</div>
-        <h2 className="lp-section-title">From garment to gallery in five steps</h2>
+        <div className="lp-section-label">✦ The Solution</div>
+        <h2 className="lp-section-title">From garment photo to model shot in 4 steps</h2>
         <p className="lp-section-sub">
-          No creative briefs, no scheduling, no post-production. Just upload and generate.
+          No studio booking. No model casting. No waiting. Just upload your garment and go live today.
         </p>
         <div className="lp-steps lp-steps-5">
           {[
@@ -191,36 +185,36 @@ export default function LandingPage() {
               num: "1",
               icon: "📸",
               color: "#EDE9FE",
-              title: "Upload Garment",
-              desc: "Drop in a flat-lay or product photo as your base canvas.",
+              title: "Photograph your garment",
+              desc: "A simple flat-lay on a table works perfectly. No professional camera needed.",
             },
             {
               num: "2",
               icon: "🧍",
               color: "#FDF2F8",
-              title: "Add References",
-              desc: "Attach model and background references for full creative control.",
+              title: "Choose your model & scene",
+              desc: "Pick the skin tone, body type, background, and occasion that suits your brand.",
             },
             {
               num: "3",
-              icon: "⚙️",
+              icon: "✨",
               color: "#FFF7ED",
-              title: "Configure Scene",
-              desc: "Pick occasion, style, pose, footwear — or let AI choose smart defaults.",
+              title: "AI generates the shoot",
+              desc: "Botzudio places your garment on a real-looking model in a professional scene — in seconds.",
             },
             {
               num: "4",
-              icon: "🤖",
+              icon: "🔄",
               color: "#F0FDF4",
-              title: "AI Generates",
-              desc: "Gemini AI renders photorealistic front, side, and back views in under 30s.",
+              title: "Get every angle automatically",
+              desc: "Front, side, and back views generated in one click. Full product coverage instantly.",
             },
             {
               num: "5",
-              icon: "⬇️",
+              icon: "🚀",
               color: "#FEF3C7",
-              title: "Export & Save",
-              desc: "Download production-ready images or save them to your storyboard library.",
+              title: "Publish & sell faster",
+              desc: "Download high-res images and go live on your store the same day — no waiting.",
             },
           ].map((s) => (
             <div className="lp-step" key={s.num}>
@@ -239,20 +233,20 @@ export default function LandingPage() {
       <section className="lp-showcase" id="product">
         <div className="lp-showcase-inner">
           <div>
-            <div className="lp-section-label">✦ Product</div>
+            <div className="lp-section-label">✦ What You Get</div>
             <h2 className="lp-section-title">
-              A full AI studio<br />in your browser
+              Your entire photo studio,<br />for less than one shoot
             </h2>
             <p className="lp-section-sub" style={{ marginBottom: 0 }}>
-              Botzudio is built for e-commerce teams who need high-volume,
-              high-quality imagery without the overhead of a traditional studio.
+              Botzudio replaces the photographer, the studio, and the post-editing team —
+              so you can list new stock the same day it arrives.
             </p>
             <div className="lp-showcase-features">
               {[
-                { icon: "⚡", color: "#FEF3C7", title: "Instant generation", desc: "Front + side + back views in under 30 seconds" },
-                { icon: "🔒", color: "#EDE9FE", title: "Private by design", desc: "Images stored locally in your browser — never on our servers" },
-                { icon: "♾️", color: "#F0FDF4", title: "Unlimited storyboards", desc: "Organise every product into named campaigns and collections" },
-                { icon: "🖨️", color: "#FDF2F8", title: "Print-ready output", desc: "Apply designs to garments and export production-ready images" },
+                { icon: "⚡", color: "#FEF3C7", title: "Same-day listing", desc: "Stock arrives today, goes live today. No more waiting on a photographer." },
+                { icon: "🎯", color: "#EDE9FE", title: "Consistent brand look", desc: "Same model, same lighting, same quality — across every single product." },
+                { icon: "🔄", color: "#F0FDF4", title: "Every angle covered", desc: "Customers see front, side, and back. Fewer questions. More confidence to buy." },
+                { icon: "🎨", color: "#FDF2F8", title: "See prints before sampling", desc: "Apply your design digitally and visualise it on the garment before printing a single piece." },
               ].map((item) => (
                 <div className="lp-showcase-item" key={item.title}>
                   <div className="lp-showcase-item-icon" style={{ background: item.color }}>{item.icon}</div>
@@ -272,7 +266,7 @@ export default function LandingPage() {
                 <div className="lp-dashboard-bar-dot" />
                 <div className="lp-dashboard-bar-dot active" />
                 <span style={{ color: "#fff", fontSize: 13, fontWeight: 700, marginLeft: 8 }}>
-                  Storyboard Library
+                  Your Catalogue
                 </span>
               </div>
               <div className="lp-dashboard-body">
@@ -293,13 +287,13 @@ export default function LandingPage() {
       {/* ── CTA Banner ── */}
       <section className="lp-cta">
         <div className="lp-cta-inner">
-          <h2>Ready to transform your product imagery?</h2>
+          <h2>Your first 6 images are on us.</h2>
           <p>
-            Start generating photorealistic e-commerce scenes today —
-            no credit card, no setup, no studio required.
+            No studio booking. No credit card. No photographer.
+            Just upload your garment and see what Botzudio can do.
           </p>
           <Link to={APP} className="lp-btn-white">
-            Get Started for Free →
+            Start for Free → 6 images included
           </Link>
         </div>
       </section>
@@ -311,11 +305,11 @@ export default function LandingPage() {
             <div>
               <div className="lp-footer-brand-name">
                 <div className="lp-footer-logo"><img src={`${BASE}logo.png`} alt="Botzudio" /></div>
-                The Bot Company
+                Botzudio
               </div>
               <p className="lp-footer-tagline">
-                Enterprise AI solutions & bot development.<br />
-                Building the future of intelligent automation.
+                AI-powered product photography for fashion brands.<br />
+                List faster. Sell more. Spend less.
               </p>
               <div className="lp-footer-social">
                 <a href="https://thebotcompany.in" target="_blank" rel="noreferrer" title="Website">🌐</a>
@@ -327,7 +321,7 @@ export default function LandingPage() {
             <div className="lp-footer-col">
               <h4>Product</h4>
               <ul>
-                <li><a href="#features">Features</a></li>
+                <li><a href="#pain">Why Botzudio</a></li>
                 <li><a href="#how-it-works">How it works</a></li>
                 <li><Link to="/login">Sign In</Link></li>
               </ul>
@@ -345,9 +339,9 @@ export default function LandingPage() {
             <div className="lp-footer-col">
               <h4>AI Tools</h4>
               <ul>
-                <li><Link to={APP}>Get Started</Link></li>
-                <li><Link to={APP}>Get Started</Link></li>
-                <li><Link to={APP}>Get Started</Link></li>
+                <li><Link to={APP}>Botzudio</Link></li>
+                <li><a href="https://thebotcompany.in" target="_blank" rel="noreferrer">Bot Studio</a></li>
+                <li><a href="https://thebotcompany.in" target="_blank" rel="noreferrer">Automations</a></li>
               </ul>
             </div>
           </div>
@@ -357,10 +351,15 @@ export default function LandingPage() {
             <span>
               Built with ❤️ by{" "}
               <a href="https://thebotcompany.in" target="_blank" rel="noreferrer">
-                thebotcompany.in
+                thebotcompany
               </a>
             </span>
           </div>
+        </div>
+
+        {/* ── Wordmark ── */}
+        <div className="lp-footer-wordmark" aria-hidden="true">
+          Botzudio
         </div>
       </footer>
     </>
