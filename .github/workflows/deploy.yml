@@ -1,0 +1,44 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          command_timeout: 10m
+          script: |
+            set -e
+            cd /var/www/botstudiox
+
+            echo "=== Pulling latest code ==="
+            git pull origin main
+
+            echo "=== Building frontend ==="
+            npm ci
+            npx vite build
+
+            echo "=== Building backend ==="
+            cd server
+            npm ci
+            npx prisma generate
+            npx tsc || true
+
+            echo "=== Installing production deps ==="
+            npm ci --omit=dev
+            npx prisma generate
+
+            echo "=== Restarting PM2 ==="
+            pm2 restart botstudiox
+            pm2 save
+
+            echo "=== Deploy complete ==="
