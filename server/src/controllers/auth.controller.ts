@@ -13,12 +13,18 @@ export async function me(req: Request, res: Response, next: NextFunction) {
 
 // Fetch user email from Cognito userInfo endpoint (works for federated/Google users)
 async function fetchCognitoUserInfo(accessToken: string): Promise<{ email?: string; name?: string }> {
+  const url = `${env.COGNITO_DOMAIN}/oauth2/userInfo`;
   try {
-    const resp = await fetch(`${env.COGNITO_DOMAIN}/oauth2/userInfo`, {
+    console.log("[Auth] Fetching userInfo from:", url);
+    const resp = await fetch(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (resp.ok) return (await resp.json()) as { email?: string; name?: string };
-  } catch { /* ignore */ }
+    const body = await resp.text();
+    console.log("[Auth] userInfo response:", resp.status, body);
+    if (resp.ok) return JSON.parse(body) as { email?: string; name?: string };
+  } catch (err) {
+    console.error("[Auth] userInfo fetch error:", err);
+  }
   return {};
 }
 
@@ -31,6 +37,7 @@ export async function syncMe(req: Request, res: Response, next: NextFunction) {
     }
 
     let { email, name } = req.body;
+    console.log("[Auth] syncMe called — body email:", JSON.stringify(email), "name:", JSON.stringify(name), "cognitoSub:", cognitoSub, "userId:", req.user?.userId);
 
     // If client didn't provide email (common with Google SSO),
     // fetch it server-side from Cognito userInfo endpoint
