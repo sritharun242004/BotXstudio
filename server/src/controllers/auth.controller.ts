@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import * as authService from "../services/auth.service.js";
+import { env } from "../config/env.js";
 
 export async function me(req: Request, res: Response, next: NextFunction) {
   try {
@@ -10,6 +11,17 @@ export async function me(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+// Fetch user email from Cognito userInfo endpoint (works for federated/Google users)
+async function fetchCognitoUserInfo(accessToken: string): Promise<{ email?: string; name?: string }> {
+  try {
+    const resp = await fetch(`${env.COGNITO_DOMAIN}/oauth2/userInfo`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (resp.ok) return (await resp.json()) as { email?: string; name?: string };
+  } catch { /* ignore */ }
+  return {};
+}
+
 export async function syncMe(req: Request, res: Response, next: NextFunction) {
   try {
     const cognitoSub = req.cognitoSub;
@@ -18,7 +30,18 @@ export async function syncMe(req: Request, res: Response, next: NextFunction) {
       return;
     }
 
-    const { email, name } = req.body;
+    let { email, name } = req.body;
+
+    // If client didn't provide email (common with Google SSO),
+    // fetch it server-side from Cognito userInfo endpoint
+    if (!email) {
+      const rawToken = req.headers.authorization?.slice(7);
+      if (rawToken) {
+        const userInfo = await fetchCognitoUserInfo(rawToken);
+        email = userInfo.email || "";
+        name = name || userInfo.name || "";
+      }
+    }
 
     // findOrCreateUser handles: find by sub → update empty fields → or create new
     if (email) {
