@@ -1,0 +1,66 @@
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import path from "path";
+import { fileURLToPath } from "url";
+import { env } from "./config/env.js";
+import { corsOptions } from "./config/cors.js";
+import { errorHandler } from "./middleware/errorHandler.js";
+import { authRoutes } from "./routes/auth.routes.js";
+import { storyboardRoutes } from "./routes/storyboards.routes.js";
+import { imageRoutes } from "./routes/images.routes.js";
+import { generateRoutes } from "./routes/generate.routes.js";
+import { assetRoutes } from "./routes/assets.routes.js";
+import { usageRoutes } from "./routes/usage.routes.js";
+import { creditsRoutes } from "./routes/credits.routes.js";
+import { fluxRoutes } from "./routes/flux.routes.js";
+import { openaiRoutes } from "./routes/openai.routes.js";
+import { qwenAnglesRoutes } from "./routes/qwen-angles.routes.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+export function createApp() {
+  const app = express();
+
+  // Trust proxy (Nginx)
+  app.set("trust proxy", 1);
+
+  // Global middleware
+  app.use(helmet({
+    contentSecurityPolicy: env.NODE_ENV === "production" ? undefined : false,
+  }));
+  app.use(cors(corsOptions));
+  app.use(express.json({ limit: "25mb" }));
+
+  // Health check
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
+  // API Routes
+  app.use("/api/auth", authRoutes);
+  app.use("/api/storyboards", storyboardRoutes);
+  app.use("/api/images", imageRoutes);
+  app.use("/api/generate", generateRoutes);
+  app.use("/api/assets", assetRoutes);
+  app.use("/api/usage", usageRoutes);
+  app.use("/api/credits", creditsRoutes);
+  app.use("/api/flux", fluxRoutes);
+  app.use("/api/openai", openaiRoutes);
+  app.use("/api/qwen", qwenAnglesRoutes);
+
+  // In production, serve the frontend static build
+  if (env.NODE_ENV === "production") {
+    const clientDist = path.resolve(__dirname, "../../client");
+    app.use("/", express.static(clientDist));
+    // SPA fallback — serve index.html for all non-API routes
+    app.get(/^\/(?!api\/).*$/, (_req, res) => {
+      res.sendFile(path.join(clientDist, "index.html"));
+    });
+  }
+
+  // Error handler (must be last)
+  app.use(errorHandler);
+
+  return app;
+}

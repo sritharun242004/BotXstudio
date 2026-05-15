@@ -1,0 +1,843 @@
+/* ─── Admin Login ────────────────────────────────────────────────────────── */
+
+.adlRoot {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0F172A;
+  background-image: radial-gradient(circle at 20% 50%, rgba(139,92,246,0.12) 0%, transparent 60%),
+                    radial-gradient(circle at 80% 20%, rgba(59,130,246,0.08) 0%, transparent 50%);
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+.adlCard {
+  background: #1E293B;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 40px 36px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+}
+
+.adlBrand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.adlLogoWrap {
+  width: 44px;
+  height: 44px;
+  background: #fff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.adlLogoWrap img { width: 80%; height: 80%; object-fit: contain; }
+
+.adlBrandEye {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+
+.adlBrandName {
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+.adlHeading {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 24px;
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+.adlForm { display: flex; flex-direction: column; gap: 16px; }
+
+.adlField { display: flex; flex-direction: column; gap: 6px; }
+
+.adlLabel { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.65); }
+
+.adlInputWrap { position: relative; }
+
+.adlInput {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 1.5px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 150ms;
+  box-sizing: border-box;
+}
+
+.adlInput:focus { border-color: #8B5CF6; background: rgba(139,92,246,0.08); }
+.adlInput::placeholder { color: rgba(255,255,255,0.25); }
+
+.adlPwToggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.4);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 4px;
+}
+
+.adlError {
+  padding: 10px 14px;
+  background: rgba(239,68,68,0.12);
+  border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 8px;
+  color: #FCA5A5;
+  font-size: 13px;
+}
+
+.adlSubmit {
+  padding: 12px;
+  background: #8B5CF6;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 150ms, opacity 150ms;
+  margin-top: 4px;
+}
+
+.adlSubmit:hover:not(:disabled) { background: #7C3AED; }
+.adlSubmit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.adlSpinner {
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: adlSpin 0.6s linear infinite;
+  display: inline-block;
+}
+
+@keyframes adlSpin { to { transform: rotate(360deg); } }
+
+.adlFootnote {
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255,255,255,0.25);
+  margin: 24px 0 0;
+}
+
+/* ─── Admin Dashboard Shell ──────────────────────────────────────────────── */
+
+.adRoot {
+  display: flex;
+  min-height: 100vh;
+  background: #F1F5F9;
+  font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+}
+
+/* ─── Sidebar ────────────────────────────────────────────────────────────── */
+
+.adSidebar {
+  width: 240px;
+  min-width: 240px;
+  background: #0F172A;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 10;
+  background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.adSidebarBrand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 22px 18px 18px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.adSidebarLogo {
+  width: 36px;
+  height: 36px;
+  background: #fff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.adSidebarLogo img { width: 80%; height: 80%; object-fit: contain; }
+
+.adSidebarEye {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+
+.adSidebarName {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.9);
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+.adSidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 10px;
+  flex: 1;
+}
+
+.adNavBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(255,255,255,0.55);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 150ms, color 150ms;
+}
+
+.adNavBtn:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); }
+
+.adNavBtnActive {
+  background: rgba(139,92,246,0.2);
+  color: #C4B5FD;
+  border: 1px solid rgba(139,92,246,0.3);
+}
+
+.adNavBtnActive:hover { background: rgba(139,92,246,0.25); color: #C4B5FD; }
+
+.adNavIcon { display: flex; align-items: center; flex-shrink: 0; opacity: 0.8; }
+.adNavBtnActive .adNavIcon { opacity: 1; }
+
+.adSidebarFooter {
+  padding: 14px 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adSidebarUser {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px;
+}
+
+.adSidebarAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(139,92,246,0.3);
+  color: #C4B5FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.adSidebarUserInfo { min-width: 0; }
+
+.adSidebarUserName { font-size: 13px; font-weight: 700; color: rgba(255,255,255,0.85); }
+
+.adSidebarUserEmail {
+  font-size: 11px;
+  color: rgba(255,255,255,0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.adLogoutBtn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  background: rgba(239,68,68,0.08);
+  color: #FCA5A5;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.adLogoutBtn:hover { background: rgba(239,68,68,0.18); }
+
+.adBackBtn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.4);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms, color 150ms;
+}
+
+.adBackBtn:hover { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); }
+
+/* ─── Main area ──────────────────────────────────────────────────────────── */
+
+.adMain {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.adPage {
+  padding: 32px 36px;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.adPageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.adPageTitle {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0F172A;
+  margin: 0 0 4px;
+  font-family: "Outfit", system-ui, sans-serif;
+}
+
+.adPageSub { font-size: 13px; color: #64748B; margin: 0; }
+
+/* ─── Stat cards ─────────────────────────────────────────────────────────── */
+
+.adStatRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
+  gap: 14px;
+}
+
+.adStatCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  border: 1.5px solid #E2E8F0;
+  border-top-width: 4px;
+}
+
+.adStatValue {
+  font-size: 26px;
+  font-weight: 800;
+  color: #0F172A;
+  font-family: "Outfit", system-ui, sans-serif;
+  line-height: 1.2;
+}
+
+.adStatLabel { font-size: 13px; font-weight: 600; color: #475569; margin-top: 4px; }
+.adStatSub { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+
+/* ─── Table card ─────────────────────────────────────────────────────────── */
+
+.adTableCard {
+  background: #fff;
+  border-radius: 16px;
+  border: 1.5px solid #E2E8F0;
+  overflow: hidden;
+  padding: 20px;
+}
+
+.adSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  margin-bottom: 16px;
+}
+
+.adTableToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.adSearch {
+  padding: 9px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: #0F172A;
+  outline: none;
+  min-width: 240px;
+  transition: border-color 150ms;
+}
+
+.adSearch:focus { border-color: #8B5CF6; }
+
+.adFilterGroup { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.adFilterPill {
+  padding: 6px 14px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 9999px;
+  background: #fff;
+  color: #64748B;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-transform: capitalize;
+  transition: all 150ms;
+}
+
+.adFilterPill:hover { border-color: #8B5CF6; color: #8B5CF6; }
+
+.adFilterPillActive {
+  background: #8B5CF6;
+  border-color: #8B5CF6;
+  color: #fff;
+}
+
+.adTableWrap { overflow-x: auto; }
+
+.adTable { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+.adTable th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #94A3B8;
+  border-bottom: 1.5px solid #F1F5F9;
+}
+
+.adTable td { padding: 12px 14px; border-bottom: 1px solid #F8FAFC; vertical-align: middle; }
+.adTable tbody tr:last-child td { border-bottom: none; }
+.adTable tbody tr:hover td { background: #FAFAFF; }
+
+.adUserCell { display: flex; align-items: center; gap: 10px; }
+
+.adAvatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 13px; flex-shrink: 0;
+}
+
+.adUserName { font-size: 13px; font-weight: 600; color: #0F172A; }
+.adUserEmail { font-size: 12px; color: #94A3B8; }
+.adDate { font-size: 12px; color: #94A3B8; }
+.adCreditsNum { font-size: 13px; font-weight: 700; color: #8B5CF6; }
+
+.adBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+  letter-spacing: 0.03em;
+}
+
+.adActionRow { display: flex; gap: 6px; }
+
+.adActionBtn {
+  padding: 5px 12px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms;
+  white-space: nowrap;
+}
+
+.adActionBtn:hover { border-color: #EF4444; color: #EF4444; }
+.adActionBtnEdit:hover { border-color: #8B5CF6 !important; color: #8B5CF6 !important; }
+
+.adEmpty {
+  text-align: center;
+  padding: 32px;
+  color: #94A3B8;
+  font-size: 14px;
+}
+
+/* ─── Segments ───────────────────────────────────────────────────────────── */
+
+.adSegment {
+  display: inline-flex;
+  gap: 4px;
+  background: #F1F5F9;
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+}
+
+.adSegBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 18px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748B;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 150ms, color 150ms, box-shadow 150ms;
+  text-transform: capitalize;
+}
+
+.adSegBtnActive {
+  background: #fff;
+  color: #0F172A;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.adSegCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: rgba(139,92,246,0.12);
+  color: #8B5CF6;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* ─── Upload zone (templates) ────────────────────────────────────────────── */
+
+.adUploadZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 32px 24px;
+  border: 2px dashed #CBD5E1;
+  border-radius: 16px;
+  background: #F8FAFC;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 200ms, background 200ms;
+  color: #94A3B8;
+}
+
+.adUploadZone:hover { border-color: #8B5CF6; background: rgba(139,92,246,0.04); color: #8B5CF6; }
+
+.adUploadText { font-size: 14px; font-weight: 700; color: inherit; }
+.adUploadSub { font-size: 12px; color: #94A3B8; }
+
+/* ─── Template grid ──────────────────────────────────────────────────────── */
+
+.adTplGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+  gap: 16px;
+}
+
+.adTplCard {
+  background: #fff;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  overflow: hidden;
+  transition: box-shadow 150ms;
+}
+
+.adTplCard:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+.adTplCardInactive { opacity: 0.55; }
+
+.adTplImgWrap { position: relative; aspect-ratio: 1; background: #F8FAFC; }
+
+.adTplImgWrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.adTplPlaceholder {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: #CBD5E1; font-size: 13px;
+}
+
+.adTplOverlay {
+  position: absolute; inset: 0;
+  background: rgba(15,23,42,0.45);
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 8px;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.adTplCard:hover .adTplOverlay { opacity: 1; }
+
+.adTplToggle {
+  display: flex; align-items: center; gap: 5px;
+  color: #fff; font-size: 12px; font-weight: 700;
+  cursor: pointer;
+}
+
+.adTplToggle input { display: none; }
+
+.adTplRemove {
+  width: 26px; height: 26px;
+  border: none; border-radius: 50%;
+  background: rgba(239,68,68,0.8);
+  color: #fff; cursor: pointer;
+  font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.adTplMeta { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.adTplLabel {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0F172A;
+  outline: none;
+  transition: border-color 150ms;
+}
+
+.adTplLabel:focus { border-color: #8B5CF6; }
+
+.adTplPrompt {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 12px;
+  color: #475569;
+  resize: vertical;
+  outline: none;
+  transition: border-color 150ms;
+  box-sizing: border-box;
+}
+
+.adTplPrompt:focus { border-color: #8B5CF6; }
+
+/* ─── Credits ────────────────────────────────────────────────────────────── */
+
+.adPrimaryBtn {
+  padding: 10px 22px;
+  background: #8B5CF6;
+  border: none;
+  border-radius: 10px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 150ms;
+  white-space: nowrap;
+}
+
+.adPrimaryBtn:hover { background: #7C3AED; }
+
+.adRateRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.adRateLabel { font-size: 14px; font-weight: 600; color: #475569; }
+
+.adRateInput {
+  padding: 8px 12px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0F172A;
+  width: 100px;
+  outline: none;
+  transition: border-color 150ms;
+}
+
+.adRateInput:focus { border-color: #8B5CF6; }
+
+.adNumInput {
+  padding: 7px 10px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 13px;
+  width: 90px;
+  outline: none;
+  transition: border-color 150ms;
+}
+
+.adNumInput:focus { border-color: #8B5CF6; }
+
+.adCostInput { display: flex; align-items: center; gap: 4px; font-size: 13px; color: #475569; }
+
+.adToggleLabel { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.adToggleLabel input { display: none; }
+
+.adToggleTrack {
+  width: 36px; height: 20px;
+  border-radius: 9999px;
+  background: #E2E8F0;
+  position: relative;
+  transition: background 150ms;
+  flex-shrink: 0;
+}
+
+.adToggleLabel input:checked ~ .adToggleTrack { background: #8B5CF6; }
+
+.adToggleTrack::after {
+  content: "";
+  position: absolute;
+  left: 2px; top: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 150ms;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.adToggleLabel input:checked ~ .adToggleTrack::after { transform: translateX(16px); }
+
+/* ─── Top-up inline form ─────────────────────────────────────────────────── */
+
+.adTopupRow td { padding: 0 !important; }
+
+.adTopupForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #F8FAFF;
+  border-top: 1px solid #E2E8F0;
+  flex-wrap: wrap;
+}
+
+/* ─── API Usage ──────────────────────────────────────────────────────────── */
+
+.adUsageRow { display: flex; flex-direction: column; gap: 6px; }
+
+.adUsageHeader { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+.adUsageNums { font-size: 13px; color: #475569; font-weight: 600; }
+
+.adProgressTrack {
+  height: 8px;
+  background: #F1F5F9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.adProgressBar {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 600ms ease;
+}
+
+.adUsagePct { font-size: 12px; font-weight: 600; }
+
+/* ─── App Health ─────────────────────────────────────────────────────────── */
+
+.adHealthBadge {
+  padding: 8px 16px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 9999px;
+  color: #10B981;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.adServiceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+  gap: 12px;
+}
+
+.adServiceCard {
+  padding: 14px 16px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 12px;
+  background: #FAFAFA;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.adServiceHeader { display: flex; align-items: center; gap: 8px; }
+
+.adServiceDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.adServiceMeta { display: flex; flex-direction: column; gap: 2px; padding-left: 16px; }
+
+.adServiceStatus { font-size: 12px; font-weight: 700; text-transform: capitalize; }

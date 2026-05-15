@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  name            String
+  passwordHash    String?  @map("password_hash")
+  cognitoSub      String?  @unique @map("cognito_sub")
+  creditsBalance  Decimal  @default(0) @map("credits_balance") @db.Decimal(10, 2)
+  freeImagesUsed  Int      @default(0) @map("free_images_used")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  storyboards          Storyboard[]
+  images               Image[]
+  assets               Asset[]
+  apiLogs              ApiLog[]
+  creditTransactions   CreditTransaction[]
+
+  @@map("users")
+}
+
+model CreditConfig {
+  id              String   @id @default("singleton")
+  perImageCostInr Decimal  @default(10.00) @map("per_image_cost_inr") @db.Decimal(10, 2)
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("credit_config")
+}
+
+model ModelPricing {
+  modelKey  String   @id @map("model_key")
+  credits   Int
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("model_pricing")
+}
+
+model CreditTransaction {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  amountInr    Decimal  @map("amount_inr") @db.Decimal(10, 2)
+  type         String
+  description  String?
+  balanceAfter Decimal  @map("balance_after") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("credit_transactions")
+}
+
+model Storyboard {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  title      String   @default("New storyboard")
+  garmentType String  @default("") @map("garment_type")
+  isActive   Boolean  @default(false) @map("is_active")
+  previewUrl String?  @map("preview_url")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // StoryboardConfig — 22 flat columns
+  occasionPreset        String @default("") @map("occasion_preset")
+  occasionDetails       String @default("") @map("occasion_details")
+  accessories           String @default("") @map("accessories")
+  bottomWearPreset      String @default("") @map("bottom_wear_preset")
+  bottomWearDetails     String @default("") @map("bottom_wear_details")
+  printInputKind        String @default("image") @map("print_input_kind")
+  printColorHex         String @default("") @map("print_color_hex")
+  printAdditionalPrompt String @default("") @map("print_additional_prompt")
+  printTargetGender     String @default("Male") @map("print_target_gender")
+  printGarmentCategory  String @default("T-shirt") @map("print_garment_category")
+  footwearPreset        String @default("") @map("footwear_preset")
+  footwearDetails       String @default("") @map("footwear_details")
+  stylePreset           String @default("") @map("style_preset")
+  styleKeywordsDetails  String @default("") @map("style_keywords_details")
+  backgroundThemePreset  String @default("") @map("background_theme_preset")
+  backgroundThemeDetails String @default("") @map("background_theme_details")
+  modelPreset           String @default("White / European") @map("model_preset")
+  modelDetails          String @default("") @map("model_details")
+  modelPosePreset       String @default("") @map("model_pose_preset")
+  modelPoseDetails      String @default("") @map("model_pose_details")
+  modelStylingPreset    String @default("") @map("model_styling_preset")
+  modelStylingNotes     String @default("") @map("model_styling_notes")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images Image[]
+
+  @@map("storyboards")
+}
+
+model Image {
+  id              String   @id @default(uuid())
+  userId          String   @map("user_id")
+  storyboardId    String?  @map("storyboard_id")
+  title           String
+  kind            String
+  mimeType        String   @map("mime_type")
+  fileName        String?  @map("file_name")
+  s3Key           String   @map("s3_key")
+  s3Bucket        String   @map("s3_bucket")
+  fileSizeBytes   Int?     @map("file_size_bytes")
+  storyboardTitle String?  @map("storyboard_title")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storyboard Storyboard? @relation(fields: [storyboardId], references: [id], onDelete: SetNull)
+
+  @@map("images")
+}
+
+model Asset {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  kind          String
+  title         String
+  mimeType      String   @map("mime_type")
+  s3Key         String   @map("s3_key")
+  s3Bucket      String   @map("s3_bucket")
+  fileSizeBytes Int?     @map("file_size_bytes")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("assets")
+}
+
+model ApiLog {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  type          String
+  model         String
+  promptTokens  Int      @default(0) @map("prompt_tokens")
+  outputTokens  Int      @default(0) @map("output_tokens")
+  totalTokens   Int      @default(0) @map("total_tokens")
+  latencyMs     Int      @default(0) @map("latency_ms")
+  status        String   @default("success")
+  errorMessage  String?  @map("error_message")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_logs")
+}

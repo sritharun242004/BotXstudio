@@ -1,0 +1,2575 @@
+import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
+import { getSession, logout, type Session } from "./lib/auth";
+import { ADMIN_EMAIL } from "./lib/adminAuth";
+import { useCredits } from "./context/CreditsContext";
+import DashboardTab from "./components/DashboardTab";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, Coins, LayoutDashboard, BookOpen } from "lucide-react";
+
+const BASE = import.meta.env.BASE_URL;
+import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
+import FieldLabel from "./components/FieldLabel";
+import ImageModal from "./components/ImageModal";
+import StoryboardLibrary from "./components/StoryboardLibrary";
+import StoryboardEditorHeader from "./components/StoryboardEditorHeader";
+import StoryboardFormCards from "./components/StoryboardFormCards";
+import StoryboardResultsPane from "./components/StoryboardResultsPane";
+import PrintsTab from "./components/PrintsTab";
+import Toast, { type ToastItem } from "./components/Toast";
+import SavedImagesPane from "./components/SavedImagesPane";
+import AssetsTab from "./components/AssetsTab";
+import UsageTab from "./components/UsageTab";
+import SettingsPage from "./components/SettingsPage";
+import DocumentsTab from "./components/DocumentsTab";
+
+import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
+import {
+  footwearPresetKeywordsByValue,
+  footwearPresetLabelByValue,
+  modelStylingPresetLabelByValue,
+  modelPosePresetLabelByValue,
+  occasionPresetLabelByValue,
+  stylePresetLabelByValue,
+} from "./lib/presets";
+import { dataUrlToBlob, effectiveMimeType, fileToDataUrl, normalizeHexColor, nowIso, parseTags as parseLocalTags } from "./lib/utils";
+import { deleteSavedImage, batchDeleteImages, listSavedImages, saveImageRecord, type SavedImageRecord } from "./lib/indexeddb";
+import { getAccessToken } from "./lib/api";
+import {
+  createStoryboardRecord,
+  createStoryboardApi,
+  deleteStoryboardApi,
+  duplicateStoryboardApi,
+  fetchStoryboards,
+  updateStoryboardApi,
+  setActiveStoryboardApi,
+  loadActiveStoryboardIdFromLocalStorage,
+  loadStoryboardsFromLocalStorage,
+  saveActiveStoryboardIdToLocalStorage,
+  saveStoryboardsToLocalStorage,
+  type StoryboardConfig,
+  type StoryboardRecord,
+  type ImageGenerationModelId,
+} from "./lib/storyboards";
+import {
+  buildPrintApplicationPrompt,
+  buildDirectCompositePrompt,
+  buildDirectMultiAnglePrompt,
+  buildGarmentReferencePrompt,
+  generatePrimaryImage,
+  generateMultiAngleImages,
+  type DirectCompositeConfig,
+  type LookPlan,
+} from "./lib/pipeline";
+
+import {
+  generateGptPrimaryImage,
+  generateGptMultiAngleImages,
+  buildGptCompositePrompt,
+  buildGptMultiAnglePrompt,
+} from "./lib/gpt-pipeline";
+import {
+  generateHybridPrimaryImage,
+  generateHybridMultiAngleImages,
+  HYBRID_GEMINI_MODEL,
+} from "./lib/hybrid-pipeline";
+import { getTier } from "./lib/generationTiers";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type StoryboardAnglesRuntime = {
+  generating: boolean;
+  error: string | null;
+  backDataUrl: string | null;
+  backMimeType: string | null;
+  detailDataUrl: string | null;
+  detailMimeType: string | null;
+  timingsMs: { back: number; detail: number; total: number } | null;
+};
+
+type StoryboardPrintsRuntime = {
+  baseGarmentFrontDataUrl: string | null;
+  baseGarmentFrontFileName: string | null;
+  baseGarmentBackDataUrl: string | null;
+  baseGarmentBackFileName: string | null;
+  baseGarmentSideDataUrl: string | null;
+  baseGarmentSideFileName: string | null;
+  printDesignFrontDataUrl: string | null;
+  printDesignFrontFileName: string | null;
+  printDesignBackDataUrl: string | null;
+  printDesignBackFileName: string | null;
+  printDesignSideDataUrl: string | null;
+  printDesignSideFileName: string | null;
+  outputFrontDataUrl: string | null;
+  outputFrontMimeType: string | null;
+  outputBackDataUrl: string | null;
+  outputBackMimeType: string | null;
+  outputSideDataUrl: string | null;
+  outputSideMimeType: string | null;
+  generating: boolean;
+  error: string | null;
+  timingsMs: number | null;
+};
+
+type PoseResult = {
+  dataUrl: string;
+  mimeType: string;
+  poseIndex: number;
+};
+
+type PromptsUsed = {
+  garmentRef?: string;
+  composite?: string;
+  backView?: string;
+  detailView?: string;
+} | null;
+
+type StoryboardRuntime = {
+  garmentDataUrls: string[];
+  garmentFileNames: string[];
+  backgroundDataUrls: string[];
+  backgroundFileNames: string[];
+  modelDataUrls: string[];
+  modelFileNames: string[];
+  poseDataUrls: string[];
+  poseFileNames: string[];
+  garmentRefDataUrl: string | null;
+  garmentRefMimeType: string | null;
+  lastPlan: LookPlan | null;
+  lastFinalPrompt: string | null;
+  prints: StoryboardPrintsRuntime;
+  angles: StoryboardAnglesRuntime;
+  generateError: string | null;
+  chosenSummary: any;
+  debugSummary: any;
+  resultDataUrl: string | null;
+  resultMimeType: string | null;
+  resultTimingsMs: Record<string, number> | null;
+  poseResults: PoseResult[];
+  promptsUsed: PromptsUsed;
+};
+
+type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "docs";
+type SavedImageView = SavedImageRecord & { url: string };
+
+// ─── Pure helpers (outside component) ────────────────────────────────────────
+
+/**
+ * Strips the background from a design image so only the pattern remains.
+ *
+ * Strategy:
+ *  1. If the image already carries any transparent pixels it is returned
+ *     as-is — background already removed upstream.
+ *  2. Sample the four corner pixels to infer the background colour.
+ *  3. BFS flood-fill from every edge pixel, zeroing out any pixel whose
+ *     Euclidean RGB distance from the background is ≤ TOLERANCE.
+ *     Flood-fill ensures only the connected background region is erased —
+ *     same-coloured pixels fully enclosed by the pattern are preserved.
+ *
+ * Returns an HTMLCanvasElement with a transparent background ready to use
+ * as a design source in compositing.
+ */
+function removeDesignBackground(img: HTMLImageElement): HTMLCanvasElement {
+  const W = img.naturalWidth  || 1;
+  const H = img.naturalHeight || 1;
+
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(img, 0, 0);
+
+  const imageData = ctx.getImageData(0, 0, W, H);
+  const data = imageData.data; // Uint8ClampedArray, layout: [R,G,B,A, R,G,B,A …]
+
+  // ── 1. Skip if the image already has any transparent pixels ──────────────
+  for (let i = 3; i < data.length; i += 4) {
+    if (data[i] < 255) {
+      // Already has transparency — nothing to do.
+      return c;
+    }
+  }
+
+  // ── 2. Detect background colour from the four corners ────────────────────
+  const corners = [
+    0,             // top-left
+    (W - 1),       // top-right
+    (H - 1) * W,  // bottom-left
+    (H - 1) * W + (W - 1), // bottom-right
+  ];
+  let bgR = 0, bgG = 0, bgB = 0;
+  for (const px of corners) {
+    const i = px * 4;
+    bgR += data[i];
+    bgG += data[i + 1];
+    bgB += data[i + 2];
+  }
+  bgR = Math.round(bgR / corners.length);
+  bgG = Math.round(bgG / corners.length);
+  bgB = Math.round(bgB / corners.length);
+
+  // Euclidean colour distance threshold.
+  // 30 comfortably absorbs JPEG/PNG compression fringing (≈10 units) while
+  // being well below a typical mid-tone design colour (≥60 units away).
+  const TOLERANCE = 30;
+
+  function dist(i: number): number {
+    const dr = data[i]     - bgR;
+    const dg = data[i + 1] - bgG;
+    const db = data[i + 2] - bgB;
+    return Math.sqrt(dr * dr + dg * dg + db * db);
+  }
+
+  // ── 3. BFS flood-fill from all four edges ─────────────────────────────────
+  // Using a flat Uint8Array as the visited set for O(1) lookup.
+  const visited = new Uint8Array(W * H);
+  // Pre-allocate queue large enough for the worst case (all edge pixels).
+  const queue = new Int32Array(W * H);
+  let head = 0, tail = 0;
+
+  function enqueue(pos: number) {
+    if (visited[pos]) return;
+    visited[pos] = 1;
+    queue[tail++] = pos;
+  }
+
+  // Seed every pixel on the four border rows/columns.
+  for (let x = 0; x < W; x++) {
+    enqueue(x);               // top row
+    enqueue((H - 1) * W + x); // bottom row
+  }
+  for (let y = 1; y < H - 1; y++) {
+    enqueue(y * W);           // left column
+    enqueue(y * W + W - 1);   // right column
+  }
+
+  while (head < tail) {
+    const pos = queue[head++]!;
+    const i = pos * 4;
+
+    if (dist(i) > TOLERANCE) continue; // Pixel belongs to the pattern — stop
+
+    // Erase this background pixel.
+    data[i + 3] = 0;
+
+    const x = pos % W;
+    const y = (pos - x) / W;
+
+    if (x > 0)     enqueue(pos - 1);     // left
+    if (x < W - 1) enqueue(pos + 1);     // right
+    if (y > 0)     enqueue(pos - W);     // up
+    if (y < H - 1) enqueue(pos + W);     // down
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return c;
+}
+
+/**
+ * Canvas-composites a design image onto a garment image.
+ *
+ * Pipeline (3 off-screen canvases, zero white-background leak):
+ *
+ *  designLayer  – design scaled to cover, then destination-in with garment
+ *                 → design pixels exist ONLY inside the garment silhouette.
+ *
+ *  blendCanvas  – white fill + garment base + designLayer via multiply
+ *                 → correct fabric shading; then destination-in with garment
+ *                 strips the white fill entirely, restoring transparency.
+ *
+ *  output       – transparent base; blendCanvas drawn normally.
+ *
+ * Result: transparent outside garment, clean hard edges, no halo/spill.
+ */
+function compositeDesignOnGarment(garmentDataUrl: string, designDataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const garmentImg = new Image();
+    garmentImg.onload = () => {
+      const W = garmentImg.naturalWidth || 800;
+      const H = garmentImg.naturalHeight || 1000;
+
+      const designImg = new Image();
+      designImg.onload = () => {
+        // ── Strip design background before compositing ────────────────────────
+        // Produces a canvas that is transparent wherever the background was,
+        // so solid/white backgrounds never contribute colour to the garment.
+        const cleanDesign = removeDesignBackground(designImg);
+
+        // ── Cover-scale the design to fill the full garment bounds ────────────
+        const designAR = cleanDesign.width / cleanDesign.height;
+        const canvasAR = W / H;
+        let dw: number, dh: number;
+        if (designAR > canvasAR) { dh = H; dw = H * designAR; }
+        else                     { dw = W; dh = W / designAR; }
+        const dx = (W - dw) / 2;
+        const dy = (H - dh) / 2;
+
+        // ── Step 1: designLayer — design hard-clipped to garment silhouette ───
+        // destination-in keeps design pixels only where garment alpha > 0.
+        // Any design background or halo outside the garment becomes transparent.
+        const designLayer = document.createElement("canvas");
+        designLayer.width = W; designLayer.height = H;
+        const dlCtx = designLayer.getContext("2d")!;
+        dlCtx.drawImage(cleanDesign, dx, dy, dw, dh);
+        dlCtx.globalCompositeOperation = "destination-in";
+        dlCtx.drawImage(garmentImg, 0, 0, W, H);
+        dlCtx.globalCompositeOperation = "source-over";
+
+        // ── Step 2: blendCanvas — multiply composite, then re-mask ───────────
+        // White fill is required so multiply math works on light garments (a
+        // white garment × colored design = that color). After blending we
+        // remove the white fill with a second destination-in pass so nothing
+        // outside the garment silhouette survives.
+        const blendCanvas = document.createElement("canvas");
+        blendCanvas.width = W; blendCanvas.height = H;
+        const bCtx = blendCanvas.getContext("2d")!;
+
+        // White base for physically correct multiply blending
+        bCtx.fillStyle = "#ffffff";
+        bCtx.fillRect(0, 0, W, H);
+
+        // Garment base — preserves all folds, shadows, and edge detail
+        bCtx.drawImage(garmentImg, 0, 0, W, H);
+
+        // Blend design onto garment; design is already silhouette-clipped
+        bCtx.globalCompositeOperation = "multiply";
+        bCtx.drawImage(designLayer, 0, 0);
+
+        // Re-apply garment alpha: wipes the white background and any bleed at
+        // semi-transparent edges. After this the canvas is transparent wherever
+        // the garment is transparent — no spill possible.
+        bCtx.globalCompositeOperation = "destination-in";
+        bCtx.drawImage(garmentImg, 0, 0, W, H);
+        bCtx.globalCompositeOperation = "source-over";
+
+        // ── Step 3: output — transparent canvas, no background paint ─────────
+        const output = document.createElement("canvas");
+        output.width = W; output.height = H;
+        const outCtx = output.getContext("2d")!;
+        outCtx.drawImage(blendCanvas, 0, 0);
+
+        resolve(output.toDataURL("image/png"));
+      };
+      designImg.onerror = () => reject(new Error("Failed to load design image"));
+      designImg.src = designDataUrl;
+    };
+    garmentImg.onerror = () => reject(new Error("Failed to load garment image"));
+    garmentImg.src = garmentDataUrl;
+  });
+}
+
+const GENERATION_STEPS = [
+  "Getting all the configurations",
+  "Thinking",
+  "Compositing a scene",
+  "Generating image",
+] as const;
+
+const ACTIVE_TAB_KEY = "esg_active_tab_v1";
+
+function createDefaultAnglesRuntime(): StoryboardAnglesRuntime {
+  return { generating: false, error: null, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null };
+}
+
+function createDefaultPrintsRuntime(): StoryboardPrintsRuntime {
+  return {
+    baseGarmentFrontDataUrl: null, baseGarmentFrontFileName: null,
+    baseGarmentBackDataUrl: null, baseGarmentBackFileName: null,
+    baseGarmentSideDataUrl: null, baseGarmentSideFileName: null,
+    printDesignFrontDataUrl: null, printDesignFrontFileName: null,
+    printDesignBackDataUrl: null, printDesignBackFileName: null,
+    printDesignSideDataUrl: null, printDesignSideFileName: null,
+    outputFrontDataUrl: null, outputFrontMimeType: null,
+    outputBackDataUrl: null, outputBackMimeType: null,
+    outputSideDataUrl: null, outputSideMimeType: null,
+    generating: false, error: null, timingsMs: null,
+  };
+}
+
+function createDefaultRuntime(): StoryboardRuntime {
+  return {
+    garmentDataUrls: [], garmentFileNames: [],
+    backgroundDataUrls: [], backgroundFileNames: [],
+    modelDataUrls: [], modelFileNames: [],
+    poseDataUrls: [], poseFileNames: [],
+    garmentRefDataUrl: null, garmentRefMimeType: null,
+    lastPlan: null, lastFinalPrompt: null,
+    prints: createDefaultPrintsRuntime(),
+    angles: createDefaultAnglesRuntime(),
+    generateError: null, chosenSummary: null, debugSummary: null,
+    resultDataUrl: null, resultMimeType: null, resultTimingsMs: null,
+    poseResults: [],
+    promptsUsed: null,
+  };
+}
+
+function mimeToExtension(mimeType: string | null): string {
+  const mt = (mimeType || "").toLowerCase().trim();
+  if (mt.includes("png")) return "png";
+  if (mt.includes("webp")) return "webp";
+  if (mt.includes("jpeg") || mt.includes("jpg")) return "jpg";
+  return "png";
+}
+
+function formatDurationMs(ms: number | null | undefined): string {
+  const safe = typeof ms === "number" && Number.isFinite(ms) ? ms : 0;
+  const seconds = safe / 1000;
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const wholeMinutes = Math.floor(seconds / 60);
+  return `${wholeMinutes}m ${Math.round(seconds - wholeMinutes * 60)}s`;
+}
+
+function computeTimingsMs(timings: Record<string, number>) {
+  const textLlmMs = (timings.plan ?? 0) + (timings.final_prompt ?? 0);
+  const imageGenMs = (timings.garment_reference ?? 0) + (timings.composite ?? 0);
+  return { textLlmMs, imageGenMs, totalMs: textLlmMs + imageGenMs };
+}
+
+function combinePresetAndCustom(opts: { presetText: string; customText: string; joiner?: string }): string {
+  const p = (opts.presetText || "").trim();
+  const c = (opts.customText || "").trim();
+  if (!p) return c;
+  if (!c) return p;
+  return `${p}${opts.joiner ?? ", "}${c}`;
+}
+
+function combineBottomWear(preset: string, details: string, isCustom: boolean): string {
+  const p = (preset || "").trim();
+  const d = (details || "").trim();
+  if (isCustom) return d;
+  if (!p) return d;
+  if (!d) return p;
+  if (d.toLowerCase().includes(p.toLowerCase())) return d;
+  return `${d} ${p}`.trim();
+}
+
+function createColorSwatchDataUrl(hexColor: string): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = 96; canvas.height = 96;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported.");
+  ctx.fillStyle = hexColor;
+  ctx.fillRect(0, 0, 96, 96);
+  return canvas.toDataURL("image/png");
+}
+
+function formatStoryboardTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatSavedTimestamp(ms: number): string {
+  const d = new Date(ms);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleString(undefined, { month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function safeClone<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  try { return structuredClone(value); } catch {
+    try { return JSON.parse(JSON.stringify(value)) as T; } catch { return value; }
+  }
+}
+
+function createThumbnail(dataUrl: string, width = 200): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const scale = width / img.width;
+      canvas.width = width;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { resolve(dataUrl); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function triggerDownload(href: string, filename: string) {
+  const a = document.createElement("a");
+  a.href = href; a.download = filename; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function formatKind(kind: string): string {
+  if (kind === "asset-background") return "Background";
+  if (kind === "asset-model") return "Model";
+  return (kind || "").replace(/_/g, " ").trim();
+}
+
+function uniqueTitle(base: string, storyboards: StoryboardRecord[]): string {
+  const cleanedBase = (base || "").trim() || "Mood Board";
+  const existing = new Set(storyboards.map((sb) => sb.title.trim().toLowerCase()).filter(Boolean));
+  if (!existing.has(cleanedBase.toLowerCase())) return cleanedBase;
+  let n = 2;
+  while (existing.has(`${cleanedBase} ${n}`.toLowerCase())) n += 1;
+  return `${cleanedBase} ${n}`;
+}
+
+function storyboardSubtitle(sb: StoryboardRecord): string {
+  const cfg = sb.config;
+  const parts: string[] = [];
+  if (sb.garmentType?.trim()) parts.push(`Garment: ${sb.garmentType.trim()}`);
+
+  const occasionPresetLabel = cfg.occasionPreset && cfg.occasionPreset !== "custom"
+    ? occasionPresetLabelByValue[cfg.occasionPreset] ?? cfg.occasionPreset : "";
+  const occasion = cfg.occasionPreset === "custom"
+    ? cfg.occasionDetails.trim()
+    : combinePresetAndCustom({ presetText: occasionPresetLabel, customText: cfg.occasionDetails, joiner: ", " });
+  if (occasion) parts.push(`Occasion: ${occasion}`);
+
+  // color scheme removed
+
+  const stylePresetText = cfg.stylePreset && cfg.stylePreset !== "custom"
+    ? stylePresetLabelByValue[cfg.stylePreset] ?? cfg.stylePreset : "";
+  const styleKeywords = cfg.stylePreset === "custom"
+    ? cfg.styleKeywordsDetails.trim()
+    : combinePresetAndCustom({ presetText: stylePresetText, customText: cfg.styleKeywordsDetails, joiner: ", " });
+  if (styleKeywords) parts.push(`Style: ${styleKeywords}`);
+
+  const bgTheme = combinePresetAndCustom({ presetText: cfg.backgroundThemePreset === "custom" ? "" : cfg.backgroundThemePreset, customText: cfg.backgroundThemeDetails, joiner: ", " });
+  if (bgTheme) parts.push(`BG: ${bgTheme}`);
+
+  if (cfg.accessories.trim()) parts.push(`Accessories: ${cfg.accessories.trim()}`);
+
+  const bottomWear = combineBottomWear(cfg.bottomWearPreset, cfg.bottomWearDetails, cfg.bottomWearPreset === "custom");
+  if (bottomWear) parts.push(`Bottom wear: ${bottomWear}`);
+
+  const footwearPresetLabel = cfg.footwearPreset && cfg.footwearPreset !== "custom"
+    ? footwearPresetLabelByValue[cfg.footwearPreset] ?? cfg.footwearPreset : "";
+  const footwear = cfg.footwearPreset === "custom"
+    ? cfg.footwearDetails.trim()
+    : combinePresetAndCustom({ presetText: footwearPresetLabel, customText: cfg.footwearDetails, joiner: ", " });
+  if (footwear) parts.push(`Footwear: ${footwear}`);
+
+  const modelPresetNorm = (cfg.modelPreset === "custom" || cfg.modelPreset === "nil") ? "" : cfg.modelPreset;
+  const ethnicity = combinePresetAndCustom({ presetText: modelPresetNorm, customText: cfg.modelDetails, joiner: ", " });
+  if (ethnicity) parts.push(`Model: ${ethnicity}`);
+
+  const modelPosePresetLabel = cfg.modelPosePreset && cfg.modelPosePreset !== "custom"
+    ? modelPosePresetLabelByValue[cfg.modelPosePreset] ?? cfg.modelPosePreset : "";
+  const modelPose = combinePresetAndCustom({ presetText: modelPosePresetLabel, customText: cfg.modelPoseDetails, joiner: ", " });
+  if (modelPose) parts.push(`Pose: ${modelPose}`);
+
+  const stylingPresetText = cfg.modelStylingPreset && cfg.modelStylingPreset !== "custom"
+    ? modelStylingPresetLabelByValue[cfg.modelStylingPreset] ?? cfg.modelStylingPreset : "";
+  const styling = cfg.modelStylingPreset === "custom"
+    ? cfg.modelStylingNotes.trim()
+    : combinePresetAndCustom({ presetText: stylingPresetText, customText: cfg.modelStylingNotes, joiner: ", " });
+  if (styling) parts.push(`Styling: ${styling}`);
+
+  return parts.join("\n") || "No settings yet";
+}
+
+// ─── App component ─────────────────────────────────────────────────────────
+
+export default function App() {
+  // ── Credits ────────────────────────────────────────────────────────────────
+  const { balance, costPerImageInr, freeImagesRemaining, refreshBalance } = useCredits();
+  const [showRechargeModal, setShowRechargeModal] = useState(false);
+
+  // ── Session ────────────────────────────────────────────────────────────────
+  const [session, setSession] = useState<Session | null>(() => getSession());
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [userMenuOpen]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+  }, []);
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [generateView, setGenerateView] = useState<"library" | "editor">("library");
+
+  const [showSettings, setShowSettings] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<AppTab>(() => {
+    const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "docs"
+      ? stored : "prints";
+  });
+
+  const [storyboards, setStoryboards] = useState<StoryboardRecord[]>(() => {
+    const loaded = loadStoryboardsFromLocalStorage();
+    const ensured = loaded.length ? loaded : [createStoryboardRecord({ title: "Mood Board 1" })];
+    try { saveStoryboardsToLocalStorage(ensured); } catch {}
+    return ensured;
+  });
+
+  const [activeStoryboardId, setActiveStoryboardId] = useState<string>(() => {
+    const loaded = loadStoryboardsFromLocalStorage();
+    const ensured = loaded.length ? loaded : [createStoryboardRecord({ title: "Mood Board 1" })];
+    const savedActive = loadActiveStoryboardIdFromLocalStorage();
+    const id = savedActive && ensured.some((sb) => sb.id === savedActive) ? savedActive : ensured[0]!.id;
+    try { saveActiveStoryboardIdToLocalStorage(id); } catch {}
+    return id;
+  });
+
+  const [storyboardRuntime, setStoryboardRuntime] = useState<Record<string, StoryboardRuntime>>(() => {
+    const loaded = loadStoryboardsFromLocalStorage();
+    const ensured = loaded.length ? loaded : [createStoryboardRecord({ title: "Mood Board 1" })];
+    return Object.fromEntries(ensured.map((sb) => [sb.id, createDefaultRuntime()]));
+  });
+
+  const [deleteStoryboardModalOpen, setDeleteStoryboardModalOpen] = useState(false);
+  type ImageEntry = { src: string; title: string; alt?: string };
+  const [imageModal, setImageModal] = useState<{ images: ImageEntry[]; currentIndex: number } | null>(null);
+  const [savedImages, setSavedImages] = useState<SavedImageView[]>([]);
+  const [savedImagesLoading, setSavedImagesLoading] = useState(true);
+  const [saveToast, setSaveToast] = useState({ visible: false, message: "" });
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastIdRef = useRef(0);
+  function showToast(message: string, type: ToastItem["type"] = "success") {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, message, type }]);
+  }
+  function removeToast(id: number) {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStepIndex, setGenerationStepIndex] = useState(0);
+  const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
+  const [printGenerationElapsedMs, setPrintGenerationElapsedMs] = useState(0);
+
+  // ── Refs (timers, non-reactive values) ────────────────────────────────────
+  const generationIntervalRef = useRef<number | null>(null);
+  const printIntervalRef = useRef<number | null>(null);
+  const sbSaveTimerRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+  const imageModalRef = useRef(imageModal);
+  imageModalRef.current = imageModal;
+  const savedImagesRef = useRef<SavedImageView[]>([]);
+  savedImagesRef.current = savedImages;
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+  const activeStoryboard = useMemo(
+    () => storyboards.find((sb) => sb.id === activeStoryboardId) ?? storyboards[0]!,
+    [storyboards, activeStoryboardId],
+  );
+  const activeConfig = activeStoryboard.config;
+  const activeRuntime = storyboardRuntime[activeStoryboardId] ?? createDefaultRuntime();
+
+  const computedTimings = useMemo(
+    () => computeTimingsMs(activeRuntime.resultTimingsMs || {}),
+    [activeRuntime.resultTimingsMs],
+  );
+
+  const savedPrints = useMemo(() => savedImages.filter((img) => img.kind === "prints"), [savedImages]);
+
+  // Map storyboard ID → most recent saved "main" image URL (for persistent preview)
+  const savedPreviewByStoryboardId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const img of [...savedImages].reverse()) {
+      if (img.kind === "main" && img.storyboardId) map[img.storyboardId] = img.url;
+    }
+    return map;
+  }, [savedImages]);
+  const assetImages = useMemo(() => savedImages.filter((img) => img.kind?.startsWith("asset-")), [savedImages]);
+  const backgroundAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-background"), [savedImages]);
+  const modelAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-model"), [savedImages]);
+  const poseAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-pose"), [savedImages]);
+  const garmentAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-garment"), [savedImages]);
+
+  const activeTabLabel =
+    activeTab === "prints"     ? "Add Prints"
+    : activeTab === "assets"   ? "Uploaded Assets"
+    : activeTab === "saved"    ? "Saved images"
+    : activeTab === "usage"    ? "Credits"
+    : activeTab === "dashboard" ? "Dashboard"
+    : activeTab === "docs"      ? "Documentation"
+    : "Generate Images";
+
+  // ── Derived computed values used in generation ────────────────────────────
+  const occasionFinal = activeConfig.occasionPreset === "custom"
+    ? activeConfig.occasionDetails.trim()
+    : combinePresetAndCustom({ presetText: activeConfig.occasionPreset, customText: activeConfig.occasionDetails, joiner: ", " });
+
+  const footwearFinal = activeConfig.footwearPreset === "custom"
+    ? activeConfig.footwearDetails.trim()
+    : combinePresetAndCustom({
+        presetText: footwearPresetKeywordsByValue[activeConfig.footwearPreset] ?? activeConfig.footwearPreset,
+        customText: activeConfig.footwearDetails, joiner: ", ",
+      });
+
+  const bottomWearFinal = combineBottomWear(
+    activeConfig.bottomWearPreset, activeConfig.bottomWearDetails, activeConfig.bottomWearPreset === "custom",
+  );
+
+  const styleKeywordsFinal = activeConfig.stylePreset === "custom"
+    ? activeConfig.styleKeywordsDetails.trim()
+    : combinePresetAndCustom({
+        presetText: activeConfig.stylePreset && activeConfig.stylePreset !== "custom" ? activeConfig.stylePreset : "",
+        customText: activeConfig.styleKeywordsDetails, joiner: ", ",
+      });
+
+  const backgroundThemeFinal = combinePresetAndCustom({ presetText: activeConfig.backgroundThemePreset === "custom" ? "" : activeConfig.backgroundThemePreset, customText: activeConfig.backgroundThemeDetails, joiner: ", " });
+
+  const activeModelPresetNorm = (activeConfig.modelPreset === "custom" || activeConfig.modelPreset === "nil") ? "" : activeConfig.modelPreset;
+  const modelEthnicityFinal = combinePresetAndCustom({ presetText: activeModelPresetNorm, customText: activeConfig.modelDetails, joiner: ", " });
+
+  const modelPosePresetNorm = activeConfig.modelPosePreset === "custom" ? "" : activeConfig.modelPosePreset;
+  const modelPoseLabelNorm = modelPosePresetNorm ? modelPosePresetLabelByValue[modelPosePresetNorm] ?? modelPosePresetNorm : "";
+  const modelPoseFinal = combinePresetAndCustom({ presetText: modelPoseLabelNorm, customText: activeConfig.modelPoseDetails, joiner: ", " });
+
+  const modelStylingNotesFinal = activeConfig.modelStylingPreset === "custom"
+    ? activeConfig.modelStylingNotes.trim()
+    : combinePresetAndCustom({
+        presetText: activeConfig.modelStylingPreset && activeConfig.modelStylingPreset !== "custom" ? activeConfig.modelStylingPreset : "",
+        customText: activeConfig.modelStylingNotes, joiner: ", ",
+      });
+
+  // ── Effects ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    localStorage.setItem(ACTIVE_TAB_KEY, activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    saveActiveStoryboardIdToLocalStorage(activeStoryboardId);
+    setActiveStoryboardApi(activeStoryboardId).catch(() => {});
+  }, [activeStoryboardId]);
+
+  // Debounced sync storyboards to localStorage cache + backend
+  const prevStoryboardsRef = useRef<StoryboardRecord[]>(storyboards);
+  useEffect(() => {
+    if (sbSaveTimerRef.current) window.clearTimeout(sbSaveTimerRef.current);
+    sbSaveTimerRef.current = window.setTimeout(() => {
+      try { saveStoryboardsToLocalStorage(storyboards); } catch {}
+      // Sync changed storyboards to backend
+      const prev = prevStoryboardsRef.current;
+      for (const sb of storyboards) {
+        const old = prev.find((p) => p.id === sb.id);
+        if (old && old.updatedAt !== sb.updatedAt) {
+          updateStoryboardApi(sb.id, sb).catch(() => {});
+        }
+      }
+      prevStoryboardsRef.current = storyboards;
+    }, 500);
+  }, [storyboards]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && imageModalRef.current) setImageModal(null);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  // Load storyboards from backend API on mount
+  useEffect(() => {
+    fetchStoryboards().then((apiSbs) => {
+      if (apiSbs.length > 0) {
+        setStoryboards(apiSbs);
+        prevStoryboardsRef.current = apiSbs;
+        // Init runtime for new storyboards
+        setStoryboardRuntime((prev) => {
+          const next = { ...prev };
+          for (const sb of apiSbs) {
+            if (!next[sb.id]) next[sb.id] = createDefaultRuntime();
+          }
+          return next;
+        });
+        // Keep active ID if still valid, otherwise use first
+        setActiveStoryboardId((prevId) => {
+          if (apiSbs.some((sb) => sb.id === prevId)) return prevId;
+          return apiSbs[0]!.id;
+        });
+        try { saveStoryboardsToLocalStorage(apiSbs); } catch {}
+      }
+    }).catch((err) => console.warn("Failed to load storyboards from API, using local cache.", err));
+  }, []);
+
+  useEffect(() => {
+    loadSavedImagesFromDb().catch((err) => console.warn("Failed to load saved images.", err));
+    return () => {
+      for (const img of savedImagesRef.current) {
+        if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+      }
+      if (generationIntervalRef.current) window.clearInterval(generationIntervalRef.current);
+      if (printIntervalRef.current) window.clearInterval(printIntervalRef.current);
+      if (sbSaveTimerRef.current) window.clearTimeout(sbSaveTimerRef.current);
+      if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    };
+  }, []);
+
+  // ── Runtime updaters ──────────────────────────────────────────────────────
+  function updateRuntime(id: string, updates: Partial<StoryboardRuntime>) {
+    setStoryboardRuntime((prev) => ({ ...prev, [id]: { ...prev[id]!, ...updates } }));
+  }
+  function updatePrints(id: string, updates: Partial<StoryboardPrintsRuntime>) {
+    setStoryboardRuntime((prev) => ({
+      ...prev, [id]: { ...prev[id]!, prints: { ...prev[id]!.prints, ...updates } },
+    }));
+  }
+  function updateAngles(id: string, updates: Partial<StoryboardAnglesRuntime>) {
+    setStoryboardRuntime((prev) => ({
+      ...prev, [id]: { ...prev[id]!, angles: { ...prev[id]!.angles, ...updates } },
+    }));
+  }
+
+  // ── Storyboard management ─────────────────────────────────────────────────
+  function handleConfigUpdate(updates: Partial<StoryboardConfig>) {
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === activeStoryboardId
+          ? { ...sb, config: { ...sb.config, ...updates }, updatedAt: nowIso() }
+          : sb,
+      ),
+    );
+  }
+
+  function handleTitleChange(value: string) {
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === activeStoryboardId ? { ...sb, title: value, updatedAt: nowIso() } : sb,
+      ),
+    );
+  }
+
+  function handleGarmentTypeChange(value: string) {
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === activeStoryboardId ? { ...sb, garmentType: value, updatedAt: nowIso() } : sb,
+      ),
+    );
+  }
+
+  function openStoryboard(id: string) {
+    if (isGenerating) return;
+    setActiveStoryboardId(id);
+    setGenerateView("editor");
+  }
+
+  function enterStoryboardLibrary() {
+    if (isGenerating) return;
+    setGenerateView("library");
+  }
+
+  async function createNewStoryboard() {
+    try {
+      const title = uniqueTitle(`Mood Board ${storyboards.length + 1}`, storyboards);
+      const sb = await createStoryboardApi({ title });
+      setStoryboardRuntime((r) => ({ ...r, [sb.id]: createDefaultRuntime() }));
+      setActiveStoryboardId(sb.id);
+      setStoryboards((prev) => [sb, ...prev]);
+      setGenerateView("editor");
+    } catch (err) {
+      console.error("Failed to create storyboard", err);
+      // Fallback to local
+      setStoryboards((prev) => {
+        const sb = createStoryboardRecord({ title: uniqueTitle(`Mood Board ${prev.length + 1}`, prev) });
+        setStoryboardRuntime((r) => ({ ...r, [sb.id]: createDefaultRuntime() }));
+        setActiveStoryboardId(sb.id);
+        setGenerateView("editor");
+        return [sb, ...prev];
+      });
+    }
+  }
+
+  async function duplicateActiveStoryboard() {
+    // Try API duplication first
+    try {
+      const dst = await duplicateStoryboardApi(activeStoryboardId);
+      const srcRuntime = storyboardRuntime[activeStoryboardId] ?? createDefaultRuntime();
+      setStoryboardRuntime((r) => ({
+        ...r,
+        [dst.id]: {
+          ...createDefaultRuntime(),
+          garmentDataUrls: [...srcRuntime.garmentDataUrls],
+          garmentFileNames: [...srcRuntime.garmentFileNames],
+          backgroundDataUrls: [...srcRuntime.backgroundDataUrls],
+          backgroundFileNames: [...srcRuntime.backgroundFileNames],
+          modelDataUrls: [...srcRuntime.modelDataUrls],
+          modelFileNames: [...srcRuntime.modelFileNames],
+          poseDataUrls: [...srcRuntime.poseDataUrls],
+          poseFileNames: [...srcRuntime.poseFileNames],
+          garmentRefDataUrl: srcRuntime.garmentRefDataUrl,
+          garmentRefMimeType: srcRuntime.garmentRefMimeType,
+          lastPlan: srcRuntime.lastPlan ? safeClone(srcRuntime.lastPlan) : null,
+          lastFinalPrompt: srcRuntime.lastFinalPrompt,
+          prints: safeClone(srcRuntime.prints),
+          angles: {
+            ...createDefaultAnglesRuntime(),
+            backDataUrl: srcRuntime.angles.backDataUrl,
+            backMimeType: srcRuntime.angles.backMimeType,
+            timingsMs: srcRuntime.angles.timingsMs ? { ...srcRuntime.angles.timingsMs } : null,
+          },
+          chosenSummary: safeClone(srcRuntime.chosenSummary),
+          debugSummary: safeClone(srcRuntime.debugSummary),
+          resultDataUrl: srcRuntime.resultDataUrl,
+          resultMimeType: srcRuntime.resultMimeType,
+          resultTimingsMs: srcRuntime.resultTimingsMs ? { ...srcRuntime.resultTimingsMs } : null,
+          poseResults: [...srcRuntime.poseResults],
+        },
+      }));
+      setActiveStoryboardId(dst.id);
+      setStoryboards((prev) => [dst, ...prev]);
+      return;
+    } catch (err) {
+      console.error("API duplicate failed, falling back to local", err);
+    }
+
+    // Fallback to local
+    setStoryboards((prev) => {
+      const src = prev.find((sb) => sb.id === activeStoryboardId) ?? prev[0]!;
+      const dst = createStoryboardRecord({ title: uniqueTitle(`${src.title} (copy)`, prev), garmentType: src.garmentType, config: { ...src.config } });
+      const srcRuntime = storyboardRuntime[src.id] ?? createDefaultRuntime();
+      setStoryboardRuntime((r) => ({
+        ...r,
+        [dst.id]: {
+          ...createDefaultRuntime(),
+          garmentDataUrls: [...srcRuntime.garmentDataUrls],
+          garmentFileNames: [...srcRuntime.garmentFileNames],
+          backgroundDataUrls: [...srcRuntime.backgroundDataUrls],
+          backgroundFileNames: [...srcRuntime.backgroundFileNames],
+          modelDataUrls: [...srcRuntime.modelDataUrls],
+          modelFileNames: [...srcRuntime.modelFileNames],
+          poseDataUrls: [...srcRuntime.poseDataUrls],
+          poseFileNames: [...srcRuntime.poseFileNames],
+          garmentRefDataUrl: srcRuntime.garmentRefDataUrl,
+          garmentRefMimeType: srcRuntime.garmentRefMimeType,
+          lastPlan: srcRuntime.lastPlan ? safeClone(srcRuntime.lastPlan) : null,
+          lastFinalPrompt: srcRuntime.lastFinalPrompt,
+          prints: safeClone(srcRuntime.prints),
+          angles: {
+            ...createDefaultAnglesRuntime(),
+            backDataUrl: srcRuntime.angles.backDataUrl,
+            backMimeType: srcRuntime.angles.backMimeType,
+            timingsMs: srcRuntime.angles.timingsMs ? { ...srcRuntime.angles.timingsMs } : null,
+          },
+          chosenSummary: safeClone(srcRuntime.chosenSummary),
+          debugSummary: safeClone(srcRuntime.debugSummary),
+          resultDataUrl: srcRuntime.resultDataUrl,
+          resultMimeType: srcRuntime.resultMimeType,
+          resultTimingsMs: srcRuntime.resultTimingsMs ? { ...srcRuntime.resultTimingsMs } : null,
+          poseResults: [...srcRuntime.poseResults],
+        },
+      }));
+      setActiveStoryboardId(dst.id);
+      return [dst, ...prev];
+    });
+  }
+
+  function requestDeleteActiveStoryboard() {
+    if (storyboards.length <= 1) return;
+    setDeleteStoryboardModalOpen(true);
+  }
+
+  async function confirmDeleteActiveStoryboard() {
+    if (storyboards.length <= 1) { setDeleteStoryboardModalOpen(false); return; }
+    const idToDelete = activeStoryboardId;
+    deleteStoryboardApi(idToDelete).catch((err) => console.error("API delete failed", err));
+    setStoryboards((prev) => {
+      const idx = prev.findIndex((sb) => sb.id === idToDelete);
+      const next = [...prev];
+      next.splice(idx, 1);
+      const nextActive = next[Math.max(0, idx - 1)] ?? next[0];
+      if (nextActive) setActiveStoryboardId(nextActive.id);
+      setStoryboardRuntime((r) => {
+        const nr = { ...r };
+        delete nr[idToDelete];
+        return nr;
+      });
+      return next;
+    });
+    setDeleteStoryboardModalOpen(false);
+  }
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+  function openImageModal(
+    src: string | null | undefined,
+    title: string,
+    alt?: string,
+    gallery?: Array<{ src: string; title: string; alt?: string }>,
+  ) {
+    if (!src) return;
+    const imgs = gallery && gallery.length > 0
+      ? gallery.filter((g) => Boolean(g.src))
+      : [{ src, title, alt: alt ?? title }];
+    const idx = imgs.findIndex((g) => g.src === src);
+    setImageModal({ images: imgs, currentIndex: Math.max(0, idx) });
+  }
+
+  // ── Save toast ─────────────────────────────────────────────────────────────
+  function showSaveToast(message: string) {
+    setSaveToast({ visible: true, message });
+    if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setSaveToast((t) => ({ ...t, visible: false })), 2200);
+  }
+
+  // ── Saved images ───────────────────────────────────────────────────────────
+  function toSavedImageView(record: SavedImageRecord): SavedImageView {
+    // If blob has actual content use object URL, otherwise use empty placeholder
+    const url = record.blob.size > 0 ? URL.createObjectURL(record.blob) : "";
+    return { ...record, url };
+  }
+
+  async function loadSavedImagesFromDb() {
+    setSavedImagesLoading(true);
+    try {
+      const records = await listSavedImages();
+      const token = getAccessToken();
+      const views: SavedImageView[] = records.map((record) => {
+        if (record.blob.size > 0) {
+          return toSavedImageView(record);
+        }
+        // Use same-origin backend proxy URL with token (avoids S3 CORS issues)
+        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
+        return { ...record, url: `/api/images/${record.id}/raw${qs}` };
+      });
+      setSavedImages((prev) => {
+        for (const img of prev) {
+          if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+        }
+        return views;
+      });
+    } finally {
+      setSavedImagesLoading(false);
+    }
+  }
+
+  async function deleteImage(id: string) {
+    if (!confirm("Are you sure you want to delete this image?")) return;
+    try {
+      await deleteSavedImage(id);
+      setSavedImages((prev) => {
+        const idx = prev.findIndex((img) => img.id === id);
+        if (idx === -1) return prev;
+        URL.revokeObjectURL(prev[idx]!.url);
+        return prev.filter((_, i) => i !== idx);
+      });
+    } catch (e) {
+      console.error("Failed to delete image", e);
+    }
+  }
+
+  async function deleteGroup(ids: string[]) {
+    try {
+      await batchDeleteImages(ids);
+      setSavedImages((prev) => {
+        const idSet = new Set(ids);
+        return prev.filter((img) => {
+          if (idSet.has(img.id)) {
+            if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);
+            return false;
+          }
+          return true;
+        });
+      });
+    } catch (e) {
+      console.error("Failed to delete group", e);
+    }
+  }
+
+  async function saveImageToLibrary(opts: {
+    dataUrl: string; mimeType: string | null; title: string; kind: string; fileName?: string; notify?: boolean;
+  }) {
+    const parsed = dataUrlToBlob(opts.dataUrl);
+    const record = await saveImageRecord({
+      title: opts.title, kind: opts.kind,
+      mimeType: opts.mimeType || parsed.mimeType,
+      fileName: opts.fileName,
+      storyboardId: activeStoryboardId,
+      storyboardTitle: activeStoryboard.title,
+      blob: parsed.blob,
+      createdAt: Date.now(),
+    });
+    setSavedImages((prev) => [toSavedImageView(record), ...prev]);
+    if (opts.notify !== false) showSaveToast("Saved to library.");
+  }
+
+  // ── Garment / background / model file handlers ────────────────────────────
+  function removeGarmentImage(index: number) {
+    const sbId = activeStoryboardId;
+    setStoryboardRuntime((prev) => {
+      const rt = prev[sbId]!;
+      const urls = rt.garmentDataUrls.filter((_, i) => i !== index);
+      const names = rt.garmentFileNames.filter((_, i) => i !== index);
+      return { ...prev, [sbId]: { ...rt, garmentDataUrls: urls, garmentFileNames: names } };
+    });
+  }
+
+  function removeBackgroundImage(index: number) {
+    const sbId = activeStoryboardId;
+    setStoryboardRuntime((prev) => {
+      const rt = prev[sbId]!;
+      const urls = rt.backgroundDataUrls.filter((_, i) => i !== index);
+      const names = rt.backgroundFileNames.filter((_, i) => i !== index);
+      return { ...prev, [sbId]: { ...rt, backgroundDataUrls: urls, backgroundFileNames: names } };
+    });
+  }
+
+  function removeModelImage(index: number) {
+    const sbId = activeStoryboardId;
+    setStoryboardRuntime((prev) => {
+      const rt = prev[sbId]!;
+      const urls = rt.modelDataUrls.filter((_, i) => i !== index);
+      const names = rt.modelFileNames.filter((_, i) => i !== index);
+      return { ...prev, [sbId]: { ...rt, modelDataUrls: urls, modelFileNames: names } };
+    });
+  }
+
+  function removePoseImage(index: number) {
+    const sbId = activeStoryboardId;
+    setStoryboardRuntime((prev) => {
+      const rt = prev[sbId]!;
+      const urls = rt.poseDataUrls.filter((_, i) => i !== index);
+      const names = rt.poseFileNames.filter((_, i) => i !== index);
+      return { ...prev, [sbId]: { ...rt, poseDataUrls: urls, poseFileNames: names } };
+    });
+  }
+
+  // Shared helper: set a specific garment slot (0 = front, 1 = back)
+  async function _setGarmentSlot(sbId: string, slot: 0 | 1, file: File) {
+    const dataUrl = await fileToDataUrl(file);
+    setStoryboardRuntime((prev) => {
+      const r = prev[sbId]!;
+      const urls = [...r.garmentDataUrls];
+      const names = [...r.garmentFileNames];
+      urls[slot] = dataUrl;
+      names[slot] = file.name || (slot === 0 ? "garment-front" : "garment-back");
+      return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
+    });
+    await saveImageRecord({ title: file.name || `Garment (${slot === 0 ? "front" : "back"})`, kind: "asset-garment", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+      .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+      .catch(console.error);
+  }
+
+  async function onGarmentFrontFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const files = Array.from(e.target?.files ?? []);
+    if (!files.length) { if (e.target) e.target.value = ""; return; }
+    updateRuntime(sbId, { generateError: null });
+    await _setGarmentSlot(sbId, 0, files[0]!);
+    if (e.target) e.target.value = "";
+  }
+
+  async function onGarmentBackFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const files = Array.from(e.target?.files ?? []);
+    if (!files.length) { if (e.target) e.target.value = ""; return; }
+    updateRuntime(sbId, { generateError: null });
+    await _setGarmentSlot(sbId, 1, files[0]!);
+    if (e.target) e.target.value = "";
+  }
+
+  // Used by AssetsTab — fills front first, then back
+  async function onGarmentFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const files = Array.from(input?.files ?? []);
+    if (!files.length) { if (input) input.value = ""; return; }
+    updateRuntime(sbId, { generateError: null });
+    const rt = storyboardRuntime[sbId];
+    const hasFront = !!rt?.garmentDataUrls[0];
+    const file = files[0]!;
+    await _setGarmentSlot(sbId, hasFront ? 1 : 0, file);
+    if (input) input.value = "";
+  }
+
+  async function onBackgroundFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const files = Array.from(input?.files ?? []);
+    if (!files.length) { if (input) input.value = ""; return; }
+
+    const rt = storyboardRuntime[sbId];
+    const MAX = 4;
+    const remaining = Math.max(0, MAX - (rt?.backgroundDataUrls.length ?? 0));
+    if (!remaining) { if (input) input.value = ""; return; }
+
+    const limited = files.slice(0, remaining);
+    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    setStoryboardRuntime((prev) => {
+      const r = prev[sbId]!;
+      return {
+        ...prev, [sbId]: {
+          ...r,
+          backgroundDataUrls: [...r.backgroundDataUrls, ...dataUrls],
+          backgroundFileNames: [...r.backgroundFileNames, ...limited.map((f) => f.name || "background")],
+        },
+      };
+    });
+
+    // Clear text bg preset — uploaded image is the scene, no theme text needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, backgroundThemePreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
+
+    for (const file of limited) {
+      await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+        .catch(console.error);
+    }
+    if (input) input.value = "";
+  }
+
+  async function onModelFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const files = Array.from(input?.files ?? []);
+    if (!files.length) { if (input) input.value = ""; return; }
+
+    const limited = files.slice(0, 4);
+    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    setStoryboardRuntime((prev) => {
+      const r = prev[sbId]!;
+      return {
+        ...prev, [sbId]: {
+          ...r,
+          modelDataUrls: dataUrls,
+          modelFileNames: limited.map((f) => f.name || "model"),
+        },
+      };
+    });
+    // Clear ethnicity preset — uploaded image is the identity source, no text ethnicity needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, modelPreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
+
+    for (const file of limited) {
+      await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+        .catch(console.error);
+    }
+    if (input) input.value = "";
+  }
+
+  async function onPoseFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const files = Array.from(input?.files ?? []);
+    if (!files.length) { if (input) input.value = ""; return; }
+
+    const rt = storyboardRuntime[sbId];
+    const MAX = 4;
+    const remaining = Math.max(0, MAX - (rt?.poseDataUrls.length ?? 0));
+    if (!remaining) { if (input) input.value = ""; return; }
+
+    const limited = files.slice(0, remaining);
+    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    setStoryboardRuntime((prev) => {
+      const r = prev[sbId]!;
+      return {
+        ...prev, [sbId]: {
+          ...r,
+          poseDataUrls: [...r.poseDataUrls, ...dataUrls],
+          poseFileNames: [...r.poseFileNames, ...limited.map((f) => f.name || "pose")],
+        },
+      };
+    });
+
+    // Clear text pose preset — uploaded image drives the pose, no text fallback needed
+    setStoryboards((prev) =>
+      prev.map((sb) =>
+        sb.id === sbId ? { ...sb, config: { ...sb.config, modelPosePreset: "" }, updatedAt: nowIso() } : sb,
+      ),
+    );
+
+    for (const file of limited) {
+      await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+        .catch(console.error);
+    }
+    if (input) input.value = "";
+  }
+
+  /** Convert any URL (blob:, https://, etc.) to a data URL if it isn't one already */
+  async function ensureDataUrl(url: string, fileName: string): Promise<string> {
+    if (url.startsWith("data:")) return url;
+    // Fetch remote / blob URLs and convert to data URL
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`Failed to fetch image (${resp.status})`);
+    const blob = await resp.blob();
+    if (!blob.size) throw new Error("Fetched image is empty");
+    return fileToDataUrl(new File([blob], fileName, { type: blob.type }));
+  }
+
+  // Fills front slot first, then back slot (2-slot system)
+  async function addGarmentFromDataUrl(url: string, fileName: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId];
+    if (!rt) return;
+    const hasFront = !!rt.garmentDataUrls[0];
+    const slot: 0 | 1 = hasFront ? 1 : 0;
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        const urls = [...r.garmentDataUrls];
+        const names = [...r.garmentFileNames];
+        urls[slot] = dataUrl;
+        names[slot] = fileName;
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
+      });
+    } catch (err) { console.error("Failed to load garment image", err); showToast("Failed to load image.", "error"); }
+  }
+
+  // Bundle: item[0] → front slot, item[1] → back slot
+  async function addGarmentBundle(items: { url: string; fileName: string }[]) {
+    const sbId = activeStoryboardId;
+    if (!items.length) return;
+    try {
+      const dataUrls = await Promise.all(items.slice(0, 2).map((it) => ensureDataUrl(it.url, it.fileName)));
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        const urls = [...r.garmentDataUrls];
+        const names = [...r.garmentFileNames];
+        dataUrls.forEach((dataUrl, i) => { urls[i] = dataUrl; names[i] = items[i]!.fileName; });
+        return { ...prev, [sbId]: { ...r, garmentDataUrls: urls, garmentFileNames: names, generateError: null } };
+      });
+    } catch (err) {
+      console.error("Failed to load bundle images", err);
+      showToast("Failed to load one or more images from bundle.", "error");
+    }
+  }
+
+  async function addBackgroundFromDataUrl(url: string, fileName: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId];
+    if (!rt || rt.backgroundDataUrls.length >= 4) return;
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [...r.backgroundDataUrls, dataUrl], backgroundFileNames: [...r.backgroundFileNames, fileName] } };
+      });
+    } catch (err) { console.error("Failed to load background image", err); showToast("Failed to load background image.", "error"); }
+  }
+
+  async function addModelFromDataUrl(url: string, fileName: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId];
+    if (!rt) return;
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, modelDataUrls: [dataUrl], modelFileNames: [fileName] } };
+      });
+      setStoryboards((prev) =>
+        prev.map((sb) =>
+          sb.id === sbId ? { ...sb, config: { ...sb.config, modelPreset: "" }, updatedAt: nowIso() } : sb,
+        ),
+      );
+    } catch (err) { console.error("Failed to load model image", err); showToast("Failed to load model image.", "error"); }
+  }
+
+  async function addPoseFromDataUrl(url: string, fileName: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId];
+    if (!rt || rt.poseDataUrls.length >= 4) return;
+    try {
+      const dataUrl = await ensureDataUrl(url, fileName);
+      setStoryboardRuntime((prev) => {
+        const r = prev[sbId]!;
+        return { ...prev, [sbId]: { ...r, poseDataUrls: [...r.poseDataUrls, dataUrl], poseFileNames: [...r.poseFileNames, fileName] } };
+      });
+    } catch (err) { console.error("Failed to load pose image", err); showToast("Failed to load pose image.", "error"); }
+  }
+
+  // ── Prints handlers ────────────────────────────────────────────────────────
+  function resetPrintOutputs(sbId: string) {
+    updatePrints(sbId, {
+      outputFrontDataUrl: null, outputFrontMimeType: null,
+      outputBackDataUrl: null, outputBackMimeType: null,
+      outputSideDataUrl: null, outputSideMimeType: null,
+      timingsMs: null,
+    });
+  }
+
+  async function onPrintBaseGarmentFrontFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    updatePrints(sbId, { baseGarmentFrontFileName: file.name || "base-garment-front", baseGarmentFrontDataUrl: await fileToDataUrl(file) });
+    resetPrintOutputs(sbId);
+    if (input) input.value = "";
+  }
+
+  async function onPrintBaseGarmentBackFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    updatePrints(sbId, { baseGarmentBackFileName: file.name || "base-garment-back", baseGarmentBackDataUrl: await fileToDataUrl(file) });
+    resetPrintOutputs(sbId);
+    if (input) input.value = "";
+  }
+
+  async function onPrintBaseGarmentSideFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    updatePrints(sbId, { baseGarmentSideFileName: file.name || "base-garment-side", baseGarmentSideDataUrl: await fileToDataUrl(file) });
+    resetPrintOutputs(sbId);
+    if (input) input.value = "";
+  }
+
+  async function onPrintDesignFrontFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    const designDataUrl = await fileToDataUrl(file);
+    updatePrints(sbId, { printDesignFrontFileName: file.name, printDesignFrontDataUrl: designDataUrl });
+    if (input) input.value = "";
+    const rt = storyboardRuntime[sbId]!;
+    if (rt.prints.baseGarmentFrontDataUrl) {
+      try {
+        const out = await compositeDesignOnGarment(rt.prints.baseGarmentFrontDataUrl, designDataUrl);
+        updatePrints(sbId, { outputFrontDataUrl: out, outputFrontMimeType: "image/png" });
+      } catch { /* ignore */ }
+    }
+  }
+
+  async function onPrintDesignBackFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    const designDataUrl = await fileToDataUrl(file);
+    updatePrints(sbId, { printDesignBackFileName: file.name, printDesignBackDataUrl: designDataUrl });
+    if (input) input.value = "";
+    const rt = storyboardRuntime[sbId]!;
+    if (rt.prints.baseGarmentBackDataUrl) {
+      try {
+        const out = await compositeDesignOnGarment(rt.prints.baseGarmentBackDataUrl, designDataUrl);
+        updatePrints(sbId, { outputBackDataUrl: out, outputBackMimeType: "image/png" });
+      } catch { /* ignore */ }
+    }
+  }
+
+  async function onPrintDesignSideFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const sbId = activeStoryboardId;
+    const input = e.target;
+    const file = input?.files?.[0] ?? null;
+    updatePrints(sbId, { error: null });
+    if (!file) { if (input) input.value = ""; return; }
+    const designDataUrl = await fileToDataUrl(file);
+    updatePrints(sbId, { printDesignSideFileName: file.name, printDesignSideDataUrl: designDataUrl });
+    if (input) input.value = "";
+    const rt = storyboardRuntime[sbId]!;
+    if (rt.prints.baseGarmentSideDataUrl) {
+      try {
+        const out = await compositeDesignOnGarment(rt.prints.baseGarmentSideDataUrl, designDataUrl);
+        updatePrints(sbId, { outputSideDataUrl: out, outputSideMimeType: "image/png" });
+      } catch { /* ignore */ }
+    }
+  }
+
+  function removePrintBaseGarmentFront() {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { baseGarmentFrontDataUrl: null, baseGarmentFrontFileName: null, error: null });
+    resetPrintOutputs(sbId);
+  }
+  function removePrintBaseGarmentBack() {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { baseGarmentBackDataUrl: null, baseGarmentBackFileName: null, error: null });
+    resetPrintOutputs(sbId);
+  }
+  function removePrintBaseGarmentSide() {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { baseGarmentSideDataUrl: null, baseGarmentSideFileName: null, error: null });
+    resetPrintOutputs(sbId);
+  }
+  function removePrintDesignFront() {
+    updatePrints(activeStoryboardId, { printDesignFrontDataUrl: null, printDesignFrontFileName: null, outputFrontDataUrl: null, outputFrontMimeType: null, error: null });
+  }
+  function removePrintDesignBack() {
+    updatePrints(activeStoryboardId, { printDesignBackDataUrl: null, printDesignBackFileName: null, outputBackDataUrl: null, outputBackMimeType: null, error: null });
+  }
+  function removePrintDesignSide() {
+    updatePrints(activeStoryboardId, { printDesignSideDataUrl: null, printDesignSideFileName: null, outputSideDataUrl: null, outputSideMimeType: null, error: null });
+  }
+
+  async function loadBuiltInGarmentFront(url: string) {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { error: null });
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const fileName = url.split("/").pop() || "garment-front";
+      const dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type }));
+      updatePrints(sbId, { baseGarmentFrontDataUrl: dataUrl, baseGarmentFrontFileName: fileName });
+      resetPrintOutputs(sbId);
+    } catch { updatePrints(sbId, { error: "Failed to load built-in template." }); }
+  }
+
+  async function loadBuiltInGarmentBack(url: string) {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { error: null });
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const fileName = url.split("/").pop() || "garment-back";
+      const dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type }));
+      updatePrints(sbId, { baseGarmentBackDataUrl: dataUrl, baseGarmentBackFileName: fileName });
+      resetPrintOutputs(sbId);
+    } catch { updatePrints(sbId, { error: "Failed to load built-in template." }); }
+  }
+
+  async function loadBuiltInGarmentSide(url: string) {
+    const sbId = activeStoryboardId;
+    updatePrints(sbId, { error: null });
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const fileName = url.split("/").pop() || "garment-side";
+      const dataUrl = await fileToDataUrl(new File([blob], fileName, { type: blob.type }));
+      updatePrints(sbId, { baseGarmentSideDataUrl: dataUrl, baseGarmentSideFileName: fileName });
+      resetPrintOutputs(sbId);
+    } catch { updatePrints(sbId, { error: "Failed to load built-in template." }); }
+  }
+
+  function startPrintTimer() {
+    if (printIntervalRef.current) window.clearInterval(printIntervalRef.current);
+    const t0 = performance.now();
+    setPrintGenerationElapsedMs(0);
+    printIntervalRef.current = window.setInterval(() => setPrintGenerationElapsedMs(performance.now() - t0), 100);
+  }
+  function stopPrintTimer() {
+    if (printIntervalRef.current) { window.clearInterval(printIntervalRef.current); printIntervalRef.current = null; }
+  }
+
+  async function generatePrintedGarment(retryComment?: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId]!;
+    updatePrints(sbId, { error: null });
+
+    const isFullCloth = activeConfig.printGarmentCategory === "Saree" || activeConfig.printGarmentCategory === "Dhoti";
+
+    if (!rt.prints.baseGarmentFrontDataUrl) { updatePrints(sbId, { error: "Please upload a front view white garment photo." }); return; }
+    if (!isFullCloth && !rt.prints.baseGarmentBackDataUrl) { updatePrints(sbId, { error: "Please upload a back view white garment photo." }); return; }
+
+    const printColorHex = normalizeHexColor(activeConfig.printColorHex || "") || null;
+    const hasDesignUploaded = Boolean(rt.prints.printDesignFrontDataUrl || rt.prints.printDesignBackDataUrl);
+    const isDesignMode = hasDesignUploaded;
+
+    if (!hasDesignUploaded && !printColorHex) {
+      updatePrints(sbId, { error: "Please upload a front design or select a garment color." }); return;
+    }
+
+    updatePrints(sbId, { generating: true });
+    resetPrintOutputs(sbId);
+    startPrintTimer();
+
+    try {
+      const colorSwatch = !hasDesignUploaded && printColorHex ? createColorSwatchDataUrl(printColorHex) : null;
+      const basePromptOpts = {
+        additionalPrompt: activeConfig.printAdditionalPrompt || "",
+        garmentType: activeConfig.printGarmentCategory || "garment",
+        ...(typeof retryComment === "string" ? { retryComment } : {}),
+        ...(printColorHex ? { colorHex: printColorHex } : {}),
+        ...(isDesignMode ? { hasDesign: true } : {}),
+      };
+      const promptFront = buildPrintApplicationPrompt({ ...basePromptOpts, view: "front" });
+      const promptBack  = buildPrintApplicationPrompt({ ...basePromptOpts, view: "back" });
+
+      const t0 = performance.now();
+      const promises: Promise<any>[] = [];
+      const keys: string[] = [];
+
+      // If only front design uploaded, apply it to back view too
+      const frontDesign = colorSwatch ?? rt.prints.printDesignFrontDataUrl;
+      const backDesign  = colorSwatch ?? rt.prints.printDesignBackDataUrl ?? rt.prints.printDesignFrontDataUrl;
+
+      const printModel = "gemini-2.5-flash-image";
+      if (rt.prints.baseGarmentFrontDataUrl && frontDesign) {
+        promises.push(generateImage({ model: printModel, promptText: promptFront, images: [dataUrlToInlineImage(frontDesign), dataUrlToInlineImage(rt.prints.baseGarmentFrontDataUrl)], timeoutMs: 180000 }));
+        keys.push("front");
+      }
+      if (!isFullCloth && rt.prints.baseGarmentBackDataUrl && backDesign) {
+        promises.push(generateImage({ model: printModel, promptText: promptBack, images: [dataUrlToInlineImage(backDesign), dataUrlToInlineImage(rt.prints.baseGarmentBackDataUrl)], timeoutMs: 180000 }));
+        keys.push("back");
+      }
+
+      const results = await Promise.all(promises);
+      const outputUpdates: Partial<StoryboardPrintsRuntime> & { timingsMs?: number } = {};
+      results.forEach((res, i) => {
+        if (keys[i] === "front") { outputUpdates.outputFrontMimeType = res.mimeType; outputUpdates.outputFrontDataUrl = `data:${res.mimeType};base64,${res.imageBase64}`; }
+        if (keys[i] === "back")  { outputUpdates.outputBackMimeType  = res.mimeType; outputUpdates.outputBackDataUrl  = `data:${res.mimeType};base64,${res.imageBase64}`; }
+      });
+      outputUpdates.timingsMs = Math.round(performance.now() - t0);
+      updatePrints(sbId, outputUpdates);
+
+      // Auto-save generated prints
+      const _pTs = Date.now();
+      const _pSbTitle = storyboards.find((s) => s.id === sbId)?.title || "Untitled";
+      const printSaves = [
+        outputUpdates.outputFrontDataUrl && saveImageToLibrary({ dataUrl: outputUpdates.outputFrontDataUrl, mimeType: outputUpdates.outputFrontMimeType ?? "image/png", title: `Printed garment (front) — ${_pSbTitle}`, kind: "prints", fileName: `printed-garment-front-${_pTs}.${mimeToExtension(outputUpdates.outputFrontMimeType ?? null)}`, notify: false }),
+        outputUpdates.outputBackDataUrl  && saveImageToLibrary({ dataUrl: outputUpdates.outputBackDataUrl,  mimeType: outputUpdates.outputBackMimeType  ?? "image/png", title: `Printed garment (back) — ${_pSbTitle}`,  kind: "prints", fileName: `printed-garment-back-${_pTs}.${mimeToExtension(outputUpdates.outputBackMimeType  ?? null)}`,  notify: false }),
+      ].filter(Boolean);
+      Promise.all(printSaves).catch(() => {});
+
+      showToast("Print generation complete! Your designs are ready.", "success");
+    } catch (err: any) {
+      updatePrints(sbId, { error: err?.message || String(err) });
+      showToast("Print generation failed. Please try again.", "error");
+    } finally {
+      updatePrints(sbId, { generating: false });
+      stopPrintTimer();
+    }
+  }
+
+  async function retryPrintedGarment(retryComment: string) {
+    return generatePrintedGarment(retryComment);
+  }
+
+  // savePrintedGarment removed — prints are now auto-saved after generation
+
+  // ── Main image generation ─────────────────────────────────────────────────
+  function startGenerationTimer() {
+    if (generationIntervalRef.current) window.clearInterval(generationIntervalRef.current);
+    const t0 = performance.now();
+    setGenerationElapsedMs(0);
+    generationIntervalRef.current = window.setInterval(() => setGenerationElapsedMs(performance.now() - t0), 100);
+  }
+  function stopGenerationTimer() {
+    if (generationIntervalRef.current) { window.clearInterval(generationIntervalRef.current); generationIntervalRef.current = null; }
+  }
+
+  // ── Cost-optimized primary generation ────────────────────────────────────
+  // Removed: planLookFromGarment() (text LLM) + generateFinalPrompt() (text LLM)
+  // Added:   garment ref caching by SHA-256 hash → saves 1 image call on repeat runs
+  // Prompt: ~600 tokens (was ~1100); image inputs: 2–4 (was 5–8)
+  async function onGenerateLook() {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId]!;
+
+    updateRuntime(sbId, {
+      generateError: null, garmentRefDataUrl: null, garmentRefMimeType: null,
+      lastPlan: null, lastFinalPrompt: null, angles: createDefaultAnglesRuntime(),
+      chosenSummary: null, debugSummary: null, resultDataUrl: null, resultMimeType: null,
+      resultTimingsMs: null, poseResults: [],
+    });
+
+    if (!rt.garmentDataUrls[0]) { updateRuntime(sbId, { generateError: "Please upload a front garment photo." }); return; }
+
+    setIsGenerating(true);
+    setGenerationStepIndex(1);
+    startGenerationTimer();
+
+    try {
+      const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
+      const bw = bottomWearFinal.trim();
+      const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
+
+      const config: DirectCompositeConfig = {
+        occasion:           occasionFinal           || undefined,
+        footwear:           footwearFinal            || undefined,
+        accessories:        accessories.length       ? accessories.join(", ")       : undefined,
+        bottomWear:         bw                      || undefined,
+        styleKeywords:      baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        modelPose:          modelPoseFinal           || undefined,
+        modelStylingNotes:  modelStylingNotesFinal   || undefined,
+        backgroundTheme:    backgroundThemeFinal     || undefined,
+        modelGender:        activeConfig.modelGender  || undefined,
+        modelAgeRange:      activeConfig.modelAgeRange || undefined,
+        modelEthnicity:     modelEthnicityFinal      || undefined,
+        modelCustomPrompt:  activeConfig.modelCustomPrompt || undefined,
+      };
+
+      const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
+      const modelImage    = rt.modelDataUrls[0]      ? dataUrlToInlineImage(rt.modelDataUrls[0])      : null;
+      const backgroundImage = rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null;
+      // Use first pose only (parallel pose generation removed — saves image API calls)
+      const poseImages    = rt.poseDataUrls.slice(0, 1).map((src) => dataUrlToInlineImage(src));
+
+      const isGptModel    = activeConfig.imageModel === "gpt-image-2";
+      const isHybridModel = activeConfig.imageModel === "hybrid-editorial";
+
+      let compositeDataUrl: string;
+      let compositeMimeType: string;
+      let garmentRefDataUrl: string | null;
+      let garmentRefMimeType: string | null;
+      let timings: Record<string, number>;
+
+      let promptsUsed: PromptsUsed = null;
+
+      const tier = getTier(activeConfig.generationTier);
+
+      if (isGptModel) {
+        // ── GPT Images 2.0 pipeline ──────────────────────────────────────────
+        setGenerationStepIndex(3);
+        const gptResult = await generateGptPrimaryImage({
+          config, garmentImages, modelImage, backgroundImage, poseImages,
+          quality: activeConfig.gptImageQuality ?? tier.gptImages.quality,
+          size:    activeConfig.gptImageSize    ?? tier.gptImages.size,
+          onStep:  () => setGenerationStepIndex(3),
+        });
+        compositeDataUrl  = gptResult.compositeDataUrl;
+        compositeMimeType = gptResult.compositeMimeType;
+        garmentRefDataUrl  = rt.garmentDataUrls[0] || null;
+        garmentRefMimeType = garmentRefDataUrl ? dataUrlToInlineImage(garmentRefDataUrl).mimeType : null;
+        timings = { composite: gptResult.timings.compositeMs, api_total: gptResult.timings.totalMs };
+        promptsUsed = { composite: gptResult.promptUsed };
+      } else if (isHybridModel) {
+        // ── Hybrid Editorial: Gemini Flash primary ───────────────────────────
+        const hybridResult = await generateHybridPrimaryImage({
+          config, garmentImages, modelImage, backgroundImage, poseImages,
+          width:               tier.gemini.width,
+          height:              tier.gemini.height,
+          temperatureOverride: tier.gemini.temperature,
+          qualityBoost:        tier.gemini.qualityBoost || undefined,
+          onStep: (step) => {
+            if (step === "garment_ref") setGenerationStepIndex(2);
+            else if (step === "composite") setGenerationStepIndex(3);
+          },
+        });
+        compositeDataUrl   = hybridResult.compositeDataUrl;
+        compositeMimeType  = hybridResult.compositeMimeType;
+        garmentRefDataUrl  = hybridResult.garmentRefDataUrl;
+        garmentRefMimeType = hybridResult.garmentRefMimeType;
+        timings = {
+          garment_reference: hybridResult.timings.garmentRefMs,
+          composite:         hybridResult.timings.compositeMs,
+          api_total:         hybridResult.timings.totalMs,
+        };
+        promptsUsed = {
+          garmentRef: hybridResult.promptUsed.garmentRef,
+          composite:  hybridResult.promptUsed.composite,
+        };
+      } else {
+        // ── Gemini pipeline (unchanged) ─────────────────────────────────────
+        const result = await generatePrimaryImage({
+          imageModel: activeConfig.imageModel,
+          garmentImages, modelImage, poseImages, backgroundImage, config,
+          width:               tier.gemini.width,
+          height:              tier.gemini.height,
+          temperatureOverride: tier.gemini.temperature,
+          qualityBoost:        tier.gemini.qualityBoost || undefined,
+          onStep: (step) => {
+            if (step === "garment_ref") setGenerationStepIndex(2);
+            else if (step === "composite") setGenerationStepIndex(3);
+          },
+        });
+        compositeDataUrl   = result.compositeDataUrl;
+        compositeMimeType  = result.compositeMimeType;
+        garmentRefDataUrl  = result.garmentRefDataUrl;
+        garmentRefMimeType = result.garmentRefMimeType;
+        timings = {
+          garment_reference: result.timings.garmentRefMs,
+          composite: result.timings.compositeMs,
+          api_total: result.timings.totalMs,
+        };
+        promptsUsed = {
+          garmentRef: buildGarmentReferencePrompt(garmentImages.length > 1, activeConfig.imageModel),
+          composite: buildDirectCompositePrompt({
+            hasModelReference: Boolean(modelImage),
+            hasPoseReference: poseImages.length > 0,
+            hasBackgroundReference: Boolean(backgroundImage),
+            config,
+            model: activeConfig.imageModel,
+          }),
+        };
+      }
+
+      const poseResult: PoseResult = {
+        dataUrl: compositeDataUrl, mimeType: compositeMimeType, poseIndex: 0,
+      };
+
+      updateRuntime(sbId, {
+        garmentRefDataUrl, garmentRefMimeType,
+        resultDataUrl: compositeDataUrl, resultMimeType: compositeMimeType,
+        poseResults: [poseResult], resultTimingsMs: timings,
+        chosenSummary: config,
+        debugSummary: { timings_ms: timings },
+        promptsUsed,
+      });
+
+      // Auto-save to library
+      saveImageToLibrary({
+        dataUrl: compositeDataUrl, mimeType: compositeMimeType,
+        title: `Look — ${storyboards.find((s) => s.id === sbId)?.title || "Untitled"}`,
+        kind: "main", fileName: `look-main-${Date.now()}.${mimeToExtension(compositeMimeType)}`,
+        notify: false,
+      }).catch(() => {});
+
+      showToast("Scene generated successfully!", "success");
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes("Insufficient credits")) {
+        setShowRechargeModal(true);
+      } else {
+        updateRuntime(sbId, { generateError: errMsg });
+        showToast("Scene generation failed. Please try again.", "error");
+      }
+    } finally {
+      setIsGenerating(false);
+      stopGenerationTimer();
+      setGenerationStepIndex(0);
+      refreshBalance();
+    }
+  }
+
+  async function retryMainImage(retryComment: string) {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId]!;
+    updateRuntime(sbId, { generateError: null });
+
+    // lastPlan no longer required — config is rebuilt from current storyboard settings
+    if (!rt.resultDataUrl || !rt.garmentRefDataUrl) {
+      updateRuntime(sbId, { generateError: "Generate the main image first, then you can retry." }); return;
+    }
+
+    setIsGenerating(true);
+    setGenerationStepIndex(3);
+    startGenerationTimer();
+
+    try {
+      const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
+      const bw = bottomWearFinal.trim();
+      const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
+
+      const config: DirectCompositeConfig = {
+        occasion:           occasionFinal           || undefined,
+        footwear:           footwearFinal            || undefined,
+        accessories:        accessories.length       ? accessories.join(", ")       : undefined,
+        bottomWear:         bw                      || undefined,
+        styleKeywords:      baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        modelPose:          modelPoseFinal           || undefined,
+        modelStylingNotes:  modelStylingNotesFinal   || undefined,
+        backgroundTheme:    backgroundThemeFinal     || undefined,
+        modelGender:        activeConfig.modelGender  || undefined,
+        modelAgeRange:      activeConfig.modelAgeRange || undefined,
+        modelEthnicity:     modelEthnicityFinal      || undefined,
+        modelCustomPrompt:  activeConfig.modelCustomPrompt || undefined,
+      };
+
+      const modelRefDataUrl     = rt.modelDataUrls[0]      || null;
+      const backgroundRefDataUrl = rt.backgroundDataUrls[0] || null;
+      const hasModelReference     = Boolean(modelRefDataUrl);
+      const hasBackgroundReference = Boolean(backgroundRefDataUrl);
+
+      const isGptRetry    = activeConfig.imageModel === "gpt-image-2";
+      const isHybridRetry = activeConfig.imageModel === "hybrid-editorial";
+
+      let resultUrl: string;
+      let resultMimeTypeVal: string;
+      let compositePrompt: string;
+      let ms: number;
+
+      const retryTier = getTier(activeConfig.generationTier);
+
+      if (isGptRetry) {
+        // ── GPT Images 2.0 retry ─────────────────────────────────────────────
+        compositePrompt = buildGptCompositePrompt({
+          config, hasModelReference, hasBackgroundReference,
+          isRetry: true, retryComment: retryComment || "",
+        });
+        const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
+        const t0Gpt = performance.now();
+        const gptResult = await generateGptPrimaryImage({
+          config, garmentImages,
+          modelImage: null, backgroundImage: null,
+          promptOverride: compositePrompt,
+          quality:        activeConfig.gptImageQuality ?? retryTier.gptImages.quality,
+          size:           activeConfig.gptImageSize    ?? retryTier.gptImages.size,
+          onStep: () => {},
+        });
+        ms = Math.round(performance.now() - t0Gpt);
+        resultUrl = gptResult.compositeDataUrl;
+        resultMimeTypeVal = gptResult.compositeMimeType;
+      } else if (isHybridRetry) {
+        // ── Hybrid retry: Gemini Flash ───────────────────────────────────────
+        const poseRetryDataUrl  = rt.poseDataUrls[0] || null;
+        const hasPoseRetry      = Boolean(poseRetryDataUrl);
+        compositePrompt = buildDirectCompositePrompt({
+          hasModelReference, hasBackgroundReference, hasPoseReference: hasPoseRetry, config,
+          isRetry: true, retryComment: retryComment || "",
+          model: HYBRID_GEMINI_MODEL,
+        });
+        // Flash order: garment → pose → model → background (matches buildFlashDirectCompositePrompt indices)
+        const compositeImages = [
+          dataUrlToInlineImage(rt.garmentRefDataUrl),
+          ...(hasPoseRetry         ? [dataUrlToInlineImage(poseRetryDataUrl!)]    : []),
+          ...(modelRefDataUrl      ? [dataUrlToInlineImage(modelRefDataUrl)]      : []),
+          ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
+        ];
+        const retryPromptHybrid = retryTier.gemini.qualityBoost
+          ? `${compositePrompt}\n${retryTier.gemini.qualityBoost}`
+          : compositePrompt;
+        const t0Hybrid = performance.now();
+        const compositeHybrid = await generateImage({
+          model: HYBRID_GEMINI_MODEL, promptText: retryPromptHybrid, images: compositeImages,
+          aspectRatio: "3:4",
+          width:       retryTier.gemini.width,
+          height:      retryTier.gemini.height,
+          temperature: retryTier.gemini.temperature,
+          timeoutMs:   180000,
+        });
+        ms = Math.round(performance.now() - t0Hybrid);
+        if (!compositeHybrid.imageBase64) throw new GeminiError("Hybrid retry returned no image data.");
+        resultUrl = `data:${compositeHybrid.mimeType};base64,${compositeHybrid.imageBase64}`;
+        resultMimeTypeVal = compositeHybrid.mimeType;
+      } else {
+        // ── Gemini retry (unchanged) ─────────────────────────────────────────
+        compositePrompt = buildDirectCompositePrompt({
+          hasModelReference, hasBackgroundReference, config,
+          isRetry: true, retryComment: retryComment || "",
+          model: activeConfig.imageModel,
+        });
+
+        // Retry uses cached garment ref — no extra original garment images needed
+        const compositeImages = [
+          dataUrlToInlineImage(rt.garmentRefDataUrl),
+          ...(modelRefDataUrl      ? [dataUrlToInlineImage(modelRefDataUrl)]      : []),
+          ...(backgroundRefDataUrl ? [dataUrlToInlineImage(backgroundRefDataUrl)] : []),
+        ];
+
+        const retryPrompt = retryTier.gemini.qualityBoost
+          ? `${compositePrompt}\n${retryTier.gemini.qualityBoost}`
+          : compositePrompt;
+        const t0 = performance.now();
+        const composite = await generateImage({
+          model: activeConfig.imageModel, promptText: retryPrompt, images: compositeImages,
+          aspectRatio: "3:4",
+          width:       retryTier.gemini.width,
+          height:      retryTier.gemini.height,
+          temperature: retryTier.gemini.temperature,
+          timeoutMs:   180000,
+        });
+        ms = Math.round(performance.now() - t0);
+        if (!composite.imageBase64) throw new GeminiError("Retry generation returned no image data.");
+        resultUrl = `data:${composite.mimeType};base64,${composite.imageBase64}`;
+        resultMimeTypeVal = composite.mimeType;
+      }
+      const prevPrompts = storyboardRuntime[sbId]?.promptsUsed;
+      updateRuntime(sbId, {
+        resultMimeType: resultMimeTypeVal, resultDataUrl: resultUrl,
+        poseResults: [{ dataUrl: resultUrl, mimeType: resultMimeTypeVal, poseIndex: 0 }],
+        angles: createDefaultAnglesRuntime(),
+        resultTimingsMs: { composite: ms, api_total: ms },
+        chosenSummary: config,
+        debugSummary: { timings_ms: { composite: ms }, retry_comment: retryComment, composite_prompt: compositePrompt },
+        promptsUsed: { ...prevPrompts, composite: compositePrompt },
+      });
+
+      // Auto-save retry result
+      saveImageToLibrary({
+        dataUrl: resultUrl, mimeType: resultMimeTypeVal,
+        title: `Look (retry) — ${storyboards.find((s) => s.id === sbId)?.title || "Untitled"}`,
+        kind: "main", fileName: `look-retry-${Date.now()}.${mimeToExtension(resultMimeTypeVal)}`,
+        notify: false,
+      }).catch(() => {});
+
+      try {
+        const thumb = await createThumbnail(resultUrl);
+        setStoryboards((prev) => prev.map((sb) => sb.id === sbId ? { ...sb, previewDataUrl: thumb } : sb));
+      } catch { /* thumbnail is optional */ }
+    } catch (err: any) {
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes("Insufficient credits")) {
+        setShowRechargeModal(true);
+      } else {
+        updateRuntime(sbId, { generateError: errMsg });
+      }
+    } finally {
+      setIsGenerating(false);
+      stopGenerationTimer();
+      setGenerationStepIndex(0);
+      refreshBalance();
+    }
+  }
+
+  // ── Cost-optimized multi-angle generation ────────────────────────────────
+  // Removed: all text LLM calls (prompts now built programmatically)
+  // Removed: extra original garment photos from reference set (cuts image tokens)
+  // Uses buildDirectMultiAnglePrompt (~500 tokens vs ~900 in old flow)
+  async function generateMultipleAngles() {
+    const sbId = activeStoryboardId;
+    const rt = storyboardRuntime[sbId]!;
+    if (isGenerating || rt.angles.generating) return;
+    updateAngles(sbId, { error: null });
+
+    if (!rt.resultDataUrl) { updateAngles(sbId, { error: "Generate the main image first." }); return; }
+    const needsGarmentRef = activeConfig.imageModel !== "gpt-image-2";
+    if (needsGarmentRef && !rt.garmentRefDataUrl) { updateAngles(sbId, { error: "Missing garment reference. Please generate the main image again." }); return; }
+    if (activeConfig.imageModel === "gpt-image-2" && !rt.garmentDataUrls[0]) { updateAngles(sbId, { error: "Please upload a garment photo first." }); return; }
+
+    updateAngles(sbId, { generating: true, backDataUrl: null, backMimeType: null, detailDataUrl: null, detailMimeType: null, timingsMs: null });
+
+    try {
+      const baseStyleKeywords = styleKeywordsFinal ? parseLocalTags(styleKeywordsFinal) : [];
+      const bw = bottomWearFinal.trim();
+      const accessories = activeConfig.accessories.trim() ? parseLocalTags(activeConfig.accessories) : [];
+
+      const config: DirectCompositeConfig = {
+        occasion:        occasionFinal            || undefined,
+        footwear:        footwearFinal            || undefined,
+        accessories:     accessories.length       ? accessories.join(", ")      : undefined,
+        bottomWear:      bw                       || undefined,
+        styleKeywords:   baseStyleKeywords.length ? baseStyleKeywords.join(", ") : undefined,
+        backgroundTheme: backgroundThemeFinal     || undefined,
+        modelGender:     activeConfig.modelGender  || undefined,
+        modelAgeRange:   activeConfig.modelAgeRange || undefined,
+        modelEthnicity:  modelEthnicityFinal      || undefined,
+        modelCustomPrompt: activeConfig.modelCustomPrompt || undefined,
+      };
+
+      const isGptMultiAngle    = activeConfig.imageModel === "gpt-image-2";
+      const isHybridMultiAngle = activeConfig.imageModel === "hybrid-editorial";
+      const angleTier = getTier(activeConfig.generationTier);
+
+      let backDataUrl: string | null = null;
+      let backMimeType: string | null = null;
+      let detailDataUrl: string | null = null;
+      let detailMimeType: string | null = null;
+      let angleTimings: { back: number; detail: number; total: number };
+
+      const hasModelRef = Boolean(rt.modelDataUrls[0]);
+      const hasBackgroundRef = Boolean(rt.backgroundDataUrls[0]);
+      let angleBackPrompt: string | undefined;
+      let angleDetailPrompt: string | undefined;
+
+      if (isGptMultiAngle) {
+        // ── GPT Images 2.0 multi-angle ───────────────────────────────────────
+        const garmentImages = rt.garmentDataUrls.map((src) => dataUrlToInlineImage(src));
+        angleBackPrompt   = buildGptMultiAnglePrompt({ view: "back",   config, hasModelReference: hasModelRef, hasBackgroundReference: hasBackgroundRef });
+        angleDetailPrompt = buildGptMultiAnglePrompt({ view: "detail", config, hasModelReference: hasModelRef, hasBackgroundReference: hasBackgroundRef });
+        const gptAngles = await generateGptMultiAngleImages({
+          config,
+          mainResultImage: dataUrlToInlineImage(rt.resultDataUrl!),
+          garmentImages,
+          modelImage:      rt.modelDataUrls[0]      ? dataUrlToInlineImage(rt.modelDataUrls[0])      : null,
+          backgroundImage: rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null,
+          quality:         activeConfig.gptImageQuality ?? angleTier.gptImages.quality,
+          size:            activeConfig.gptImageSize    ?? angleTier.gptImages.size,
+        });
+        backDataUrl   = gptAngles.backDataUrl;
+        backMimeType  = gptAngles.backMimeType;
+        detailDataUrl  = gptAngles.detailDataUrl;
+        detailMimeType = gptAngles.detailMimeType;
+        angleTimings   = gptAngles.timingsMs;
+      } else if (isHybridMultiAngle) {
+        // ── Hybrid: Qwen Multi-Angles from ONLY the rendered primary result ────
+        // Raw garment / model / background images are intentionally excluded.
+        const hybridAngles = await generateHybridMultiAngleImages({
+          config,
+          mainResultImage: dataUrlToInlineImage(rt.resultDataUrl!),
+        });
+        angleBackPrompt   = hybridAngles.promptsUsed.back;
+        angleDetailPrompt = hybridAngles.promptsUsed.detail;
+        backDataUrl   = hybridAngles.backDataUrl;
+        backMimeType  = hybridAngles.backMimeType;
+        detailDataUrl  = hybridAngles.detailDataUrl;
+        detailMimeType = hybridAngles.detailMimeType;
+        angleTimings   = hybridAngles.timingsMs;
+      } else {
+        // ── Gemini multi-angle (unchanged) ───────────────────────────────────
+        angleBackPrompt = buildDirectMultiAnglePrompt({ angle: "back", hasModelReference: hasModelRef, hasBackgroundReference: hasBackgroundRef, config, garmentType: activeStoryboard.garmentType ?? "", hasBackGarmentPhoto: Boolean(rt.garmentDataUrls[1]), model: activeConfig.imageModel });
+        angleDetailPrompt = buildDirectMultiAnglePrompt({ angle: "detail", hasModelReference: hasModelRef, hasBackgroundReference: hasBackgroundRef, config, garmentType: activeStoryboard.garmentType ?? "", model: activeConfig.imageModel });
+        const result = await generateMultiAngleImages({
+          imageModel: activeConfig.imageModel,
+          garmentRefImage:     dataUrlToInlineImage(rt.garmentRefDataUrl!),
+          garmentBackRawImage: rt.garmentDataUrls[1] ? dataUrlToInlineImage(rt.garmentDataUrls[1]) : null,
+          mainResultImage:     dataUrlToInlineImage(rt.resultDataUrl),
+          modelImage:       rt.modelDataUrls[0]      ? dataUrlToInlineImage(rt.modelDataUrls[0])      : null,
+          backgroundImage:  rt.backgroundDataUrls[0] ? dataUrlToInlineImage(rt.backgroundDataUrls[0]) : null,
+          config,
+          garmentType:         activeStoryboard.garmentType ?? "",
+          baseUrl:             (import.meta.env.BASE_URL || "/").replace(/\/$/, ""),
+          width:               angleTier.gemini.width,
+          height:              angleTier.gemini.height,
+          temperatureOverride: angleTier.gemini.temperature,
+          qualityBoost:        angleTier.gemini.qualityBoost || undefined,
+        });
+        backDataUrl   = result.back?.dataUrl   ?? null;
+        backMimeType  = result.back?.mimeType   ?? null;
+        detailDataUrl  = result.detail?.dataUrl ?? null;
+        detailMimeType = result.detail?.mimeType ?? null;
+        angleTimings   = { back: result.back?.ms ?? 0, detail: result.detail?.ms ?? 0, total: result.totalMs };
+      }
+
+      updateAngles(sbId, {
+        backDataUrl, backMimeType, detailDataUrl, detailMimeType,
+        timingsMs: angleTimings,
+      });
+
+      // Store angle prompts
+      const prevPromptsForAngles = storyboardRuntime[sbId]?.promptsUsed;
+      updateRuntime(sbId, {
+        promptsUsed: { ...prevPromptsForAngles, backView: angleBackPrompt, detailView: angleDetailPrompt },
+      });
+
+      // Auto-save all generated angles
+      const _aTs = Date.now();
+      const _aSbTitle = storyboards.find((s) => s.id === sbId)?.title || "Untitled";
+      const angleSaves = [
+        backDataUrl   && backMimeType   && saveImageToLibrary({ dataUrl: backDataUrl,   mimeType: backMimeType,   title: `Back view — ${_aSbTitle}`,   kind: "back",   fileName: `look-back-${_aTs}.${mimeToExtension(backMimeType)}`,   notify: false }),
+        detailDataUrl && detailMimeType && saveImageToLibrary({ dataUrl: detailDataUrl, mimeType: detailMimeType, title: `Detail shot — ${_aSbTitle}`, kind: "detail", fileName: `look-detail-${_aTs}.${mimeToExtension(detailMimeType)}`, notify: false }),
+      ].filter(Boolean);
+      Promise.all(angleSaves).catch(() => {});
+
+      const generatedCount = [backDataUrl, detailDataUrl].filter(Boolean).length;
+      if (generatedCount === 0) {
+        showToast("Both views failed to generate. The model may be rate limited — please wait a moment and try again.", "error");
+      } else if (generatedCount === 1) {
+        showToast("One view generated successfully. The other failed — try again for the missing one.", "info");
+      } else {
+        showToast("Multi-angle generation complete!", "success");
+      }
+    } catch (err: any) {
+      updateAngles(sbId, { error: err?.message || String(err) });
+      showToast("Multi-angle generation failed. Please try again.", "error");
+    } finally {
+      updateAngles(sbId, { generating: false });
+    }
+  }
+
+  async function saveMainImage() {
+    const rt = activeRuntime;
+    if (!rt.resultDataUrl) { updateRuntime(activeStoryboardId, { generateError: "Generate the main image first." }); return; }
+    try {
+      const ts = Date.now();
+      const sbTitle = activeStoryboard.title;
+      if (rt.poseResults.length > 1) {
+        // Save all pose results
+        await Promise.all(rt.poseResults.map((pr, i) =>
+          saveImageToLibrary({
+            dataUrl: pr.dataUrl, mimeType: pr.mimeType,
+            title: `Look (Pose ${i + 1}) — ${sbTitle}`, kind: "main",
+            fileName: `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`,
+            notify: false,
+          })
+        ));
+        showSaveToast(`Saved ${rt.poseResults.length} pose variations.`);
+      } else {
+        await saveImageToLibrary({
+          dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType,
+          title: `Look — ${sbTitle}`, kind: "main",
+          fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`,
+        });
+      }
+    } catch (err: any) {
+      updateRuntime(activeStoryboardId, { generateError: err?.message || String(err) });
+    }
+  }
+
+  async function saveAllImages() {
+    const rt = activeRuntime;
+    if (!rt.resultDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) {
+      updateAngles(activeStoryboardId, { error: "Generate the main, back, and detail images before saving." }); return;
+    }
+    try {
+      const ts = Date.now(); const sbTitle = activeStoryboard.title;
+      const saveOps = [];
+
+      if (rt.poseResults.length > 1) {
+        for (let i = 0; i < rt.poseResults.length; i++) {
+          const pr = rt.poseResults[i];
+          saveOps.push(saveImageToLibrary({ dataUrl: pr.dataUrl, mimeType: pr.mimeType, title: `Look (Pose ${i + 1}) — ${sbTitle}`, kind: "main", fileName: `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`, notify: false }));
+        }
+      } else {
+        saveOps.push(saveImageToLibrary({ dataUrl: rt.resultDataUrl, mimeType: rt.resultMimeType, title: `Look — ${sbTitle}`, kind: "main", fileName: `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`, notify: false }));
+      }
+
+      saveOps.push(
+        saveImageToLibrary({ dataUrl: rt.angles.backDataUrl, mimeType: rt.angles.backMimeType, title: `Back view — ${sbTitle}`, kind: "back", fileName: `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`, notify: false }),
+        saveImageToLibrary({ dataUrl: rt.angles.detailDataUrl, mimeType: rt.angles.detailMimeType, title: `Detail shot — ${sbTitle}`, kind: "detail", fileName: `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`, notify: false }),
+      );
+
+      await Promise.all(saveOps);
+      showSaveToast(`Saved ${saveOps.length} images.`);
+    } catch (err: any) {
+      updateAngles(activeStoryboardId, { error: err?.message || String(err) });
+    }
+  }
+
+  function downloadAllImages() {
+    const rt = activeRuntime;
+    if (!rt.resultDataUrl || !rt.angles.backDataUrl || !rt.angles.detailDataUrl) return;
+    const ts = Date.now();
+
+    if (rt.poseResults.length > 1) {
+      rt.poseResults.forEach((pr, i) => triggerDownload(pr.dataUrl, `look-main-pose${i + 1}-${ts}.${mimeToExtension(pr.mimeType)}`));
+    } else {
+      triggerDownload(rt.resultDataUrl, `look-main-${ts}.${mimeToExtension(rt.resultMimeType)}`);
+    }
+
+    triggerDownload(rt.angles.backDataUrl, `look-back-${ts}.${mimeToExtension(rt.angles.backMimeType)}`);
+    triggerDownload(rt.angles.detailDataUrl, `look-detail-${ts}.${mimeToExtension(rt.angles.detailMimeType)}`);
+  }
+
+  function onResultImagePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.pointerType && event.pointerType !== "mouse") return;
+    const el = event.currentTarget as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    el.style.setProperty("--zoom-x", `${x.toFixed(2)}%`);
+    el.style.setProperty("--zoom-y", `${y.toFixed(2)}%`);
+  }
+
+  function onResultImagePointerLeave(event: React.PointerEvent<HTMLDivElement>) {
+    const el = event.currentTarget as HTMLElement;
+    el.style.setProperty("--zoom-x", "50%");
+    el.style.setProperty("--zoom-y", "50%");
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
+    <div className="appRoot">
+      <Toast toasts={toasts} onRemove={removeToast} />
+      <div
+        className={`saveToast${saveToast.visible ? " saveToastVisible" : ""}`}
+        role="status" aria-live="polite" aria-hidden={!saveToast.visible}
+      >
+        {saveToast.message}
+      </div>
+
+      <div className="appShell">
+        <aside className="sidebar">
+          {/* Brand */}
+          <div className="sidebarBrand">
+            <div className="sidebarLogo"><img src={`${BASE}logo.png`} alt="Botzudio" /></div>
+            <div>
+              <div className="brandEyebrow">The Bot Company</div>
+              <div className="brandTitle">Botzudio</div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <nav className="sidebarNav" role="tablist" aria-label="Main sections">
+            {([
+              { tab: "prints",     label: "Add Prints",      Icon: Palette         },
+              { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
+              { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
+              { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
+              { tab: "usage",      label: "Credits",          Icon: BarChart2       },
+              { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
+              { tab: "docs",       label: "Documents",        Icon: BookOpen        },
+            ] as const).map(({ tab, label, Icon }) => (
+              <button
+                key={tab}
+                type="button"
+                className={activeTab === tab ? "navButton navButtonActive" : "navButton"}
+                aria-selected={activeTab === tab}
+                onClick={() => setActiveTab(tab)}
+              >
+                <Icon size={16} className="navButtonIcon" />
+                {label}
+              </button>
+            ))}
+            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+              <Box size={16} className="navButtonIcon" />
+              Multi-Angle
+              <span className="navButtonComingSoonBadge">Coming Soon</span>
+            </button>
+          </nav>
+
+          {/* User row */}
+          {session && (
+            <div className="sidebarUser" ref={userMenuRef}>
+              {userMenuOpen && (
+                <div className="sidebarUserMenu">
+                  <button type="button" className="sidebarMenuOption" onClick={() => { setShowSettings(true); setUserMenuOpen(false); }}>
+                    <Settings size={14} /> Settings
+                  </button>
+                  <button type="button" className="sidebarMenuOption">
+                    <LifeBuoy size={14} /> Help &amp; Support
+                  </button>
+                  {session.email === ADMIN_EMAIL && (
+                    <>
+                      <div className="sidebarMenuDivider" />
+                      <button
+                        type="button"
+                        className="sidebarMenuOption sidebarMenuOptionAdmin"
+                        onClick={() => window.open("/admin", "_blank")}
+                      >
+                        <ShieldCheck size={14} /> Admin Panel
+                      </button>
+                    </>
+                  )}
+                  <div className="sidebarMenuDivider" />
+                  <button type="button" className="sidebarMenuOption sidebarMenuOptionDanger" onClick={handleLogout}>
+                    <LogOut size={14} /> Logout
+                  </button>
+                </div>
+              )}
+              <div
+                className="sidebarCreditBadge"
+                title={`${freeImagesRemaining} free images remaining`}
+                onClick={() => balance < costPerImageInr && freeImagesRemaining === 0 && setShowRechargeModal(true)}
+                style={{ cursor: "pointer" }}
+              >
+                <Coins size={12} />
+                <span>{Math.floor(balance)} credits</span>
+                {freeImagesRemaining > 0 && (
+                  <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 2 }}>· {freeImagesRemaining} free</span>
+                )}
+              </div>
+              <div className="sidebarUserRow">
+                <div className="sidebarUserAvatar">{(session.name || session.email)[0]?.toUpperCase()}</div>
+                <div className="sidebarUserDetails">
+                  <div className="sidebarUserName">{session.name || session.email.split("@")[0]}</div>
+                </div>
+                <button
+                  type="button"
+                  className={`sidebarUserMenuBtn${userMenuOpen ? " sidebarUserMenuBtnActive" : ""}`}
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  title="Options"
+                  aria-label="User menu"
+                >
+                  <MoreVertical size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </aside>
+
+        <main className="mainContent">
+          <div className="container">
+            <div className="header">
+              <h1 className="title titleLarge">{activeTabLabel}</h1>
+            </div>
+
+            {activeTab === "prints" && (
+              <PrintsTab
+                storyboardTitle={activeStoryboard.title}
+                config={activeConfig}
+                runtime={activeRuntime}
+                isBusy={isGenerating || activeRuntime.prints.generating}
+                mimeToExtension={mimeToExtension}
+                onBaseGarmentFrontFileChange={onPrintBaseGarmentFrontFileChange}
+                onBaseGarmentBackFileChange={onPrintBaseGarmentBackFileChange}
+                onBaseGarmentSideFileChange={onPrintBaseGarmentSideFileChange}
+                onLoadBuiltInFront={loadBuiltInGarmentFront}
+                onLoadBuiltInBack={loadBuiltInGarmentBack}
+                onLoadBuiltInSide={loadBuiltInGarmentSide}
+                onPrintDesignFrontFileChange={onPrintDesignFrontFileChange}
+                onPrintDesignBackFileChange={onPrintDesignBackFileChange}
+                onPrintDesignSideFileChange={onPrintDesignSideFileChange}
+                removeBaseGarmentFront={removePrintBaseGarmentFront}
+                removeBaseGarmentBack={removePrintBaseGarmentBack}
+                removeBaseGarmentSide={removePrintBaseGarmentSide}
+                removePrintDesignFront={removePrintDesignFront}
+                removePrintDesignBack={removePrintDesignBack}
+                removePrintDesignSide={removePrintDesignSide}
+                printElapsedMs={printGenerationElapsedMs}
+                onConfigUpdate={handleConfigUpdate}
+                onGenerate={() => generatePrintedGarment()}
+                onRetry={retryPrintedGarment}
+                onOpenImage={(src, title, alt, gallery) => openImageModal(src, title, alt ?? title, gallery)}
+              />
+            )}
+
+            {activeTab === "generate" && (
+              <div>
+                {generateView === "library" ? (
+                  <StoryboardLibrary
+                    storyboards={storyboards}
+                    activeId={activeStoryboardId}
+                    runtimeById={storyboardRuntime}
+                    savedPreviewByStoryboardId={savedPreviewByStoryboardId}
+                    isGenerating={isGenerating}
+                    subtitleFor={storyboardSubtitle}
+                    formatTimestamp={formatStoryboardTimestamp}
+                    onCreate={createNewStoryboard}
+                    onOpen={openStoryboard}
+                  />
+                ) : (
+                  <div className="storyboardEditorCard">
+                    <StoryboardEditorHeader
+                      title={activeStoryboard.title}
+                      garmentType={activeStoryboard.garmentType ?? ""}
+                      imageModel={activeConfig.imageModel}
+                      updatedAt={activeStoryboard.updatedAt}
+                      disabled={isGenerating}
+                      canDelete={storyboards.length > 1}
+                      formatTimestamp={formatStoryboardTimestamp}
+                      onBack={enterStoryboardLibrary}
+                      onDuplicate={duplicateActiveStoryboard}
+                      onRequestDelete={requestDeleteActiveStoryboard}
+                      onTitleChange={handleTitleChange}
+                      onGarmentTypeChange={handleGarmentTypeChange}
+                      onImageModelChange={(model: ImageGenerationModelId) => handleConfigUpdate({ imageModel: model })}
+                    />
+
+                    <div className="divider storyboardEditorDivider" aria-hidden="true" />
+
+                    <div className="storyboardEditorCardBody">
+                      <div className="grid storyBoard">
+                        <StoryboardFormCards
+                          config={activeConfig}
+                          runtime={activeRuntime}
+                          activeStoryboardId={activeStoryboardId}
+                          isGenerating={isGenerating}
+                          onGarmentFrontFileChange={onGarmentFrontFileChange}
+                          onGarmentBackFileChange={onGarmentBackFileChange}
+                          removeGarmentImage={removeGarmentImage}
+                          removeBackgroundImage={removeBackgroundImage}
+                          removeModelImage={removeModelImage}
+                          removePoseImage={removePoseImage}
+                          savedPrints={savedPrints}
+                          backgroundAssetImages={backgroundAssetImages}
+                          modelAssetImages={modelAssetImages}
+                          poseAssetImages={poseAssetImages}
+                          garmentAssetImages={garmentAssetImages}
+                          onBackgroundFileChange={onBackgroundFileChange}
+                          onModelFileChange={onModelFileChange}
+                          onPoseFileChange={onPoseFileChange}
+                          addGarmentFromDataUrl={addGarmentFromDataUrl}
+                          addGarmentBundle={addGarmentBundle}
+                          addBackgroundFromDataUrl={addBackgroundFromDataUrl}
+                          addModelFromDataUrl={addModelFromDataUrl}
+                          addPoseFromDataUrl={addPoseFromDataUrl}
+                          onConfigUpdate={handleConfigUpdate}
+                          onSubmit={onGenerateLook}
+                          onOpenImage={openImageModal}
+                        />
+
+                        <StoryboardResultsPane
+                          isGenerating={isGenerating}
+                          generationStepIndex={generationStepIndex}
+                          generationElapsedMs={generationElapsedMs}
+                          generationSteps={GENERATION_STEPS}
+                          runtime={activeRuntime}
+                          computedTimings={computedTimings}
+                          formatDurationMs={formatDurationMs}
+                          mimeToExtension={mimeToExtension}
+                          onResultImagePointerMove={onResultImagePointerMove}
+                          onResultImagePointerLeave={onResultImagePointerLeave}
+                          onOpenImage={openImageModal}
+                          onRetry={retryMainImage}
+                          onGenerateAngles={generateMultipleAngles}
+                          onDownloadAll={downloadAllImages}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "saved" && (
+              <SavedImagesPane
+                images={savedImages}
+                isLoading={savedImagesLoading}
+                formatTimestamp={formatSavedTimestamp}
+                mimeToExtension={mimeToExtension}
+                onOpenImage={openImageModal}
+                onDeleteImage={deleteImage}
+                onDeleteGroup={deleteGroup}
+              />
+            )}
+
+            {activeTab === "assets" && (
+              <AssetsTab
+                activeStoryboardTitle={activeStoryboard.title}
+                activeRuntime={activeRuntime}
+                savedImages={assetImages}
+                formatTimestamp={formatSavedTimestamp}
+                mimeToExtension={mimeToExtension}
+                onGarmentFileChange={onGarmentFileChange}
+                onBackgroundFileChange={onBackgroundFileChange}
+                onModelFileChange={onModelFileChange}
+                onPoseFileChange={onPoseFileChange}
+                removeGarmentImage={removeGarmentImage}
+                removeBackgroundImage={removeBackgroundImage}
+                removeModelImage={removeModelImage}
+                removePoseImage={removePoseImage}
+                onOpenImage={openImageModal}
+                onDeleteImage={deleteImage}
+              />
+            )}
+
+            {activeTab === "usage"     && <UsageTab />}
+            {activeTab === "dashboard" && <DashboardTab />}
+
+          </div>
+        </main>
+      </div>
+
+      <ImageModal
+        open={Boolean(imageModal)}
+        src={imageModal?.images[imageModal.currentIndex]?.src ?? ""}
+        title={imageModal?.images[imageModal.currentIndex]?.title ?? ""}
+        alt={imageModal?.images[imageModal.currentIndex]?.alt}
+        onClose={() => setImageModal(null)}
+        images={imageModal?.images}
+        currentIndex={imageModal?.currentIndex ?? 0}
+        onNavigate={(idx) => setImageModal((prev) => prev ? { ...prev, currentIndex: idx } : null)}
+      />
+      <DeleteStoryboardModal
+        open={deleteStoryboardModalOpen}
+        title={activeStoryboard.title}
+        onClose={() => setDeleteStoryboardModalOpen(false)}
+        onConfirm={confirmDeleteActiveStoryboard}
+      />
+      {showSettings && <SettingsPage onClose={() => setShowSettings(false)} />}
+      {activeTab === "docs" && <DocumentsTab onClose={() => setActiveTab("prints")} />}
+
+      {/* ── Insufficient credits modal ───────────────────────────────────── */}
+      {showRechargeModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }} onClick={() => setShowRechargeModal(false)}>
+          <div style={{
+            background: "#1a1a2e", border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 16, padding: "32px 28px", maxWidth: 400, width: "90%",
+            boxShadow: "0 24px 60px rgba(0,0,0,0.5)",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>⚡</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#e2e8f0", textAlign: "center", marginBottom: 8 }}>
+              Out of Credits
+            </div>
+            <div style={{ fontSize: 13, color: "#94a3b8", textAlign: "center", marginBottom: 24, lineHeight: 1.6 }}>
+              Your credit balance is too low to generate this image.
+              {freeImagesRemaining > 0
+                ? ` You have ${freeImagesRemaining} free images left on Gemini Flash or Gemini 3 Pro.`
+                : " Top up to continue generating."}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <a
+                href="mailto:official@thebotcompany.in?subject=Buy Credits - BotXstudio"
+                style={{
+                  display: "block", textAlign: "center", padding: "12px 0",
+                  borderRadius: 10, background: "rgba(139,92,246,0.9)", color: "#fff",
+                  fontWeight: 700, fontSize: 14, textDecoration: "none",
+                }}
+              >
+                Buy Credits →
+              </a>
+              <button
+                onClick={() => setShowRechargeModal(false)}
+                style={{
+                  padding: "10px 0", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)",
+                  background: "transparent", color: "#6b7280", fontSize: 13, cursor: "pointer",
+                }}
+              >
+                Maybe later
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
