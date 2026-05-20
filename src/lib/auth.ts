@@ -36,22 +36,35 @@ function base64UrlEncode(buffer: Uint8Array): string {
 
 // ─── Cognito Hosted UI redirect ──────────────────────────────────────────────
 
-export async function redirectToLogin(provider?: "Google" | "Apple") {
+export async function redirectToLogin(provider?: "Google" | "Apple", signup?: boolean) {
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   localStorage.setItem("pkce_code_verifier", codeVerifier);
+
+  const scope = provider ? "openid+email" : "openid+email+phone";
 
   let url =
     `${COGNITO_DOMAIN}/oauth2/authorize?` +
     `client_id=${CLIENT_ID}` +
     `&response_type=code` +
-    `&scope=openid+email+phone` +
+    `&scope=${scope}` +
     `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
     `&code_challenge=${codeChallenge}` +
     `&code_challenge_method=S256`;
 
   if (provider) {
     url += `&identity_provider=${provider}`;
+  }
+
+  // Direct new users to Cognito's sign-up form
+  if (signup) {
+    url = `${COGNITO_DOMAIN}/signup?` +
+      `client_id=${CLIENT_ID}` +
+      `&response_type=code` +
+      `&scope=${scope}` +
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&code_challenge=${codeChallenge}` +
+      `&code_challenge_method=S256`;
   }
 
   window.location.href = url;
@@ -102,11 +115,43 @@ export async function handleCallback(code: string): Promise<Session> {
 
   // Decode the ID token to get email/name (access token doesn't include them)
   const idPayload = decodeJwtPayload(tokens.id_token);
-  const email = idPayload.email || "";
-  const name = idPayload.name || email.split("@")[0] || "";
+  let email = idPayload.email || "";
+  let name = idPayload.name || "";
+
+  // Fallback: for federated users (Google), ID token may lack email —
+  // call the Cognito userInfo endpoint which always returns it
+  if (!email && tokens.access_token) {
+    try {
+      const uiResp = await fetch(`${COGNITO_DOMAIN}/oauth2/userInfo`, {
+        headers: { Authorization: `Bearer ${tokens.access_token}` },
+      });
+      if (uiResp.ok) {
+        const userInfo = await uiResp.json();
+        email = userInfo.email || "";
+        name = name || userInfo.name || "";
+      }
+    } catch { /* userInfo fallback failed, continue with what we have */ }
+  }
+
+  name = name || email.split("@")[0] || "";
 
   // Sync user profile with our backend (findOrCreate with proper email/name)
-  const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name });
+  const data = await apiPost<{ user?: Session; needsEmail?: boolean }>("/api/auth/me", { email, name });
+
+  // Google SSO: Cognito may not provide email due to attribute mapping config.
+  // Signal the callback page to collect email from the user.
+  if (data.needsEmail) {
+    throw new Error("NEEDS_EMAIL");
+  }
+
+  localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
+  return data.user!;
+}
+
+// ─── Complete profile for Google SSO users who need to provide email ─────────
+
+export async function completeProfile(email: string, name?: string): Promise<Session> {
+  const data = await apiPost<{ user: Session }>("/api/auth/me", { email, name: name || email.split("@")[0] });
   localStorage.setItem(SESSION_KEY, JSON.stringify(data.user));
   return data.user;
 }
@@ -172,8 +217,23 @@ export async function restoreSession(): Promise<Session | null> {
       if (stored.idToken) {
         const idPayload = decodeJwtPayload(stored.idToken);
         email = idPayload.email || "";
-        name = idPayload.name || email.split("@")[0] || "";
+        name = idPayload.name || "";
       }
+
+      // Fallback: for federated users (Google), ID token may lack email
+      if (!email && stored.accessToken) {
+        try {
+          const uiResp = await fetch(`${COGNITO_DOMAIN}/oauth2/userInfo`, {
+            headers: { Authorization: `Bearer ${stored.accessToken}` },
+          });
+          if (uiResp.ok) {
+            const userInfo = await uiResp.json();
+            email = userInfo.email || "";
+            name = name || userInfo.name || "";
+          }
+        } catch { /* continue without email */ }
+      }
+      name = name || email.split("@")[0] || "";
 
       // If token not expired, use it directly
       if (stored.accessToken && stored.expiresAt > Date.now()) {

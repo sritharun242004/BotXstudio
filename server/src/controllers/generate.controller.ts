@@ -148,7 +148,7 @@ export async function image(req: Request, res: Response, next: NextFunction) {
         return res.json({ ...result, latencyMs, balanceAfter: Number(updated.creditsBalance), freeImagesRemaining: freeRemaining });
       }
 
-      const creditCost = getCreditsForModel(model);
+      const creditCost = await getCreditsForModel(model);
       const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
       const currentBalance = user ? Number(user.creditsBalance) : 0;
       const newBalance = Math.max(0, currentBalance - creditCost);
