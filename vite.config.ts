@@ -5,6 +5,12 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [tailwindcss(), react()],
   base: "/",
+  define: {
+    global: "globalThis",
+  },
+  optimizeDeps: {
+    include: ["amazon-cognito-identity-js"],
+  },
   server: {
     port: 5173,
     proxy: {

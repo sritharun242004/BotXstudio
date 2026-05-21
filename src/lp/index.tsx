@@ -1,24 +1,17 @@
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useState } from "react";
-import { ArrowRight, CheckCircle, Image as ImageIcon, Upload, Download, Sparkles, DollarSign, Clock, LayoutGrid, Store, ShoppingBag, ShieldCheck, ChevronDown } from "lucide-react";
+import { DottedSurface } from "../components/ui/dotted-surface";
+import { ArrowRight, CheckCircle, Sparkles, DollarSign, Clock, Store, ShoppingBag, ShieldCheck, ChevronDown } from "lucide-react";
 import { CandyButton, SecondaryButton, StickerCard } from "./ThemeComponents";
 import { Floating, FloatingElement } from "./parallax-floating";
 import { TextRotate } from "./text-rotate";
-
-const STEPS = [
-  { title: "Upload your garment", desc: "A photo on a hanger or flat lay works fine.", icon: Upload, color: "#FBBF24", textDark: true },
-  { title: "Choose model & setting", desc: "Pick from presets or use your references.", icon: LayoutGrid, color: "#F472B6", textDark: false },
-  { title: "Generate", desc: "AI creates a composite in under 60 seconds.", icon: Sparkles, color: "#8B5CF6", textDark: false },
-  { title: "Download & publish", desc: "Front, side, back, and detail views included.", icon: Download, color: "#34D399", textDark: true },
-];
+import { FullScreenScrollFX } from "../components/ui/full-screen-scroll-fx";
+import { CinematicFooter } from "../components/ui/motion-footer";
 
 const GALLERY = [
-  { label: "Front View", bg: "#EDE9FE" },
-  { label: "Side Angle", bg: "#FCE7F3" },
-  { label: "Back View", bg: "#D1FAE5" },
-  { label: "Close-up Detail", bg: "#FEF3C7" },
-  { label: "Pattern Variant", bg: "#DBEAFE" },
-  { label: "Ethnic Wear (Saree)", bg: "#FFE4E6" },
+  { label: "Front View", bg: "#EDE9FE", src: "/landing page/front.jpg" },
+  { label: "Back View", bg: "#D1FAE5", src: "/landing page/back.png" },
+  { label: "Close-up Detail", bg: "#FEF3C7", src: "/landing page/detial.png" },
 ];
 
 const PERSONAS = [
@@ -36,83 +29,163 @@ const FAQS = [
   { q: "What image formats and sizes do I get?", a: "Outputs are high-resolution (1080×1440px), suitable for all major e-commerce platforms." },
 ];
 
+const PROCESS = "/landing page/process/";
+
+const RIGHT_NUM: React.CSSProperties = {
+  fontWeight: 900, lineHeight: 1, letterSpacing: "-3px",
+  fontFamily: "'Outfit', sans-serif",
+  fontSize: "clamp(3rem, 7vw, 5.5rem)",
+};
+
+const RIGHT_DESC: React.CSSProperties = {
+  fontSize: 12, maxWidth: 150, marginTop: 10, lineHeight: 1.65,
+  fontFamily: "'Plus Jakarta Sans', sans-serif", fontWeight: 500,
+  color: "#64748B", textTransform: "none" as const,
+};
+
+const HOW_IT_WORKS_SECTIONS = [
+  {
+    id: "upload-garment",
+    background: `${PROCESS}garment1.png`,
+    leftLabel: (
+      <img src={`${PROCESS}garment1.png`} alt="Garment" style={{ width: 150, height: 200, objectFit: "cover" as const, borderRadius: 10 }} />
+    ),
+    title: "Upload Garment",
+    rightLabel: (
+      <div style={{ textAlign: "right" as const, textTransform: "none" as const }}>
+        <div style={{ ...RIGHT_NUM, color: "#D97706" }}>01</div>
+        <div style={RIGHT_DESC}>Flat lay or hanger shot — phone camera works perfectly</div>
+      </div>
+    ),
+  },
+  {
+    id: "add-references",
+    background: `${PROCESS}modelpose1.png`,
+    leftLabel: (
+      <img src={`${PROCESS}modelpose1.png`} alt="Model pose reference" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
+    ),
+    title: "Add References",
+    rightLabel: (
+      <div style={{ textAlign: "right" as const, textTransform: "none" as const }}>
+        <div style={{ ...RIGHT_NUM, color: "#EC4899" }}>02</div>
+        <div style={RIGHT_DESC}>Pick pose &amp; model type from presets</div>
+      </div>
+    ),
+  },
+  {
+    id: "ai-generates",
+    background: `${PROCESS}out1.png`,
+    leftLabel: (
+      <img src={`${PROCESS}out1.png`} alt="AI output" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
+    ),
+    title: "AI Creates",
+    rightLabel: (
+      <div style={{ textAlign: "right" as const, textTransform: "none" as const }}>
+        <div style={{ ...RIGHT_NUM, color: "#8B5CF6" }}>03</div>
+        <div style={RIGHT_DESC}>Studio-quality image rendered in under 60 seconds</div>
+      </div>
+    ),
+  },
+  {
+    id: "download-all",
+    background: `${PROCESS}out3.png`,
+    leftLabel: (
+      <div style={{ display: "flex", gap: 8 }}>
+        {[
+          { src: `${PROCESS}out2.png`, alt: "Back" },
+          { src: `${PROCESS}out3.png`, alt: "Detail" },
+        ].map(({ src, alt }) => (
+          <img key={alt} src={src} alt={alt} style={{ width: 88, height: 118, objectFit: "cover" as const, borderRadius: 10 }} />
+        ))}
+      </div>
+    ),
+    title: "Download All",
+    rightLabel: (
+      <div style={{ textAlign: "right" as const, textTransform: "none" as const }}>
+        <div style={{ ...RIGHT_NUM, color: "#10B981" }}>04</div>
+        <div style={RIGHT_DESC}>Front, back &amp; detail — ready to publish anywhere</div>
+      </div>
+    ),
+  },
+];
+
 export function LandingPageTheme() {
   const [openFaqs, setOpenFaqs] = useState<Set<number>>(() => new Set(FAQS.map((_, i) => i)));
   const toggleFaq = (i: number) => setOpenFaqs(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
 
   return (
+    <>
     <div style={{ background: "#FFFDF5", color: "#1E293B", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
 
       {/* ── Hero ─────────────────────────────────────────────── */}
       <div style={{ position: "relative", minHeight: "100vh", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse 80% 70% at 0% 0%, rgba(139,92,246,0.20) 0%, transparent 55%), radial-gradient(ellipse 60% 60% at 100% 100%, rgba(244,114,182,0.16) 0%, transparent 55%), #FFFDF5" }}>
 
+        {/* Animated dotted surface — sits behind everything */}
+        <DottedSurface style={{ zIndex: 0 }} dotColor="#1E293B" opacity={0.18} />
+
         {/* Floating parallax images — hidden on small screens */}
         <div className="lp-hero-floats">
           <Floating sensitivity={-0.5}>
-            {/* Top-left small */}
-            <FloatingElement depth={0.5} style={{ top: "16%", left: "2%" }}>
+            {/* Left col — top (fills top-left white space) */}
+            <FloatingElement depth={0.5} style={{ top: "2%", left: "4%" }}>
               <motion.img
                 src="/landing page/4417001374546c18d8184e34a2628be3.jpg"
                 alt="Fashion garment"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                style={{ width: 110, height: 150, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "6px 6px 0px #1E293B", transform: "rotate(-3deg)", cursor: "default" }}
+                style={{ width: 138, height: 188, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "6px 6px 0px #1E293B", transform: "rotate(-3deg)", cursor: "default" }}
               />
             </FloatingElement>
 
-            {/* Top-left large */}
-            <FloatingElement depth={1.2} style={{ top: "3%", left: "9%" }}>
+            {/* Left col — middle (fills mid-left white space) */}
+            <FloatingElement depth={1.2} style={{ top: "27%", left: "6%" }}>
               <motion.img
                 src="/landing page/c3c201a57b31a5ff575ddd0b9e6348b3.jpg"
                 alt="Fashion catalog shot"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-                style={{ width: 168, height: 220, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(-10deg)", cursor: "default" }}
+                style={{ width: 210, height: 275, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(-5deg)", cursor: "default" }}
               />
             </FloatingElement>
 
-            {/* Bottom-left */}
-            <FloatingElement depth={3} style={{ top: "62%", left: "3%" }}>
+            {/* Left col — bottom (fills bottom-left white space) */}
+            <FloatingElement depth={3} style={{ top: "64%", left: "3%" }}>
               <motion.img
                 src="/landing page/9f299fb22eb98fc34353fd7eb1d60dea.jpg"
                 alt="Fashion product photo"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}
-                style={{ width: 195, height: 195, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(-4deg)", cursor: "default" }}
+                style={{ width: 220, height: 220, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(-3deg)", cursor: "default" }}
               />
             </FloatingElement>
 
-            {/* Top-right */}
-            <FloatingElement depth={2} style={{ top: "3%", left: "79%" }}>
+            {/* Right col — top (fills top-right white space) */}
+            <FloatingElement depth={2} style={{ top: "3%", left: "78%" }}>
               <motion.img
                 src="/landing page/8f7b356f2d90e34f4f414433044b8a35.jpg"
                 alt="Studio fashion image"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }}
-                style={{ width: 178, height: 230, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(7deg)", cursor: "default" }}
+                style={{ width: 222, height: 288, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(6deg)", cursor: "default" }}
               />
             </FloatingElement>
 
-            {/* Bottom-right */}
-            <FloatingElement depth={1} style={{ top: "60%", left: "77%" }}>
+            {/* Right col — bottom (no overlap with top-right image) */}
+            <FloatingElement depth={1} style={{ top: "53%", left: "73%" }}>
               <motion.img
                 src="/landing page/2f4ecda518463716238bf45fca1bcea3.jpg"
                 alt="Fashion lookbook photo"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.3 }}
-                style={{ width: 215, height: 258, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(18deg)", cursor: "default" }}
+                style={{ width: 240, height: 290, objectFit: "cover", borderRadius: 14, border: "2px solid #1E293B", boxShadow: "8px 8px 0px #1E293B", transform: "rotate(8deg)", cursor: "default" }}
               />
             </FloatingElement>
           </Floating>
         </div>
 
-        {/* Center content */}
-        <div style={{ position: "relative", zIndex: 10, textAlign: "center", maxWidth: 660, padding: "0 28px", pointerEvents: "auto" }}>
+        {/* Mobile top images — fills white space above text (desktop uses lp-hero-floats) */}
+        <div className="lp-mobile-top-images">
+          <img src="/landing page/c3c201a57b31a5ff575ddd0b9e6348b3.jpg" alt="Fashion" />
+          <img src="/landing page/8f7b356f2d90e34f4f414433044b8a35.jpg" alt="Fashion" />
+        </div>
 
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.2 }}
-            style={{ display: "inline-block", padding: "5px 16px", borderRadius: 9999, background: "#FBBF24", border: "2px solid #1E293B", fontWeight: 700, fontSize: 12, marginBottom: 22, boxShadow: "2px 2px 0 #1E293B", transform: "rotate(-1deg)" }}
-          >
-            ✦ AI-powered fashion photography
-          </motion.div>
+        {/* Center content */}
+        <div className="lp-hero-content" style={{ position: "relative", zIndex: 10, textAlign: "center", maxWidth: 660, padding: "0 28px", pointerEvents: "auto" }}>
 
           {/* Headline */}
           <motion.h1
@@ -160,83 +233,142 @@ export function LandingPageTheme() {
                 <ArrowRight style={{ width: 14, height: 14, color: "#8B5CF6" }} strokeWidth={3} />
               </div>
             </CandyButton>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#94A3B8" }}>No credit card needed</span>
           </motion.div>
 
-          {/* Social proof */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.9 }}
-            style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}
-          >
-            {["500+ fashion brands", "₹0 per shoot", "Ready in 60 seconds"].map((item) => (
-              <span key={item} style={{ fontSize: 13, color: "#64748B", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ color: "#34D399", fontWeight: 900 }}>✓</span> {item}
-              </span>
-            ))}
-          </motion.div>
+        </div>
+
+        {/* Mobile bottom images — fills white space below text */}
+        <div className="lp-mobile-bottom-images">
+          <img src="/landing page/4417001374546c18d8184e34a2628be3.jpg" alt="Fashion" />
+          <img src="/landing page/9f299fb22eb98fc34353fd7eb1d60dea.jpg" alt="Fashion" />
+          <img src="/landing page/2f4ecda518463716238bf45fca1bcea3.jpg" alt="Fashion" />
         </div>
       </div>
 
       {/* ── Problem ───────────────────────────────────────────── */}
       <section id="problem" style={{ borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", background: "#F0FDF4", padding: "80px 0" }}>
         <div className="lp-wrap" style={{ textAlign: "center" }}>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-1px", marginBottom: 48, display: "inline-block", position: "relative" }}>
+          <motion.h2
+            style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-1px", marginBottom: 48, display: "inline-block", position: "relative" }}
+            initial={{ opacity: 0, y: 16 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
             Your photos are holding back your sales
             <svg style={{ position: "absolute", width: "100%", height: 14, bottom: -6, left: 0, color: "#F472B6" }} viewBox="0 0 100 10" preserveAspectRatio="none">
-              <path d="M0 5 Q 25 10 50 5 T 100 5" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+              <motion.path
+                d="M0 5 Q 25 10 50 5 T 100 5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="4"
+                strokeLinecap="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                whileInView={{ pathLength: 1, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ duration: 1, ease: "easeInOut", delay: 0.4 }}
+              />
             </svg>
-          </h2>
+          </motion.h2>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, marginTop: 56, textAlign: "left" }} className="lp-problem-grid">
             {[
-              "A full photoshoot costs ₹15,000–₹50,000 and takes a week to deliver.",
-              "Reshoots for new colors, sizes, or seasonal updates double the cost.",
-              "Your competitors are publishing daily — you are waiting on a photographer.",
-            ].map((text, i) => (
+              { text: "A full photoshoot costs ₹15,000–₹50,000 and takes a week to deliver.", accent: "#F472B6" },
+              { text: "Reshoots for new colors, sizes, or seasonal updates double the cost.", accent: "#FBBF24" },
+              { text: "Your competitors are publishing daily — you are waiting on a photographer.", accent: "#8B5CF6" },
+            ].map(({ text, accent }, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                style={{ background: "#fff", padding: "24px 28px", borderRadius: 16, border: "2px solid #1E293B", boxShadow: "4px 4px 0 #1E293B" }}
+                transition={{ delay: i * 0.12, type: "spring", damping: 22, stiffness: 260 }}
+                whileHover={{ y: -8, boxShadow: "8px 8px 0 #1E293B", transition: { type: "spring", damping: 18, stiffness: 320 } }}
+                style={{ background: "#fff", padding: "24px 28px", borderRadius: 16, border: "2px solid #1E293B", boxShadow: "4px 4px 0 #1E293B", cursor: "default", position: "relative", overflow: "hidden" }}
               >
-                <p style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.6 }}>{text}</p>
+                <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: 4, background: accent, borderRadius: "16px 16px 0 0" }} />
+                <p style={{ fontWeight: 700, fontSize: 16, lineHeight: 1.6, marginTop: 8 }}>{text}</p>
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Solution / How it Works ───────────────────────────── */}
-      <section id="how-it-works" style={{ padding: "80px 0" }}>
-        <div className="lp-wrap">
-          <div style={{ textAlign: "center", marginBottom: 56 }}>
-            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(28px, 4vw, 44px)", letterSpacing: "-1px" }}>
-              Three uploads. One click. Done.
-            </h2>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 24 }} className="lp-steps-grid">
-            {STEPS.map((step, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.12 }}
-                style={{ textAlign: "center" }}
-                className="lp-step-item"
-              >
-                <div style={{ width: 88, height: 88, borderRadius: "50%", border: "2px solid #1E293B", boxShadow: "4px 4px 0 #1E293B", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", background: step.color, transition: "transform 0.2s" }} className="lp-step-circle">
-                  <step.icon style={{ width: 36, height: 36, color: step.textDark ? "#1E293B" : "#fff" }} strokeWidth={2.5} />
-                </div>
-                <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{i + 1}. {step.title}</h3>
-                <p style={{ fontSize: 14, color: "#64748B", lineHeight: 1.6 }}>{step.desc}</p>
-              </motion.div>
-            ))}
-          </div>
+      {/* ── How It Works — Full-Screen Scroll Experience ─────── */}
+      <section id="how-it-works" style={{ background: "#FFFDF5", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B" }}>
+        {/* Intro header above the scroll */}
+        <div style={{ padding: "72px 28px 36px", textAlign: "center", background: "#FFFDF5" }}>
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+            style={{
+              display: "inline-block",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.18em",
+              color: "#8B5CF6",
+              textTransform: "uppercase",
+              marginBottom: 20,
+              padding: "5px 18px",
+              background: "rgba(139,92,246,0.08)",
+              borderRadius: 20,
+              border: "1px solid rgba(139,92,246,0.22)",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            How It Works
+          </motion.span>
+          <motion.h2
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            style={{
+              fontFamily: "'Outfit', sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(28px, 4vw, 52px)",
+              letterSpacing: "-1.5px",
+              color: "#1E293B",
+              lineHeight: 1.1,
+              marginBottom: 14,
+            }}
+          >
+            Three uploads. One click. Done.
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+            style={{
+              color: "#94A3B8",
+              fontSize: 14,
+              fontWeight: 500,
+              letterSpacing: "0.04em",
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            Scroll to explore each step ↓
+          </motion.p>
         </div>
+
+        <FullScreenScrollFX
+          sections={HOW_IT_WORKS_SECTIONS}
+          showProgress
+          bgTransition="fade"
+          durations={{ change: 0.65, snap: 700 }}
+          parallaxAmount={3}
+          gridPaddingX={3}
+          colors={{
+            text: "#1E293B",
+            overlay: "linear-gradient(to right, rgba(255,253,245,0.92) 0%, rgba(255,253,245,0.55) 22%, rgba(255,253,245,0.12) 42%, rgba(255,253,245,0.12) 58%, rgba(255,253,245,0.55) 78%, rgba(255,253,245,0.92) 100%), linear-gradient(to bottom, rgba(255,253,245,0.65) 0%, rgba(255,253,245,0.05) 20%, rgba(255,253,245,0.05) 80%, rgba(255,253,245,0.65) 100%)",
+            pageBg: "#FFFDF5",
+            stageBg: "transparent",
+          }}
+          ariaLabel="How Botzudio works — step by step"
+        />
       </section>
 
       {/* ── Output Gallery ────────────────────────────────────── */}
@@ -267,9 +399,11 @@ export function LandingPageTheme() {
                 style={{ position: "relative", borderRadius: 16, border: "2px solid #1E293B", background: img.bg, aspectRatio: i < 3 ? "3/4" : "1/1", boxShadow: "4px 4px 0 #1E293B", overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s", cursor: "default" }}
                 className="lp-gallery-item"
               >
-                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <ImageIcon style={{ width: 48, height: 48, color: "rgba(30,41,59,0.15)" }} />
-                </div>
+                <img
+                  src={img.src}
+                  alt={img.label}
+                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
                 <div style={{ position: "absolute", bottom: 14, left: 14, background: "#fff", padding: "4px 12px", borderRadius: 8, border: "2px solid #1E293B", fontSize: 13, fontWeight: 700, boxShadow: "2px 2px 0 #1E293B" }}>
                   {img.label}
                 </div>
@@ -439,67 +573,9 @@ export function LandingPageTheme() {
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────────── */}
-      <footer className="lp-footer" style={{ overflow: "visible" }}>
-        <div className="lp-footer-inner">
-          <div className="lp-footer-top">
-            {/* Brand */}
-            <div>
-              <div className="lp-footer-brand-name">
-                <div className="lp-nav-bz">BZ</div>
-                Botzudio
-              </div>
-              <p className="lp-footer-tagline">
-                AI-powered product photography for fashion brands. Professional quality, zero studio cost.
-              </p>
-              <div className="lp-footer-social">
-                <a href="https://instagram.com" target="_blank" rel="noreferrer" aria-label="Instagram">📸</a>
-                <a href="https://twitter.com" target="_blank" rel="noreferrer" aria-label="Twitter">𝕏</a>
-                <a href="https://linkedin.com" target="_blank" rel="noreferrer" aria-label="LinkedIn">in</a>
-              </div>
-            </div>
-
-            {/* Product */}
-            <div className="lp-footer-col">
-              <h4>Product</h4>
-              <ul>
-                <li><a href="#problem">Why Us</a></li>
-                <li><a href="#how-it-works">How it works</a></li>
-                <li><a href="#pricing">Pricing</a></li>
-              </ul>
-            </div>
-
-            {/* Company */}
-            <div className="lp-footer-col">
-              <h4>Company</h4>
-              <ul>
-                <li><a href="https://thebotcompany.in" target="_blank" rel="noreferrer">About</a></li>
-                <li><a href="/terms">Terms &amp; Conditions</a></li>
-                <li><a href="mailto:official@thebotcompany.in">Contact</a></li>
-              </ul>
-            </div>
-
-            {/* AI Tools */}
-            <div className="lp-footer-col">
-              <h4>AI Tools</h4>
-              <ul>
-                <li><a href="https://markbot.in" target="_blank" rel="noreferrer">MarkBot</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="lp-footer-wordmark" aria-hidden="true">Botzudio</div>
-
-          <div className="lp-footer-bottom">
-            <span>© {new Date().getFullYear()} The Bot Company. All rights reserved.</span>
-            <span>
-              <a href="/terms" style={{ marginRight: 16 }}>Terms &amp; Conditions</a>
-              Built with ❤️ by{" "}
-              <a href="https://thebotcompany.in" target="_blank" rel="noreferrer">thebotcompany</a>
-            </span>
-          </div>
-        </div>
-      </footer>
     </div>
+
+    <CinematicFooter />
+    </>
   );
 }
