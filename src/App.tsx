@@ -3,7 +3,7 @@ import { getSession, logout, type Session } from "./lib/auth";
 import { ADMIN_EMAIL } from "./lib/adminAuth";
 import { useCredits } from "./context/CreditsContext";
 import DashboardTab from "./components/DashboardTab";
-import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, Coins, LayoutDashboard, BookOpen } from "lucide-react";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, Coins, LayoutDashboard, BookOpen, Shirt } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL;
 import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
@@ -20,6 +20,7 @@ import AssetsTab from "./components/AssetsTab";
 import UsageTab from "./components/UsageTab";
 import SettingsPage from "./components/SettingsPage";
 import DocumentsTab from "./components/DocumentsTab";
+import TryOnTab from "./components/TryOnTab";
 
 import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
 import {
@@ -147,7 +148,7 @@ type StoryboardRuntime = {
   promptsUsed: PromptsUsed;
 };
 
-type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "docs";
+type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "docs" | "tryon";
 type SavedImageView = SavedImageRecord & { url: string };
 
 // ─── Pure helpers (outside component) ────────────────────────────────────────
@@ -597,7 +598,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "docs"
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "docs" || stored === "tryon"
       ? stored : "prints";
   });
 
@@ -689,6 +690,7 @@ export default function App() {
     : activeTab === "usage"    ? "Credits"
     : activeTab === "dashboard" ? "Dashboard"
     : activeTab === "docs"      ? "Documentation"
+    : activeTab === "tryon"     ? "Try On"
     : "Generate Images";
 
   // ── Derived computed values used in generation ────────────────────────────
@@ -2263,6 +2265,7 @@ export default function App() {
               { tab: "usage",      label: "Credits",          Icon: BarChart2       },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
               { tab: "docs",       label: "Documents",        Icon: BookOpen        },
+              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
             ] as const).map(({ tab, label, Icon }) => (
               <button
                 key={tab}
@@ -2500,6 +2503,7 @@ export default function App() {
 
             {activeTab === "usage"     && <UsageTab />}
             {activeTab === "dashboard" && <DashboardTab />}
+            {activeTab === "tryon"     && <TryOnTab />}
 
           </div>
         </main>

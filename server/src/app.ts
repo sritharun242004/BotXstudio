@@ -16,6 +16,7 @@ import { creditsRoutes } from "./routes/credits.routes.js";
 import { fluxRoutes } from "./routes/flux.routes.js";
 import { openaiRoutes } from "./routes/openai.routes.js";
 import { qwenAnglesRoutes } from "./routes/qwen-angles.routes.js";
+import { tryOnRoutes } from "./routes/tryon.routes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +49,7 @@ export function createApp() {
   app.use("/api/flux", fluxRoutes);
   app.use("/api/openai", openaiRoutes);
   app.use("/api/qwen", qwenAnglesRoutes);
+  app.use("/api/tryon", tryOnRoutes);
 
   // In production, serve the frontend static build
   if (env.NODE_ENV === "production") {
