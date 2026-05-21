@@ -1,5 +1,6 @@
 import { GARMENT_TYPES, IMAGE_GENERATION_MODELS, type ImageGenerationModelId } from "../lib/storyboards";
 import { useCredits } from "../context/CreditsContext";
+import { useNavigate } from "react-router-dom";
 
 interface StoryboardEditorHeaderProps {
   title: string;
@@ -47,7 +48,9 @@ export default function StoryboardEditorHeader({
   onGarmentTypeChange,
   onImageModelChange,
 }: StoryboardEditorHeaderProps) {
-  const { modelPricing } = useCredits();
+  const { modelPricing, balance } = useCredits();
+  const navigate = useNavigate();
+  const isPaidUser = balance > 0;
 
   return (
     <div className="storyboardEditorCardHeader" aria-label="Storyboard manager">
@@ -136,42 +139,52 @@ export default function StoryboardEditorHeader({
         <div className="modelSelectorCards">
           {IMAGE_GENERATION_MODELS.map((m) => {
             const active = imageModel === m.id;
+            const locked = !m.freeEligible && !isPaidUser;
             return (
-              <button
-                key={m.id}
-                type="button"
-                disabled={disabled}
-                onClick={() => onImageModelChange(m.id)}
-                className={["modelCard", m.colorClass, active ? "modelCardActive" : ""].filter(Boolean).join(" ")}
-                title={m.id}
-              >
-                <div className="modelCardHeader">
-                  <span className="modelCardName">{m.label}</span>
-                  <span className="modelCardModeBadge">{m.mode}</span>
-                </div>
-                <div className="modelCardDesc">{m.desc}</div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6, gap: 6 }}>
-                  <div className="modelCardTokenBadge" style={{ flex: 1 }}>{m.tokenBadge}</div>
-                  <span style={{
-                    background: "rgba(251,191,36,0.15)",
-                    color: "#fbbf24",
-                    border: "1px solid rgba(251,191,36,0.3)",
-                    borderRadius: 5,
-                    padding: "2px 7px",
-                    fontSize: 11,
-                    fontWeight: 700,
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
-                  }}>
-                    {getModelCreditsDisplay(m.id, modelPricing)}
-                  </span>
-                </div>
-              </button>
+              <div key={m.id} className="modelCardWrap" style={{ position: "relative" }}>
+                <button
+                  type="button"
+                  disabled={disabled || locked}
+                  onClick={() => locked
+                    ? navigate("/app/settings", { state: { section: "credits" } })
+                    : onImageModelChange(m.id)
+                  }
+                  className={["modelCard", m.colorClass, active ? "modelCardActive" : "", locked ? "modelCardLocked" : ""].filter(Boolean).join(" ")}
+                  title={locked ? "Purchase credits to unlock this model" : m.id}
+                >
+                  <div className="modelCardHeader">
+                    <span className="modelCardName">{m.label}</span>
+                    <span className="modelCardModeBadge">{m.mode}</span>
+                  </div>
+                  <div className="modelCardDesc">{m.desc}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, gap: 6 }}>
+                    <div className="modelCardTokenBadge">{m.tokenBadge}</div>
+                    <span style={{
+                      background: active ? "rgba(139,92,246,0.15)" : "#F3F0FB",
+                      color: active ? "#7C3AED" : "#8B5CF6",
+                      border: `1.5px solid ${active ? "rgba(139,92,246,0.4)" : "rgba(139,92,246,0.2)"}`,
+                      borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 800,
+                      flexShrink: 0, whiteSpace: "nowrap",
+                      fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
+                    }}>
+                      {getModelCreditsDisplay(m.id, modelPricing)}
+                    </span>
+                  </div>
+
+                  {locked && (
+                    <div className="modelCardLockOverlay">
+                      <div className="modelCardLockIcon">🔒</div>
+                      <div className="modelCardLockLabel">Credits required</div>
+                      <div className="modelCardLockCta">Buy credits to unlock →</div>
+                    </div>
+                  )}
+                </button>
+              </div>
             );
           })}
         </div>
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Model used for garment reference, composite, multi-angle, and prints generation.
+          Flash &amp; ProMax included in your 30 free credits. Plus &amp; Pro require purchased credits.
         </div>
       </div>
 

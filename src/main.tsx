@@ -8,6 +8,8 @@ import AuthCallbackPage from "./components/AuthCallbackPage";
 import App from "./App";
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
+import SettingsPage from "./components/SettingsPage";
+import DocumentsTab from "./components/DocumentsTab";
 import { getSession, restoreSession } from "./lib/auth";
 import { getAdminSession } from "./lib/adminAuth"; // used in ProtectedAdmin
 import { CreditsProvider } from "./context/CreditsContext";
@@ -54,6 +56,26 @@ function ProtectedAdmin() {
   return <AdminDashboard />;
 }
 
+function ProtectedSettings() {
+  const session = getSession();
+  if (!session) return <Navigate to="/login" replace />;
+  return (
+    <CreditsProvider>
+      <SettingsPage />
+    </CreditsProvider>
+  );
+}
+
+function ProtectedDocs() {
+  const session = getSession();
+  if (!session) return <Navigate to="/login" replace />;
+  return (
+    <CreditsProvider>
+      <DocumentsTab />
+    </CreditsProvider>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter basename="/">
@@ -63,6 +85,8 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/login"         element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/app"           element={<ProtectedApp />} />
+        <Route path="/app/settings"       element={<ProtectedSettings />} />
+        <Route path="/app/documentation"  element={<ProtectedDocs />} />
         <Route path="/admin/login"   element={<AdminLogin />} />
         <Route path="/admin"         element={<ProtectedAdmin />} />
       </Routes>

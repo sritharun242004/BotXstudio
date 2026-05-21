@@ -14,12 +14,6 @@ const GALLERY = [
   { label: "Close-up Detail", bg: "#FEF3C7", src: "/landing page/detial.png" },
 ];
 
-const PERSONAS = [
-  { title: "D2C Fashion Brands", desc: "Generate a full catalog image set without a photography budget.", icon: Store },
-  { title: "Marketplace Sellers", desc: "Meet platform image requirements at volume, fast.", icon: ShoppingBag },
-  { title: "Boutiques & Designers", desc: "Present new designs professionally without a full production setup.", icon: Sparkles },
-  { title: "Ethnic Wear Brands", desc: "Specialized support for sarees, lehengas, and traditional styles.", icon: ShieldCheck },
-];
 
 const FAQS = [
   { q: "Do I need good photography skills?", a: "No. A phone photo of the garment on a hanger or flat on a table is enough." },
@@ -186,6 +180,17 @@ export function LandingPageTheme() {
 
         {/* Center content */}
         <div className="lp-hero-content" style={{ position: "relative", zIndex: 10, textAlign: "center", maxWidth: 660, padding: "0 28px", pointerEvents: "auto" }}>
+
+          {/* Brand lockup */}
+          <motion.div
+            initial={{ opacity: 0, y: -16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 24 }}
+          >
+            <div className="lp-nav-bz" style={{ width: 44, height: 44, fontSize: 14, borderRadius: 12, flexShrink: 0 }}>BZ</div>
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 26, letterSpacing: "-0.5px", color: "#1E293B" }}>Botzudio</span>
+          </motion.div>
 
           {/* Headline */}
           <motion.h1
@@ -436,19 +441,92 @@ export function LandingPageTheme() {
       </section>
 
       {/* ── Who It's For ─────────────────────────────────────── */}
-      <section style={{ background: "#8B5CF6", color: "#fff", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", padding: "80px 0", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", top: 40, left: 40, width: 32, height: 32, background: "#F472B6", borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", opacity: 0.5 }} />
-        <div style={{ position: "absolute", bottom: 60, right: 60, width: 44, height: 44, background: "#FBBF24", borderRadius: "12px 12px 12px 0", border: "2px solid rgba(255,255,255,0.3)", transform: "rotate(45deg)", opacity: 0.5 }} />
-        <div className="lp-wrap" style={{ position: "relative", zIndex: 1 }}>
-          <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", textAlign: "center", marginBottom: 48 }}>
-            Built for fashion businesses like yours
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }} className="lp-persona-g">
-            {PERSONAS.map((p, i) => (
-              <div key={i} style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(8px)", padding: "24px 20px", borderRadius: 16, border: "2px solid rgba(255,255,255,0.2)", transition: "background 0.2s" }} className="lp-persona-item">
-                <p.icon style={{ width: 32, height: 32, marginBottom: 16, color: "#FBBF24" }} />
-                <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 17, marginBottom: 8 }}>{p.title}</h3>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.65 }}>{p.desc}</p>
+      <section style={{ background: "#FFFDF5", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", padding: "80px 0" }}>
+        <div className="lp-wrap">
+          <div style={{ textAlign: "center", marginBottom: 52 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "1.5px", marginBottom: 12 }}>✦ Who it's for</p>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", color: "#1E293B", marginBottom: 14 }}>
+              Built for every kind of fashion business
+            </h2>
+            <p style={{ fontSize: 16, color: "#64748B", maxWidth: 480, margin: "0 auto" }}>
+              Whether you're selling on Myntra or running your own D2C brand — Botzudio fits your workflow.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridAutoRows: "1fr", gap: 24 }} className="lp-persona-g">
+            {[
+              {
+                icon: Store, bg: "#ECFDF5", border: "#34D399", shadow: "#34D399",
+                tag: "D2C & Catalog",
+                title: "D2C Fashion Brands",
+                stat: "Save ₹20,000+", statLabel: "per shoot",
+                desc: "Generate a full catalog image set without a photography budget. Upload flat lays, get studio-quality model photos.",
+              },
+              {
+                icon: ShoppingBag, bg: "#F5F3FF", border: "#8B5CF6", shadow: "#8B5CF6",
+                tag: "Myntra · Meesho · Flipkart",
+                title: "Marketplace Sellers",
+                stat: "1080×1440px", statLabel: "platform-ready",
+                desc: "Meet platform image requirements at volume, fast. All outputs are marketplace-ready — right size, right format.",
+              },
+              {
+                icon: Sparkles, bg: "#FFF0F9", border: "#F472B6", shadow: "#F472B6",
+                tag: "Small Studios",
+                title: "Boutiques & Designers",
+                stat: "Under 60s", statLabel: "per image",
+                desc: "Present new designs professionally without a full production setup. Launch new collections the same day you design them.",
+              },
+              {
+                icon: ShieldCheck, bg: "#FFFBEB", border: "#FBBF24", shadow: "#FBBF24",
+                tag: "Sarees · Lehengas · Kurtas",
+                title: "Ethnic Wear Brands",
+                stat: "Dedicated", statLabel: "ethnic workflow",
+                desc: "Specialized support for sarees, lehengas, and traditional styles — drape, dupatta, and all details preserved.",
+              },
+            ].map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  background: "#fff",
+                  border: "2px solid #1E293B",
+                  borderRadius: 20,
+                  padding: "28px 28px 24px",
+                  boxShadow: `5px 5px 0 ${p.shadow}`,
+                  display: "flex",
+                  gap: 20,
+                  alignItems: "flex-start",
+                  transition: "transform .18s, box-shadow .18s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.transform = "translate(-2px,-2px)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = `7px 7px 0 ${p.shadow}`;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.transform = "translate(0,0)";
+                  (e.currentTarget as HTMLElement).style.boxShadow = `5px 5px 0 ${p.shadow}`;
+                }}
+              >
+                {/* Icon block */}
+                <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                  <div style={{ background: p.bg, border: `2px solid ${p.border}`, borderRadius: 14, padding: "12px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <p.icon style={{ width: 28, height: 28, color: p.border }} strokeWidth={2} />
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 18, color: "#1E293B", lineHeight: 1 }}>{p.stat}</div>
+                    <div style={{ fontSize: 10, color: "#64748B", fontWeight: 600, whiteSpace: "nowrap" }}>{p.statLabel}</div>
+                  </div>
+                </div>
+
+                {/* Text block */}
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: p.border, textTransform: "uppercase", letterSpacing: "0.8px", background: p.bg, padding: "2px 8px", borderRadius: 4, display: "inline-block", marginBottom: 8 }}>
+                    {p.tag}
+                  </span>
+                  <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 19, color: "#1E293B", marginBottom: 8, letterSpacing: "-0.3px" }}>
+                    {p.title}
+                  </h3>
+                  <p style={{ fontSize: 14, color: "#64748B", lineHeight: 1.65 }}>{p.desc}</p>
+                </div>
               </div>
             ))}
           </div>
@@ -459,57 +537,144 @@ export function LandingPageTheme() {
       <section id="pricing" style={{ padding: "80px 0", textAlign: "center" }}>
         <div className="lp-wrap">
           <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", marginBottom: 16 }}>
-            Start free. Scale when you're ready.
+            Pay per image. No subscription.
           </h2>
-          <p style={{ fontSize: 18, color: "#64748B", marginBottom: 56, maxWidth: 520, margin: "0 auto 56px" }}>
-            Pricing is simple and usage-based. Start free, pay only when you grow.
+          <p style={{ fontSize: 17, color: "#64748B", maxWidth: 520, margin: "0 auto 0" }}>
+            Buy credits once, use them anytime. Credits never expire.<br />Sign up free — 30 credits, no card needed.
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, alignItems: "center" }} className="lp-pricing-g">
-            {/* Free */}
-            <div style={{ background: "#fff", border: "2px solid #1E293B", borderRadius: 20, padding: "32px 28px", boxShadow: "4px 4px 0 #1E293B", textAlign: "left" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>Starter</p>
-              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 8 }}>Free</h3>
-              <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", marginBottom: 24, paddingBottom: 24, borderBottom: "2px solid #E2E8F0" }}>
-                ₹0 <span style={{ fontSize: 16, fontWeight: 600, color: "#64748B" }}>/month</span>
+
+          {/* Model cost table */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, maxWidth: 720, margin: "32px auto 40px", background: "#fff", border: "2px solid #E2E8F0", borderRadius: 16, overflow: "hidden" }}>
+            {[
+              { name: "Flash",  note: "5 cr/img"    },
+              { name: "ProMax", note: "20 cr/img"   },
+              { name: "Plus",   note: "15 cr/set"   },
+              { name: "Pro",    note: "6–25 cr/img" },
+            ].map((m, i) => (
+              <div key={m.name} style={{ padding: "14px 12px", borderRight: i < 3 ? "1.5px solid #E2E8F0" : "none", textAlign: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginBottom: 6 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#8B5CF6", flexShrink: 0 }} />
+                  <span style={{ fontWeight: 700, color: "#1E293B", fontSize: 13 }}>{m.name}</span>
+                </div>
+                <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 15, color: "#7C3AED" }}>{m.note}</div>
               </div>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, fontSize: 14 }}>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#34D399", flexShrink: 0 }} /> 10 images/month</li>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#34D399", flexShrink: 0 }} /> All features unlocked</li>
-              </ul>
-              <SecondaryButton style={{ width: "100%" }} onClick={() => window.location.href = "/login"}>Get Started</SecondaryButton>
+            ))}
+          </div>
+
+          {/* Credit packs grid — 3 cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24, alignItems: "stretch" }} className="lp-pricing-g">
+
+            {/* Basic */}
+            <div style={{ background: "#fff", border: "2px solid #1E293B", borderRadius: 20, padding: "32px 26px", boxShadow: "4px 4px 0 #1E293B", textAlign: "left", display: "flex", flexDirection: "column" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Pack 1</p>
+              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 6 }}>Basic</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹299</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: "#94A3B8", textDecoration: "line-through", lineHeight: 1 }}>₹499</span>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, color: "#059669", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 4, padding: "1px 6px", lineHeight: 1.4 }}>Save 40%</span>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#F1F5F9", borderRadius: 8, padding: "5px 14px" }}>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 22, lineHeight: 1, color: "#1E293B" }}>300</span>
+                  <span style={{ fontSize: 10, color: "#64748B", fontWeight: 600 }}>credits</span>
+                </div>
+                <span style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>one-time<br/>never expires</span>
+              </div>
+              <div style={{ borderTop: "1.5px solid #E2E8F0", paddingTop: 16, marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>What you can generate</p>
+                {[
+                  { model: "Flash",   count: "~60 images",   cost: "5 cr each"    },
+                  { model: "ProMax",  count: "~15 images",   cost: "20 cr each"   },
+                  { model: "Plus",    count: "~20 sets",     cost: "15 cr/set"    },
+                  { model: "Pro",     count: "12–50 images", cost: "6–25 cr each" },
+                ].map(r => (
+                  <div key={r.model} style={{ display: "flex", alignItems: "center", fontSize: 13, marginBottom: 9 }}>
+                    <span style={{ fontWeight: 700, color: "#1E293B", minWidth: 60 }}>{r.model}</span>
+                    <span style={{ color: "#8B5CF6", fontWeight: 700, flex: 1 }}>{r.count}</span>
+                    <span style={{ fontSize: 11, color: "#94A3B8" }}>{r.cost}</span>
+                  </div>
+                ))}
+              </div>
+              <SecondaryButton style={{ width: "100%", marginTop: "auto" }} onClick={() => window.location.href = "/login"}>Buy 300 Credits →</SecondaryButton>
             </div>
 
             {/* Growth — highlighted */}
-            <div style={{ background: "#F5F3FF", border: "2px solid #8B5CF6", borderRadius: 20, padding: "44px 28px 32px", boxShadow: "8px 8px 0 #8B5CF6", textAlign: "left", position: "relative" }}>
-              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#FBBF24", color: "#1E293B", fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 12, padding: "4px 18px", borderRadius: 9999, border: "2px solid #1E293B", boxShadow: "2px 2px 0 #1E293B", whiteSpace: "nowrap" }}>
+            <div style={{ background: "#F5F3FF", border: "2px solid #8B5CF6", borderRadius: 20, padding: "46px 26px 32px", boxShadow: "8px 8px 0 #8B5CF6", textAlign: "left", position: "relative", display: "flex", flexDirection: "column" }}>
+              <div style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", background: "#FBBF24", color: "#1E293B", fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, padding: "4px 16px", borderRadius: 9999, border: "2px solid #1E293B", boxShadow: "2px 2px 0 #1E293B", whiteSpace: "nowrap" }}>
                 MOST POPULAR
               </div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>Growth</p>
-              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 8 }}>Active Sellers</h3>
-              <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", marginBottom: 24, paddingBottom: 24, borderBottom: "2px solid #DDD6FE" }}>
-                ₹2,999 <span style={{ fontSize: 16, fontWeight: 600, color: "#64748B" }}>/month</span>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Most Popular</p>
+              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 6 }}>Growth</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹999</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: "#C4B5FD", textDecoration: "line-through", lineHeight: 1 }}>₹1,499</span>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, color: "#7C3AED", background: "#EDE9FE", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", lineHeight: 1.4 }}>Save 33%</span>
+                </div>
               </div>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, fontSize: 14 }}>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#8B5CF6", flexShrink: 0 }} /> 200 images/month</li>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#8B5CF6", flexShrink: 0 }} /> Priority generation</li>
-              </ul>
-              <CandyButton style={{ width: "100%" }} onClick={() => window.location.href = "/login"}>Start Generating</CandyButton>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#EDE9FE", borderRadius: 8, padding: "5px 14px" }}>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 22, lineHeight: 1, color: "#7C3AED" }}>1000</span>
+                  <span style={{ fontSize: 10, color: "#7C3AED", fontWeight: 600 }}>credits</span>
+                </div>
+                <span style={{ fontSize: 12, color: "#64748B", lineHeight: 1.5 }}>one-time<br/>never expires</span>
+              </div>
+              <div style={{ borderTop: "1.5px solid #DDD6FE", paddingTop: 16, marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#7C3AED", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>What you can generate</p>
+                {[
+                  { model: "Flash",  count: "~200 images",  cost: "5 cr each"    },
+                  { model: "ProMax", count: "~50 images",   cost: "20 cr each"   },
+                  { model: "Plus",   count: "~66 sets",     cost: "15 cr/set"    },
+                  { model: "Pro",    count: "40–166 images",cost: "6–25 cr each" },
+                ].map(r => (
+                  <div key={r.model} style={{ display: "flex", alignItems: "center", fontSize: 13, marginBottom: 9 }}>
+                    <span style={{ fontWeight: 700, color: "#1E293B", minWidth: 60 }}>{r.model}</span>
+                    <span style={{ color: "#7C3AED", fontWeight: 700, flex: 1 }}>{r.count}</span>
+                    <span style={{ fontSize: 11, color: "#7C3AED", opacity: 0.7 }}>{r.cost}</span>
+                  </div>
+                ))}
+              </div>
+              <CandyButton style={{ width: "100%", marginTop: "auto" }} onClick={() => window.location.href = "/login"}>Buy 1000 Credits →</CandyButton>
             </div>
 
-            {/* Scale */}
-            <div style={{ background: "#fff", border: "2px solid #1E293B", borderRadius: 20, padding: "32px 28px", boxShadow: "4px 4px 0 #1E293B", textAlign: "left" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 8 }}>Enterprise</p>
-              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 8 }}>Scale</h3>
-              <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", marginBottom: 24, paddingBottom: 24, borderBottom: "2px solid #E2E8F0" }}>
-                Custom
+            {/* Enterprise — amber/warm theme */}
+            <div style={{ background: "linear-gradient(145deg, #FFFBEB 0%, #FEF3C7 100%)", border: "2px solid #D97706", borderRadius: 20, padding: "32px 26px", boxShadow: "4px 4px 0 #D97706", textAlign: "left", display: "flex", flexDirection: "column" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#B45309", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Enterprise</p>
+              <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 4, color: "#1E293B" }}>Custom Credits</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 36, letterSpacing: "-1px", lineHeight: 1, color: "#1E293B" }}>Volume</span>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 36, letterSpacing: "-1px", lineHeight: 1, color: "#D97706" }}>pricing</span>
               </div>
-              <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: 12, marginBottom: 28, fontSize: 14 }}>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#34D399", flexShrink: 0 }} /> Unlimited images</li>
-                <li style={{ display: "flex", gap: 10, alignItems: "center" }}><CheckCircle style={{ width: 18, height: 18, color: "#34D399", flexShrink: 0 }} /> Dedicated support</li>
-              </ul>
-              <SecondaryButton style={{ width: "100%" }}>Contact Sales</SecondaryButton>
+              <p style={{ fontSize: 13, color: "#78350F", marginBottom: 20, fontWeight: 500 }}>Buy in bulk · 1 credit = ₹1 or less</p>
+              <div style={{ borderTop: "1.5px solid #FDE68A", paddingTop: 16, marginBottom: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>What's included</p>
+                {[
+                  "All 4 models unlocked",
+                  "Bulk credit discount",
+                  "Dedicated account manager",
+                  "Priority generation queue",
+                ].map(item => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 9, color: "#1E293B" }}>
+                    <span style={{ color: "#D97706", fontWeight: 800, fontSize: 15, lineHeight: 1 }}>✦</span>
+                    <span style={{ fontWeight: 600 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <a
+                href="mailto:bot@thebotcompany.in"
+                style={{ display: "block", width: "100%", marginTop: "auto", background: "#D97706", color: "#fff", fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 15, textAlign: "center", padding: "14px 0", borderRadius: 12, border: "2px solid #92400E", boxShadow: "3px 3px 0 #92400E", textDecoration: "none", cursor: "pointer", boxSizing: "border-box" }}
+              >
+                Contact Sales →
+              </a>
             </div>
+
           </div>
+
+          <p style={{ marginTop: 32, fontSize: 14, color: "#94A3B8", textAlign: "center" }}>
+            Credits are shared across all features — image generation, prints, and try-on. No subscription. No monthly renewal. Buy once, use anytime.
+          </p>
         </div>
       </section>
 

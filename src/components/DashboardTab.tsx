@@ -24,6 +24,21 @@ type UsageData = {
   };
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MODEL_GROUPS: { key: string; label: string; color: string; match: (m: string) => boolean }[] = [
+  { key: "flash",   label: "Flash",    color: "#8B5CF6", match: m => m.includes("flash") },
+  { key: "pro",     label: "Pro",      color: "#3B82F6", match: m => m.includes("pro") && !m.includes("kontext") },
+  { key: "flux",    label: "Flux Pro", color: "#F59E0B", match: m => m.includes("flux") || m.includes("kontext") },
+  { key: "gpt",     label: "GPT",      color: "#10B981", match: m => m.includes("gpt") || m.includes("openai") },
+  { key: "other",   label: "Other",    color: "#94A3B8", match: () => true },
+];
+
+function classifyModel(model: string): typeof MODEL_GROUPS[0] {
+  const m = (model || "").toLowerCase();
+  return MODEL_GROUPS.find(g => g.match(m)) ?? MODEL_GROUPS[MODEL_GROUPS.length - 1]!;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmtBytes(b: number) {
@@ -43,9 +58,11 @@ function fmtNum(n: number) {
   if (n >= 1_000)     return (n / 1_000).toFixed(1) + "K";
   return n.toString();
 }
-function shortModel(m: string) { return m.replace(/^models\//, "").replace(/-latest$/, "").replace(/-preview$/, ""); }
+function shortModel(m: string) {
+  return m.replace(/^models\//, "").replace(/-latest$/, "").replace(/-preview$/, "");
+}
 
-// ─── Animated counter hook ────────────────────────────────────────────────────
+// ─── Animated counter ─────────────────────────────────────────────────────────
 
 function useCountUp(target: number, active: boolean, duration = 1200) {
   const [val, setVal] = useState(0);
@@ -63,6 +80,204 @@ function useCountUp(target: number, active: boolean, duration = 1200) {
     return () => cancelAnimationFrame(raf);
   }, [target, active]);
   return val;
+}
+
+// ─── SVG Bar Chart ────────────────────────────────────────────────────────────
+
+function BarChart({ days, animate }: {
+  days: { short: string; full: string; count: number }[];
+  animate: boolean;
+}) {
+  const W = 420, H = 180, padL = 32, padR = 8, padT = 20, padB = 28;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxCount = Math.max(1, ...days.map(d => d.count));
+  const barW = Math.floor(chartW / days.length * 0.55);
+  const gap  = chartW / days.length;
+  const gridLines = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "100%", overflow: "visible" }}>
+      <defs>
+        <linearGradient id="barGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#C4B5FD" />
+          <stop offset="100%" stopColor="#8B5CF6" />
+        </linearGradient>
+        <linearGradient id="barGradHov" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#A78BFA" />
+          <stop offset="100%" stopColor="#7C3AED" />
+        </linearGradient>
+      </defs>
+
+      {/* Grid lines + Y labels */}
+      {gridLines.map(frac => {
+        const y = padT + chartH * (1 - frac);
+        const val = Math.round(maxCount * frac);
+        return (
+          <g key={frac}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y}
+              stroke={frac === 0 ? "#CBD5E1" : "#E2E8F0"}
+              strokeWidth={frac === 0 ? 1.5 : 1}
+              strokeDasharray={frac === 0 ? "none" : "3 3"}
+            />
+            {frac > 0 && (
+              <text x={padL - 5} y={y + 4} textAnchor="end"
+                fontSize={9} fill="#94A3B8" fontFamily="inherit">
+                {val}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Bars */}
+      {days.map((d, i) => {
+        const cx    = padL + gap * i + gap / 2;
+        const bx    = cx - barW / 2;
+        const pct   = maxCount > 0 ? d.count / maxCount : 0;
+        const bh    = animate ? Math.max(pct * chartH, d.count > 0 ? 4 : 0) : 0;
+        const by    = padT + chartH - bh;
+        const rFull = 5;
+
+        return (
+          <g key={i}>
+            {/* Bar */}
+            <rect
+              x={bx} y={by} width={barW} height={bh}
+              rx={bh >= rFull * 2 ? rFull : bh / 2}
+              fill="url(#barGrad)"
+              style={{
+                transition: `y 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms, height 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms`,
+              }}
+            >
+              <title>{d.full}: {d.count} images</title>
+            </rect>
+
+            {/* Count label above bar */}
+            {d.count > 0 && animate && (
+              <text
+                x={cx} y={by - 4}
+                textAnchor="middle" fontSize={10} fontWeight={700}
+                fill="#8B5CF6" fontFamily="inherit"
+                style={{ transition: `opacity 0.4s ease ${i * 60 + 400}ms` }}
+              >
+                {d.count}
+              </text>
+            )}
+
+            {/* Day label */}
+            <text x={cx} y={H - 4} textAnchor="middle"
+              fontSize={10} fontWeight={700} fill="#94A3B8"
+              fontFamily="inherit" style={{ textTransform: "uppercase" }}>
+              {d.short}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── SVG Donut Chart ──────────────────────────────────────────────────────────
+
+function DonutChart({ slices, animate }: {
+  slices: { label: string; value: number; color: string }[];
+  animate: boolean;
+}) {
+  const cx = 80, cy = 80, r = 58, rInner = 36;
+  const total = slices.reduce((s, sl) => s + sl.value, 0);
+  if (total === 0) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, color: "#94A3B8", fontSize: 12 }}>
+        No model data yet
+      </div>
+    );
+  }
+
+  // Sort descending so largest slice starts at top-ish
+  const sorted = [...slices].sort((a, b) => b.value - a.value);
+  // Start from top (-90°)
+  const startAngle = -90;
+
+  function polarToXY(deg: number, radius: number) {
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+
+  function arcPath(startDeg: number, endDeg: number): string {
+    const s = polarToXY(startDeg, r);
+    const e = polarToXY(endDeg, r);
+    const si = polarToXY(startDeg, rInner);
+    const ei = polarToXY(endDeg, rInner);
+    const large = endDeg - startDeg > 180 ? 1 : 0;
+    return [
+      `M ${s.x} ${s.y}`,
+      `A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`,
+      `L ${ei.x} ${ei.y}`,
+      `A ${rInner} ${rInner} 0 ${large} 0 ${si.x} ${si.y}`,
+      "Z",
+    ].join(" ");
+  }
+
+  let angle = startAngle;
+  const arcs = sorted.map(sl => {
+    const sweep = (sl.value / total) * 360;
+    const start = angle;
+    const end   = angle + sweep;
+    angle = end;
+    return { ...sl, start, end, sweep };
+  });
+
+  // Center label: largest slice
+  const biggest = sorted[0];
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <svg viewBox="0 0 160 160" style={{ width: 160, height: 160, flexShrink: 0 }}>
+        {arcs.map((arc, i) => (
+          <path
+            key={arc.label}
+            d={arcPath(arc.start, arc.end)}
+            fill={arc.color}
+            stroke="#fff"
+            strokeWidth={2}
+            style={{
+              opacity: animate ? 1 : 0,
+              transition: `opacity 0.5s ease ${i * 80}ms`,
+            }}
+          >
+            <title>{arc.label}: {arc.value} ({((arc.value / total) * 100).toFixed(1)}%)</title>
+          </path>
+        ))}
+
+        {/* Center text */}
+        {biggest && (
+          <>
+            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={20} fontWeight={900} fill="#1E293B" fontFamily="inherit">
+              {biggest.value}
+            </text>
+            <text x={cx} y={cy + 10} textAnchor="middle" fontSize={9} fontWeight={700} fill="#8B5CF6" fontFamily="inherit" style={{ textTransform: "uppercase" }}>
+              {biggest.label}
+            </text>
+          </>
+        )}
+      </svg>
+
+      {/* Legend */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
+        {arcs.map(arc => (
+          <div key={arc.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: arc.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#1E293B", flex: 1 }}>{arc.label}</span>
+            <span style={{ fontSize: 12, color: "#64748B" }}>{arc.value}</span>
+            <span style={{ fontSize: 11, color: "#94A3B8", minWidth: 36, textAlign: "right" }}>
+              {((arc.value / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -101,7 +316,7 @@ function ApiCard({ Icon, label, value, active }: {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function DashboardTab() {
-  const [data, setData] = useState<UsageData | null>(null);
+  const [data, setData]       = useState<UsageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [animate, setAnimate] = useState(false);
 
@@ -121,33 +336,127 @@ export default function DashboardTab() {
 
   const activity = data?.apiActivity ?? { totalApiCalls: 0, totalTokens: 0, avgLatencyMs: 0, logs: [] };
 
-  // Build last-7-days chart data
+  // Last-7-days bar data
   const days: { short: string; full: string; count: number }[] = [];
-  let maxCount = 1;
   const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const d   = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
     const key = d.toISOString().slice(0, 10);
-    const count = data?.dailyImageCounts[key] ?? 0;
-    if (count > maxCount) maxCount = count;
     days.push({
       short: d.toLocaleDateString("en-US", { weekday: "short" }),
       full:  d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
-      count,
+      count: data?.dailyImageCounts[key] ?? 0,
     });
   }
-
   const totalWeek = days.reduce((s, d) => s + d.count, 0);
+
+  // Model-usage pie data — built from all API logs
+  const modelCounts: Record<string, number> = {};
+  for (const log of activity.logs) {
+    const group = classifyModel(log.model);
+    modelCounts[group.key] = (modelCounts[group.key] ?? 0) + 1;
+  }
+  const pieSlices = MODEL_GROUPS
+    .map(g => ({ label: g.label, value: modelCounts[g.key] ?? 0, color: g.color }))
+    .filter(s => s.value > 0);
 
   if (loading) {
     return (
       <div className="dbRoot">
         <div className="dbSkeleton">
-          <div className="dbSkeletonTitle" />
-          <div className="dbSkeletonGrid">
-            {[1,2,3,4].map(i => <div key={i} className="dbSkeletonCard" />)}
+
+          {/* Header */}
+          <div className="dbSkHeader">
+            <div className="dbSk" style={{ width: 160, height: 30 }} />
+            <div className="dbSkUserRow">
+              <div className="dbSk" style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0 }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div className="dbSk" style={{ width: 130, height: 14 }} />
+                <div className="dbSk" style={{ width: 200, height: 12 }} />
+              </div>
+            </div>
           </div>
-          <div className="dbSkeletonChart" />
+
+          {/* Stat cards */}
+          <div className="dbSkStatGrid">
+            {[1,2,3,4].map(i => (
+              <div key={i} className="dbSkStatCard">
+                <div className="dbSk" style={{ width: 22, height: 22, borderRadius: 4 }} />
+                <div className="dbSk" style={{ width: "55%", height: 26 }} />
+                <div className="dbSk" style={{ width: "80%", height: 10 }} />
+              </div>
+            ))}
+          </div>
+
+          {/* Charts row */}
+          <div className="dbSkChartsRow">
+            <div className="dbSkSection">
+              <div className="dbSkSectionHead">
+                <div className="dbSk" style={{ width: 200, height: 16 }} />
+                <div className="dbSk" style={{ width: 160, height: 12 }} />
+              </div>
+              <div className="dbSkBarChart">
+                {[45, 70, 50, 85, 60, 95, 75].map((h, i) => (
+                  <div key={i} className="dbSkBar" style={{ height: `${h}%` }} />
+                ))}
+              </div>
+            </div>
+            <div className="dbSkSection">
+              <div className="dbSkSectionHead">
+                <div className="dbSk" style={{ width: 120, height: 16 }} />
+                <div className="dbSk" style={{ width: 160, height: 12 }} />
+              </div>
+              <div className="dbSkDonutRow">
+                <div className="dbSk" style={{ width: 140, height: 140, borderRadius: "50%", flexShrink: 0 }} />
+                <div className="dbSkDonutLegend">
+                  {[100, 80, 65].map((_, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div className="dbSk" style={{ width: 10, height: 10, borderRadius: 2, flexShrink: 0 }} />
+                      <div className="dbSk" style={{ flex: 1, height: 13 }} />
+                      <div className="dbSk" style={{ width: 24, height: 13 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom row */}
+          <div className="dbSkBottomRow">
+            <div className="dbSkSection">
+              <div className="dbSk" style={{ width: 100, height: 16, marginBottom: 16 }} />
+              <div className="dbSkApiList">
+                {[1,2,3].map(i => (
+                  <div key={i} className="dbSkApiCard">
+                    <div className="dbSk" style={{ width: 36, height: 36, borderRadius: 6, flexShrink: 0 }} />
+                    <div className="dbSkApiCardTexts">
+                      <div className="dbSk" style={{ height: 18, width: "45%" }} />
+                      <div className="dbSk" style={{ height: 11, width: "65%" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="dbSkSection">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div className="dbSk" style={{ width: 150, height: 16 }} />
+                <div className="dbSk" style={{ width: 28, height: 22, borderRadius: 10 }} />
+              </div>
+              <div className="dbSkTableRows">
+                {[1,2,3,4,5,6].map(i => (
+                  <div key={i} className="dbSkTableRow">
+                    <div className="dbSk" style={{ width: 56, height: 22, borderRadius: 4 }} />
+                    <div className="dbSk" style={{ flex: 1, height: 14 }} />
+                    <div className="dbSk" style={{ width: 58, height: 14 }} />
+                    <div className="dbSk" style={{ width: 58, height: 14 }} />
+                    <div className="dbSk" style={{ width: 50, height: 22, borderRadius: 4 }} />
+                    <div className="dbSk" style={{ width: 84, height: 12 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     );
@@ -183,48 +492,42 @@ export default function DashboardTab() {
         <StatCard Icon={HardDrive}  label="Storage Used"     value={fmtBytes(data?.storageBytes ?? 0)}  color="#F59E0B" active={animate} />
       </div>
 
-      {/* ── Activity chart ──────────────────────────────────── */}
-      <div className="dbSection">
-        <div className="dbSectionHead">
-          <div>
-            <div className="dbSectionTitle">Image Generation Activity</div>
-            <div className="dbSectionSub">Last 7 days · {totalWeek} total images</div>
+      {/* ── Charts row ──────────────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 14, marginBottom: 14 }}>
+
+        {/* Bar Chart */}
+        <div className="dbSection" style={{ marginBottom: 0 }}>
+          <div className="dbSectionHead">
+            <div>
+              <div className="dbSectionTitle">Image Generation Activity</div>
+              <div className="dbSectionSub">Last 7 days · {totalWeek} total images</div>
+            </div>
+            <div className="dbChartLegend">
+              <span className="dbChartLegendDot" />
+              <span className="dbChartLegendText">Images generated</span>
+            </div>
           </div>
-          <div className="dbChartLegend">
-            <span className="dbChartLegendDot" />
-            <span className="dbChartLegendText">Images generated</span>
+          <div style={{ height: 180, width: "100%" }}>
+            <BarChart days={days} animate={animate} />
           </div>
         </div>
 
-        <div className="dbChart">
-          {days.map((d, i) => {
-            const pct = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
-            const fillH = animate ? `${Math.max(pct, d.count > 0 ? 6 : 0)}%` : "0%";
-            return (
-              <div key={i} className="dbBarWrap" title={`${d.full}: ${d.count} images`}>
-                <div className="dbBarCount" style={{ opacity: d.count > 0 ? 1 : 0 }}>
-                  {d.count}
-                </div>
-                <div className="dbBarTrack">
-                  <div
-                    className="dbBarFill"
-                    style={{
-                      height: fillH,
-                      transitionDelay: `${i * 65}ms`,
-                    }}
-                  />
-                </div>
-                <div className="dbBarDay">{d.short}</div>
-              </div>
-            );
-          })}
+        {/* Pie Chart */}
+        <div className="dbSection" style={{ marginBottom: 0 }}>
+          <div className="dbSectionHead">
+            <div>
+              <div className="dbSectionTitle">Models Used</div>
+              <div className="dbSectionSub">Based on API call history</div>
+            </div>
+          </div>
+          <DonutChart slices={pieSlices} animate={animate} />
         </div>
+
       </div>
 
       {/* ── API stats + Recent calls ─────────────────────────── */}
       <div className="dbBottom">
 
-        {/* API Activity */}
         <div className="dbSection dbSectionNarrow">
           <div className="dbSectionHead">
             <div className="dbSectionTitle">API Activity</div>
@@ -236,7 +539,6 @@ export default function DashboardTab() {
           </div>
         </div>
 
-        {/* Recent API Calls */}
         <div className="dbSection dbSectionWide">
           <div className="dbSectionHead">
             <div className="dbSectionTitle">Recent API Calls</div>
@@ -265,6 +567,7 @@ export default function DashboardTab() {
             </div>
           )}
         </div>
+
       </div>
 
     </div>

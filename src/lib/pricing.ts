@@ -1,8 +1,10 @@
 // ── Client-side credit pricing reference ─────────────────────────────────────
 // Mirrors server/src/services/pricing.service.ts — keep in sync.
 
-export const FREE_IMAGE_QUOTA = 6;
+export const FREE_IMAGE_QUOTA = 30;
 export const FREE_ELIGIBLE_MODELS = ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"] as const;
+// Models that require purchased credits (not available on free quota)
+export const PAID_ONLY_MODELS = ["hybrid-editorial", "gpt-image-2"] as const;
 
 // Actual API costs (shown only in admin panel, hidden from end-users)
 export const API_COSTS_INR: Record<string, number> = {

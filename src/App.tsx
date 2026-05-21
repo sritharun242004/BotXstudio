@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useRef, useCallback, type ChangeEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { getSession, logout, type Session } from "./lib/auth";
 import { ADMIN_EMAIL } from "./lib/adminAuth";
 import { useCredits } from "./context/CreditsContext";
 import DashboardTab from "./components/DashboardTab";
-import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, Coins, LayoutDashboard, BookOpen, Shirt } from "lucide-react";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt } from "lucide-react";
 
-const BASE = import.meta.env.BASE_URL;
 import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
 import FieldLabel from "./components/FieldLabel";
 import ImageModal from "./components/ImageModal";
@@ -18,9 +18,8 @@ import Toast, { type ToastItem } from "./components/Toast";
 import SavedImagesPane from "./components/SavedImagesPane";
 import AssetsTab from "./components/AssetsTab";
 import UsageTab from "./components/UsageTab";
-import SettingsPage from "./components/SettingsPage";
-import DocumentsTab from "./components/DocumentsTab";
 import TryOnTab from "./components/TryOnTab";
+import GuidedTour, { startTour } from "./components/GuidedTour";
 
 import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
 import {
@@ -148,7 +147,7 @@ type StoryboardRuntime = {
   promptsUsed: PromptsUsed;
 };
 
-type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "docs" | "tryon";
+type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "tryon";
 type SavedImageView = SavedImageRecord & { url: string };
 
 // ─── Pure helpers (outside component) ────────────────────────────────────────
@@ -568,7 +567,8 @@ function storyboardSubtitle(sb: StoryboardRecord): string {
 
 export default function App() {
   // ── Credits ────────────────────────────────────────────────────────────────
-  const { balance, costPerImageInr, freeImagesRemaining, refreshBalance } = useCredits();
+  const navigate = useNavigate();
+  const { freeImagesRemaining, refreshBalance } = useCredits();
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
   // ── Session ────────────────────────────────────────────────────────────────
@@ -594,13 +594,20 @@ export default function App() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [generateView, setGenerateView] = useState<"library" | "editor">("library");
 
-  const [showSettings, setShowSettings] = useState(false);
-
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "docs" || stored === "tryon"
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon"
       ? stored : "prints";
   });
+
+  // Auto-start prints tour exactly once for new users
+  useEffect(() => {
+    if (activeTab === "prints" && !localStorage.getItem("bz_tour_prints_v1")) {
+      localStorage.setItem("bz_tour_prints_v1", "1");
+      const t = setTimeout(() => startTour("prints"), 900);
+      return () => clearTimeout(t);
+    }
+  }, [activeTab]);
 
   const [storyboards, setStoryboards] = useState<StoryboardRecord[]>(() => {
     const loaded = loadStoryboardsFromLocalStorage();
@@ -682,6 +689,7 @@ export default function App() {
   const modelAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-model"), [savedImages]);
   const poseAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-pose"), [savedImages]);
   const garmentAssetImages = useMemo(() => savedImages.filter((img) => img.kind === "asset-garment"), [savedImages]);
+  const savedMainImages = useMemo(() => savedImages.filter((img) => img.kind === "main" || img.kind === "back" || img.kind === "detail"), [savedImages]);
 
   const activeTabLabel =
     activeTab === "prints"     ? "Add Prints"
@@ -689,7 +697,6 @@ export default function App() {
     : activeTab === "saved"    ? "Saved images"
     : activeTab === "usage"    ? "Credits"
     : activeTab === "dashboard" ? "Dashboard"
-    : activeTab === "docs"      ? "Documentation"
     : activeTab === "tryon"     ? "Try On"
     : "Generate Images";
 
@@ -1564,14 +1571,23 @@ export default function App() {
     const isFullCloth = activeConfig.printGarmentCategory === "Saree" || activeConfig.printGarmentCategory === "Dhoti";
 
     if (!rt.prints.baseGarmentFrontDataUrl) { updatePrints(sbId, { error: "Please upload a front view white garment photo." }); return; }
-    if (!isFullCloth && !rt.prints.baseGarmentBackDataUrl) { updatePrints(sbId, { error: "Please upload a back view white garment photo." }); return; }
 
     const printColorHex = normalizeHexColor(activeConfig.printColorHex || "") || null;
-    const hasDesignUploaded = Boolean(rt.prints.printDesignFrontDataUrl || rt.prints.printDesignBackDataUrl);
-    const isDesignMode = hasDesignUploaded;
+    const hasFrontDesign = Boolean(rt.prints.printDesignFrontDataUrl);
+    const hasBackDesign  = Boolean(rt.prints.printDesignBackDataUrl);
+    const isDesignMode   = hasFrontDesign || hasBackDesign;
+    const isColorMode    = !isDesignMode && Boolean(printColorHex);
 
-    if (!hasDesignUploaded && !printColorHex) {
+    if (!isDesignMode && !printColorHex) {
       updatePrints(sbId, { error: "Please upload a front design or select a garment color." }); return;
+    }
+    // Color mode requires back garment template too (both views get colored)
+    if (!isFullCloth && isColorMode && !rt.prints.baseGarmentBackDataUrl) {
+      updatePrints(sbId, { error: "Please upload a back view white garment photo." }); return;
+    }
+    // Design mode: back garment template only needed if a back design was uploaded
+    if (!isFullCloth && isDesignMode && hasBackDesign && !rt.prints.baseGarmentBackDataUrl) {
+      updatePrints(sbId, { error: "Please upload a back view white garment photo for the back design." }); return;
     }
 
     updatePrints(sbId, { generating: true });
@@ -1579,7 +1595,7 @@ export default function App() {
     startPrintTimer();
 
     try {
-      const colorSwatch = !hasDesignUploaded && printColorHex ? createColorSwatchDataUrl(printColorHex) : null;
+      const colorSwatch = isColorMode ? createColorSwatchDataUrl(printColorHex!) : null;
       const basePromptOpts = {
         additionalPrompt: activeConfig.printAdditionalPrompt || "",
         garmentType: activeConfig.printGarmentCategory || "garment",
@@ -1594,15 +1610,17 @@ export default function App() {
       const promises: Promise<any>[] = [];
       const keys: string[] = [];
 
-      // If only front design uploaded, apply it to back view too
-      const frontDesign = colorSwatch ?? rt.prints.printDesignFrontDataUrl;
-      const backDesign  = colorSwatch ?? rt.prints.printDesignBackDataUrl ?? rt.prints.printDesignFrontDataUrl;
+      // Design mode: each view only gets its own explicitly uploaded design — no cross-view fallback
+      // Color mode: color swatch goes to both views
+      const frontDesign = colorSwatch ?? rt.prints.printDesignFrontDataUrl ?? null;
+      const backDesign  = colorSwatch ?? rt.prints.printDesignBackDataUrl  ?? null;
 
       const printModel = "gemini-2.5-flash-image";
       if (rt.prints.baseGarmentFrontDataUrl && frontDesign) {
         promises.push(generateImage({ model: printModel, promptText: promptFront, images: [dataUrlToInlineImage(frontDesign), dataUrlToInlineImage(rt.prints.baseGarmentFrontDataUrl)], timeoutMs: 180000 }));
         keys.push("front");
       }
+      // Back is only generated when an explicit back design (or color swatch) exists
       if (!isFullCloth && rt.prints.baseGarmentBackDataUrl && backDesign) {
         promises.push(generateImage({ model: printModel, promptText: promptBack, images: [dataUrlToInlineImage(backDesign), dataUrlToInlineImage(rt.prints.baseGarmentBackDataUrl)], timeoutMs: 180000 }));
         keys.push("back");
@@ -2236,6 +2254,7 @@ export default function App() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="appRoot">
+      <GuidedTour />
       <Toast toasts={toasts} onRemove={removeToast} />
       <div
         className={`saveToast${saveToast.visible ? " saveToastVisible" : ""}`}
@@ -2248,11 +2267,14 @@ export default function App() {
         <aside className="sidebar">
           {/* Brand */}
           <div className="sidebarBrand">
-            <div className="sidebarLogo"><img src={`${BASE}logo.png`} alt="Botzudio" /></div>
-            <div>
-              <div className="brandEyebrow">The Bot Company</div>
-              <div className="brandTitle">Botzudio</div>
-            </div>
+            <div style={{
+              width: 34, height: 34, borderRadius: 8,
+              background: "#fff", flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontFamily: "'Outfit', sans-serif", fontWeight: 900,
+              fontSize: 13, color: "var(--accent)",
+            }}>BZ</div>
+            <div className="brandTitle">Botzudio</div>
           </div>
 
           {/* Nav */}
@@ -2260,12 +2282,10 @@ export default function App() {
             {([
               { tab: "prints",     label: "Add Prints",      Icon: Palette         },
               { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
+              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
               { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
-              { tab: "usage",      label: "Credits",          Icon: BarChart2       },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
-              { tab: "docs",       label: "Documents",        Icon: BookOpen        },
-              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
             ] as const).map(({ tab, label, Icon }) => (
               <button
                 key={tab}
@@ -2278,6 +2298,22 @@ export default function App() {
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => navigate("/app/settings", { state: { section: "credits" } })}
+            >
+              <BarChart2 size={16} className="navButtonIcon" />
+              Credits
+            </button>
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => navigate("/app/documentation")}
+            >
+              <BookOpen size={16} className="navButtonIcon" />
+              Documents
+            </button>
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
               <Box size={16} className="navButtonIcon" />
               Multi-Angle
@@ -2290,10 +2326,10 @@ export default function App() {
             <div className="sidebarUser" ref={userMenuRef}>
               {userMenuOpen && (
                 <div className="sidebarUserMenu">
-                  <button type="button" className="sidebarMenuOption" onClick={() => { setShowSettings(true); setUserMenuOpen(false); }}>
+                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); }}>
                     <Settings size={14} /> Settings
                   </button>
-                  <button type="button" className="sidebarMenuOption">
+                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setUserMenuOpen(false); }}>
                     <LifeBuoy size={14} /> Help &amp; Support
                   </button>
                   {session.email === ADMIN_EMAIL && (
@@ -2314,18 +2350,6 @@ export default function App() {
                   </button>
                 </div>
               )}
-              <div
-                className="sidebarCreditBadge"
-                title={`${freeImagesRemaining} free images remaining`}
-                onClick={() => balance < costPerImageInr && freeImagesRemaining === 0 && setShowRechargeModal(true)}
-                style={{ cursor: "pointer" }}
-              >
-                <Coins size={12} />
-                <span>{Math.floor(balance)} credits</span>
-                {freeImagesRemaining > 0 && (
-                  <span style={{ fontSize: 10, opacity: 0.7, marginLeft: 2 }}>· {freeImagesRemaining} free</span>
-                )}
-              </div>
               <div className="sidebarUserRow">
                 <div className="sidebarUserAvatar">{(session.name || session.email)[0]?.toUpperCase()}</div>
                 <div className="sidebarUserDetails">
@@ -2503,7 +2527,17 @@ export default function App() {
 
             {activeTab === "usage"     && <UsageTab />}
             {activeTab === "dashboard" && <DashboardTab />}
-            {activeTab === "tryon"     && <TryOnTab />}
+            {activeTab === "tryon"     && (
+              <TryOnTab
+                savedPrints={savedPrints}
+                garmentAssets={garmentAssetImages}
+                modelAssets={modelAssetImages}
+                savedMainImages={savedMainImages}
+                onSaveResult={({ dataUrl, mimeType, fileName }) =>
+                  saveImageToLibrary({ dataUrl, mimeType, title: `Try-on — ${new Date().toLocaleString()}`, kind: "tryon", fileName })
+                }
+              />
+            )}
 
           </div>
         </main>
@@ -2525,8 +2559,6 @@ export default function App() {
         onClose={() => setDeleteStoryboardModalOpen(false)}
         onConfirm={confirmDeleteActiveStoryboard}
       />
-      {showSettings && <SettingsPage onClose={() => setShowSettings(false)} />}
-      {activeTab === "docs" && <DocumentsTab onClose={() => setActiveTab("prints")} />}
 
       {/* ── Insufficient credits modal ───────────────────────────────────── */}
       {showRechargeModal && (

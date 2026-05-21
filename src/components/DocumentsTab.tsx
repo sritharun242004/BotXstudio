@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useCredits } from "../context/CreditsContext";
 import { IMAGE_GENERATION_MODELS } from "../lib/storyboards";
 import {
   BookOpen, Sparkles, Palette, Bookmark, FolderOpen,
   CreditCard, BarChart2, Star, HelpCircle, Lightbulb,
   Info, CheckCircle2, AlertTriangle, ChevronRight,
-  Upload, Image, Layers, Zap, RefreshCw, Shield, ArrowLeft,
+  Upload, Image, Layers, Zap, Shield,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -594,15 +595,25 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export default function DocumentsTab({ onClose }: { onClose: () => void }) {
-  const [active, setActive] = useState<DocKey>("start");
+export default function DocumentsTab() {
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const initial   = (location.state as { section?: DocKey } | null)?.section ?? "start";
+  const [active, setActive]           = useState<DocKey>(initial);
+  const [transitioning, setTransitioning] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [active]);
 
-  const groups = ["Overview", "Tab Guides", "More"];
+  function goBack() {
+    setTransitioning(true);
+    setTimeout(() => navigate("/app"), 1000);
+  }
+
+  const SIDEBAR_W = 220;
+  const groups    = ["Overview", "Tab Guides", "More"];
 
   const renderContent = () => {
     switch (active) {
@@ -618,52 +629,136 @@ export default function DocumentsTab({ onClose }: { onClose: () => void }) {
     }
   };
 
-  return (
-    <div className="docRoot">
-
-      {/* ── Top bar ───────────────────────────────────────────── */}
-      <div className="docTopBar">
-        <div className="docTopBarLeft">
-          <button type="button" className="docBackBtn" onClick={onClose}>
-            <ArrowLeft size={15} strokeWidth={2.5} />
-            <span>Back</span>
-          </button>
-          <div className="docTopBarDivider" />
-          <BookOpen size={18} strokeWidth={2} className="docTopBarIcon" />
-          <span className="docTopBarTitle">Documentation</span>
-          <span className="docTopBarSub">User guide &amp; best practices</span>
+  /* ── Transition shimmer ──────────────────────────────────── */
+  if (transitioning) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", background: "var(--bg)" }}>
+        <div style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          display: "flex", flexDirection: "column", padding: "14px 12px", gap: 6,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px", marginBottom: 14 }}>
+            <div className="stgTransSkSide" style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0 }} />
+            <div className="stgTransSkSide" style={{ width: 80, height: 16 }} />
+          </div>
+          {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="stgTransSkSide" style={{ height: 36 }} />)}
         </div>
-        <div className="docTopBarBadge">
-          <Shield size={12} strokeWidth={2} />
-          <span>v2.0</span>
+        <div style={{ flex: 1, padding: 28, display: "flex", flexDirection: "column", gap: 18, overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="stgTransSk" style={{ height: 32, width: 220, borderRadius: 8 }} />
+            <div className="stgTransSk" style={{ height: 32, width: 120, borderRadius: 8, marginLeft: "auto" }} />
+          </div>
+          <div className="stgTransSk" style={{ height: 28, width: 340, borderRadius: 6 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
+            {[1,2,3,4].map(i => <div key={i} className="stgTransSk" style={{ height: 80, borderRadius: 10 }} />)}
+          </div>
         </div>
       </div>
+    );
+  }
 
-      {/* ── Body ──────────────────────────────────────────────── */}
-      <div className="docBody">
+  /* ── Page ────────────────────────────────────────────────── */
+  return (
+    <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
-        {/* Left nav */}
-        <aside className="docNav">
-          {groups.map(group => (
-            <div key={group} className="docNavGroup">
-              <div className="docNavGroupLabel">{group}</div>
-              {SECTIONS.filter(s => s.group === group).map(s => (
-                <button
-                  key={s.key}
-                  type="button"
-                  className={`docNavBtn${active === s.key ? " docNavBtnActive" : ""}`}
-                  onClick={() => setActive(s.key)}
-                >
-                  <s.Icon size={14} strokeWidth={2} className="docNavBtnIcon" />
-                  <span>{s.label}</span>
-                </button>
-              ))}
+      {/* ── Split header ──────────────────────────── */}
+      <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
+
+        {/* Purple brand side */}
+        <div style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          borderBottom: "2px solid rgba(255,255,255,0.2)",
+          display: "flex", alignItems: "center", padding: "0 16px", gap: 10,
+        }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 8, background: "#fff", flexShrink: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 13, color: "var(--accent)",
+          }}>BZ</div>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 17, color: "#fff", letterSpacing: "-0.3px" }}>
+            Botzudio
+          </span>
+        </div>
+
+        {/* Cream header side */}
+        <div style={{
+          flex: 1, background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
+          display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
+        }}>
+          <BookOpen size={17} strokeWidth={2} style={{ color: "var(--accent)", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 16, color: "var(--text)", letterSpacing: "-0.2px" }}>
+            Documentation
+          </span>
+          <span style={{ fontSize: 12, color: "var(--muted-color)" }}>User guide &amp; best practices</span>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 5,
+              background: "#EDE9FE", color: "var(--accent)", fontSize: 11, fontWeight: 700,
+              padding: "4px 10px", borderRadius: 999, border: "1.5px solid #DDD6FE", flexShrink: 0,
+            }}>
+              <Shield size={11} strokeWidth={2} /><span>v2.0</span>
             </div>
-          ))}
+            <button type="button" className="stgBackBtn" onClick={goBack}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 5l-7 7 7 7"/>
+              </svg>
+              Back to App
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* ── Two-panel body ────────────────────────── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 60px)" }}>
+
+        {/* Purple sidebar */}
+        <aside style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          display: "flex", flexDirection: "column",
+          overflowY: "auto", overflowX: "hidden",
+          borderRight: "2px solid rgba(255,255,255,0.15)",
+          scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.3) transparent",
+        }}>
+          <nav style={{ display: "flex", flexDirection: "column", padding: "16px 12px", gap: 6 }}>
+            {groups.map(group => (
+              <div key={group}>
+                <div style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                  color: "rgba(255,255,255,0.5)", padding: "12px 8px 5px",
+                }}>
+                  {group}
+                </div>
+                {SECTIONS.filter(s => s.group === group).map(s => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={active === s.key ? "navButton navButtonActive" : "navButton"}
+                    onClick={() => setActive(s.key)}
+                  >
+                    <s.Icon size={15} className="navButtonIcon" strokeWidth={2} />
+                    <span>{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </nav>
         </aside>
 
-        {/* Content */}
-        <div className="docContentWrap" ref={contentRef}>
+        {/* Content scroll area */}
+        <div
+          ref={contentRef}
+          className="stgContent"
+          style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}
+        >
           {renderContent()}
         </div>
       </div>

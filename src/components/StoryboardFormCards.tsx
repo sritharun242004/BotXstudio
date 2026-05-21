@@ -1081,7 +1081,8 @@ export default function StoryboardFormCards({
             </div>
           </div>
 
-          {/* ── Advanced Settings ── */}
+          {/* ── Advanced Settings — only for models that support it ── */}
+          {config.imageModel !== "gemini-2.5-flash-image" && (
           <div className="parameterSection">
             <button
               type="button"
@@ -1127,32 +1128,34 @@ export default function StoryboardFormCards({
                 border:       "1px solid rgba(255,255,255,0.07)",
                 background:   "rgba(255,255,255,0.02)",
               }}>
-                {/* Generation Quality card */}
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{
-                    fontSize:      11,
-                    fontWeight:    700,
-                    color:         "#6b7280",
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase" as const,
-                    marginBottom:  10,
-                    display:       "flex",
-                    alignItems:    "center",
-                    gap:           6,
-                  }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                    </svg>
-                    Generation Quality
+                {/* Generation Quality — ProMax and Plus only */}
+                {(config.imageModel === "gemini-3-pro-image-preview" || config.imageModel === "hybrid-editorial") && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{
+                      fontSize:      11,
+                      fontWeight:    700,
+                      color:         "#6b7280",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase" as const,
+                      marginBottom:  10,
+                      display:       "flex",
+                      alignItems:    "center",
+                      gap:           6,
+                    }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                      </svg>
+                      Generation Quality
+                    </div>
+                    <GenerationQualityCard
+                      value={(config.generationTier as GenerationTierId) || "standard_studio"}
+                      onChange={(tier) => onConfigUpdate({ generationTier: tier })}
+                    />
                   </div>
-                  <GenerationQualityCard
-                    value={(config.generationTier as GenerationTierId) || "standard_studio"}
-                    onChange={(tier) => onConfigUpdate({ generationTier: tier })}
-                  />
-                </div>
+                )}
 
-                {/* ── GPT Image 2 size + quality settings ─────────────── */}
+                {/* GPT Image 2 size + quality — Pro only */}
                 {config.imageModel === "gpt-image-2" && (
                   <GptImageSettings
                     size={(config.gptImageSize as "1024x768" | "1024x1024") || "1024x1024"}
@@ -1164,6 +1167,7 @@ export default function StoryboardFormCards({
               </div>
             )}
           </div>
+          )}
 
           {/* ── Generate ── */}
           <div className="parameterSection">

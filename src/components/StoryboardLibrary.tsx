@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { StoryboardRecord } from "../lib/storyboards";
+import { startTour } from "./GuidedTour";
 
 type RuntimeLite = { resultDataUrl: string | null; garmentDataUrls: string[] };
 
@@ -49,15 +50,20 @@ export default function StoryboardLibrary({
 
   return (
     <div className="storyboardLibrary">
-      <div className="storyboardLibraryHeader">
+      <div className="storyboardLibraryHeader" data-tour="generate-moodboard-header">
         <div>
           <div className="sectionTitle" style={{ margin: "0 0 6px" }}>Mood Boards</div>
           <div className="title" style={{ fontSize: 18, margin: 0 }}>Pick an idea to continue</div>
           <div className="muted" style={{ marginTop: 6 }}>Mood boards are stored locally in this browser.</div>
         </div>
-        <button type="button" className="btnSecondary" onClick={onCreate} disabled={isGenerating}>
-          New mood board
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button type="button" className="tourBannerBtn" onClick={() => startTour("generate")} style={{ whiteSpace: "nowrap" }}>
+            ▶ Quick Tour
+          </button>
+          <button type="button" className="btnSecondary" onClick={onCreate} disabled={isGenerating} data-tour="generate-new-board">
+            New mood board
+          </button>
+        </div>
       </div>
 
       {/* ── Garment Type Filter ──────────────────────────────────── */}
@@ -89,7 +95,7 @@ export default function StoryboardLibrary({
         </div>
       )}
 
-      <div className="storyboardGallery" role="list" aria-label="Mood Boards">
+      <div className="storyboardGallery" role="list" aria-label="Mood Boards" data-tour="generate-moodboard-cards">
         {filtered.length === 0 ? (
           <div className="muted" style={{ padding: "24px 0" }}>
             No mood boards match "{activeFilter}".

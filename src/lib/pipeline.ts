@@ -415,90 +415,125 @@ export function buildPrintApplicationPrompt(opts: {
   view?: "front" | "back" | "side";
   garmentType?: string;
 }): string {
-  const extra = (opts.additionalPrompt || "").trim();
-  const hasRetry = typeof opts.retryComment === "string";
-  const retryComment = (opts.retryComment || "").trim();
-  const colorHex = (opts.colorHex || "").trim();
-  const hasColorHex = Boolean(colorHex);
-  const view = opts.view || "front";
-  const garment = (opts.garmentType || "garment").toLowerCase();
+  const extra      = (opts.additionalPrompt || "").trim();
+  const hasRetry   = typeof opts.retryComment === "string";
+  const retry      = (opts.retryComment || "").trim();
+  const colorHex   = (opts.colorHex || "").trim();
+  const hasColor   = Boolean(colorHex);
+  const hasDesign  = Boolean(opts.hasDesign);
+  const view       = opts.view || "front";
+  const garment    = (opts.garmentType || "T-shirt").toLowerCase();
+  const viewLabel  = view === "front" ? "FRONT" : view === "back" ? "BACK" : "SIDE";
+  const isBack     = view === "back";
+
+  // Garment-specific printable region
+  const printZone: Record<string, string> = {
+    "t-shirt":  "center chest",
+    "shirt":    "chest area (avoid buttons/placket)",
+    "hoodie":   "center chest with hoodie-aware spacing (avoid kangaroo pocket seam)",
+    "pant":     "upper thigh region",
+    "jeans":    "upper thigh / front pocket region",
+    "shorts":   "front thigh region",
+    "jacket":   "front chest panel",
+    "sweater":  "center chest region",
+    "blazer":   "front chest panel (lapel-aware)",
+    "saree":    "center body drape region",
+  };
+  const zone = printZone[garment] || "primary printable region";
+
+  // Image slot references
+  const designSlot  = hasDesign ? "IMAGE 1" : null;
+  const templateSlot = hasDesign ? "IMAGE 2" : "IMAGE 1";
 
   const lines: string[] = [];
 
   if (hasRetry) {
     lines.push(
-      "RETRY: Regenerate with same inputs. Keep composition identical.",
-      ...(retryComment ? [`Improve: ${retryComment}`] : []),
+      "RETRY: Regenerate with identical inputs. Preserve all composition rules.",
+      ...(retry ? [`Specific improvement: ${retry}`] : []),
       "",
     );
   }
 
-  const viewLabel = view === "front" ? "FRONT" : view === "back" ? "BACK" : "SIDE (90° profile)";
-  const viewRule =
-    view === "front"
-      ? "FRONT view — garment faces camera fully. Full collar, both sleeves, and hem visible (no cropping)."
-      : view === "back"
-      ? "BACK view — show back of garment only. No front buttons or chest visible."
-      : "SIDE view — true 90° profile. Mannequin faces left or right, not camera.";
-  const isNotFront = view !== "front";
+  lines.push(
+    "You are a garment print composition engine. You place uploaded artwork onto garment templates.",
+    "THIS IS A STRICT COPY TASK — NOT A CREATIVE OR GENERATIVE TASK.",
+    "You have ZERO creative input on the design. Your only job is placement and garment rendering.",
+    "",
+  );
 
-  if (hasColorHex && opts.hasDesign) {
+  // ── INPUTS ─────────────────────────────────────────────────────────────────
+  lines.push("IMAGES PROVIDED:");
+  if (designSlot)  lines.push(`  ${designSlot} = the EXACT print design to apply. Copy it faithfully.`);
+  lines.push(`  ${templateSlot} = the ${garment} garment template (${viewLabel} view, white base).`);
+  lines.push("");
+
+  // ── TASK ───────────────────────────────────────────────────────────────────
+  if (hasColor && hasDesign) {
     lines.push(
-      `IMAGE 1 = DESIGN PATTERN. IMAGE 2 = ${garment} template (${viewLabel}).`,
+      "TASK (two steps — do both):",
+      `  STEP 1: Recolor the ${garment} fabric in ${templateSlot} to ${colorHex}. Fabric only.`,
+      `  STEP 2: Place the design from ${designSlot} onto the ${viewLabel.toLowerCase()} chest of the recolored ${garment}.`,
       "",
-      `TASK: (1) Recolor ${garment} fabric to HEX ${colorHex}. (2) Apply design from IMAGE 1 as fabric texture on top.`,
-      "",
-      "STEP 1 — RECOLOR:",
-      `- Tint garment fabric only to ${colorHex}. Preserve shadows, highlights, wrinkles, folds, fabric texture.`,
-      "- No change to mannequin, background, camera angle, or framing.",
-      "",
-      "STEP 2 — DESIGN OVERLAY:",
-      "- Blend design onto recolored surface (multiply/overlay mode) — not a flat sticker.",
-      "- Design follows garment folds, contours, perspective. Confined to fabric only — no bleed past seams, neckline, hem, cuffs.",
-      "- Recolored base remains as ground color. Preserve all fabric shadows and highlights.",
-      "- Pattern scale = garment bounding box (not canvas). Uniform tiling density.",
-      "",
-      `VIEW: ${viewRule}`,
-      isNotFront
-        ? "Match front view: same hex tone, pattern scale, tiling density, lighting."
-        : "REFERENCE VIEW — back view must replicate this pattern scale exactly.",
-      "",
-      "HARD RULES: framing/size identical to IMAGE 2 · full garment visible · no background change · no mannequin change · no silhouette distortion · pattern never outside garment boundary.",
-      "Style: photorealistic e-commerce product photo, sharp, commercially usable.",
     );
-  } else if (hasColorHex) {
+  } else if (hasColor) {
     lines.push(
-      `IMAGE 1 = COLOR SWATCH. IMAGE 2 = ${garment} template (${viewLabel}).`,
+      "TASK:",
+      `  Recolor the ${garment} fabric in ${templateSlot} to ${colorHex}.`,
+      "  Apply color to fabric only. No design. No extra artwork.",
       "",
-      `TASK: Recolor ${garment} fabric in IMAGE 2 to HEX ${colorHex}.`,
-      "",
-      "RULES:",
-      `1. Apply ${colorHex} to garment fabric only. Color looks dyed into cloth — preserves shadows, highlights, wrinkles, fabric texture.`,
-      "2. Keep everything else pixel-identical: mannequin, background, lighting, shadows, framing, camera angle.",
-      "3. Full garment visible — no cropping. Same whitespace and margins as IMAGE 2.",
-      "4. No new patterns, gradients, or hue drift.",
-      `5. VIEW: ${viewRule}`,
-      "Style: photorealistic e-commerce product photo.",
     );
   } else {
     lines.push(
-      `IMAGE 1 = DESIGN PATTERN. IMAGE 2 = ${garment} template (${viewLabel}).`,
+      "TASK:",
+      `  Place the design from ${designSlot} onto the ${viewLabel.toLowerCase()} of the ${garment} template (${templateSlot}).`,
       "",
-      `TASK: Apply design from IMAGE 1 onto the ${garment} in IMAGE 2 as realistic fabric texture.`,
-      "",
-      "RULES:",
-      "1. FRAME: Garment size, zoom, crop, whitespace, background — IDENTICAL to IMAGE 2.",
-      "2. TEXTURE: Blend design into fabric (multiply/overlay) — not a flat sticker. Follows folds, contours, perspective.",
-      "3. BOUNDARY: Design on garment fabric only. No bleed past seams, neckline, hem, or cuffs.",
-      "4. PRESERVATION: Base fabric color, shadows, highlights, texture unchanged. No bleaching or lightening.",
-      "5. SCALE: Pattern tile = garment bounding box (not canvas). Uniform density.",
-      `6. VIEW: ${viewRule}`,
-      isNotFront
-        ? "   Match front view: same pattern scale, tiling density, lighting integration."
-        : "   REFERENCE VIEW — back must replicate this pattern scale exactly.",
-      "7. OUTPUT: Full garment visible (collar, sleeves, hem). No new elements, no background change, no silhouette distortion.",
     );
   }
+
+  // ── DESIGN FIDELITY — the most important section ───────────────────────────
+  if (hasDesign) {
+    lines.push(
+      "━━ DESIGN FIDELITY — ABSOLUTE REQUIREMENT ━━",
+      `  The design in your output MUST BE IDENTICAL to ${designSlot}.`,
+      "  Copy every element exactly: shapes, colors, characters, text, lines, composition.",
+      "  DO NOT redraw, reinterpret, stylize, or improve the design.",
+      "  DO NOT change any colors in the design.",
+      "  DO NOT alter, replace, or translate any text or characters in the design.",
+      "  DO NOT add artistic effects, shadows, glows, or gradients to the design itself.",
+      "  If you cannot reproduce the design faithfully, output the garment template unchanged.",
+      "  Any invention or modification of the design is a critical failure.",
+      "",
+      "━━ DESIGN PLACEMENT ━━",
+      `  Garment: ${garment}  |  Place design at: ${zone}`,
+      "  Remove any background from the design image before placing it.",
+      "  Center the design. Maintain original aspect ratio. Scale to fit printable area.",
+      "  Lay the design flat onto the fabric surface — follow the garment's natural contour.",
+      "  Confine the design to the fabric area — no bleed past seams, collar, hem, or cuffs.",
+      "",
+    );
+  }
+
+  // ── GARMENT RULES ──────────────────────────────────────────────────────────
+  lines.push(
+    "━━ GARMENT RULES ━━",
+    `  Use ${templateSlot} as the base. Never generate the garment from scratch.`,
+    "  Preserve the template's exact shape, pose, framing, lighting, folds, and shadows.",
+    hasColor
+      ? `  Apply ${colorHex} to fabric only — preserve shadows, wrinkles, stitching, texture.`
+      : "  Keep garment color as white. Do not tint or alter the fabric color.",
+    "",
+    isBack
+      ? "  BACK VIEW: Show back of garment only. No front-side details."
+      : "  FRONT VIEW: Full garment visible — collar, both sleeves, hem. No cropping.",
+    "  DO NOT invent any artwork or design that was not in the provided design image.",
+    "",
+    "━━ OUTPUT RULES ━━",
+    "  Background: TRANSPARENT only.",
+    "  No studio, no model, no room, no shadows behind garment, no extra objects.",
+    "  Return garment only.",
+    "  Photorealistic print-on-demand quality.",
+  );
 
   if (extra) {
     lines.push("", `Enhancement: ${extra}`);

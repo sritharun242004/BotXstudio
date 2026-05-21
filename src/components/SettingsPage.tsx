@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import AppSelect from "./AppSelect";
+import { useNavigate, useLocation } from "react-router-dom";
 import { getSession, logout } from "../lib/auth";
 import { useCredits } from "../context/CreditsContext";
 import { fetchCreditTransactions, type CreditTransaction } from "../lib/credits";
@@ -222,12 +224,33 @@ function getModelCreditLabel(modelId: string, pricing: Record<string, number>): 
   return cost !== undefined ? `${cost} cr / img` : "—";
 }
 
+interface CreditPack {
+  key: "basic" | "growth" | "enterprise";
+  label: string;
+  credits: number | null;
+  price: number | null;
+  orig: number | null;
+  badge: string;
+  accent: string;
+}
+
+const CREDIT_PACKS: CreditPack[] = [
+  { key: "basic",      label: "Basic",      credits: 300,  price: 299,  orig: 499,  badge: "Save 40%", accent: "#8B5CF6" },
+  { key: "growth",     label: "Growth",     credits: 1000, price: 999,  orig: 1499, badge: "Popular",  accent: "#7C3AED" },
+  { key: "enterprise", label: "Enterprise", credits: null, price: null, orig: null, badge: "Custom",   accent: "#0369A1" },
+];
+
+type BuyPackKey = "basic" | "growth" | "enterprise" | "custom";
+
 function CreditsSection() {
   const { balance, costPerImageInr, freeImagesRemaining, modelPricing } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [coupon, setCoupon] = useState("");
   const [txLoading, setTxLoading] = useState(true);
-  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [showBuyPanel, setShowBuyPanel] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<BuyPackKey>("growth");
+  const [customInput, setCustomInput] = useState("500");
+  const customCredits = Math.max(1, parseInt(customInput, 10) || 1);
 
   useEffect(() => {
     fetchCreditTransactions()
@@ -242,8 +265,38 @@ function CreditsSection() {
     .reduce((s, t) => s + Math.abs(t.amountInr), 0);
 
   function fmtDate(iso: string) {
-    return new Date(iso).toLocaleDateString("en-IN", { day:"numeric", month:"short", year:"numeric" });
+    return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   }
+
+  const flashCr  = modelPricing["gemini-2.5-flash-image"] ?? 5;
+  const fluxCr   = modelPricing["fal-ai/flux-pro/kontext/multi"] ?? 5;
+  const proMaxCr = modelPricing["gemini-3-pro-image-preview"] ?? 20;
+  const gptMinCr = modelPricing["gpt-medium-1024x768"] ?? 6;
+  const gptMaxCr = modelPricing["gpt-high-1024x1024"] ?? 25;
+  const plusCr   = flashCr + fluxCr * 2;
+  const proAvgCr = Math.round((gptMinCr + gptMaxCr) / 2);
+
+  const MODEL_ROWS = [
+    { label: "Flash",  cr: flashCr,  unit: "img", color: "#8B5CF6" },
+    { label: "ProMax", cr: proMaxCr, unit: "img", color: "#7C3AED" },
+    { label: "Plus",   cr: plusCr,   unit: "set", color: "#06B6D4" },
+    { label: "Pro",    cr: proAvgCr, unit: "img", color: "#F59E0B", note: "avg" },
+  ] as const;
+
+  const activePack = selectedPack !== "custom" ? CREDIT_PACKS.find(p => p.key === selectedPack) : undefined;
+  const activeCredits: number | null =
+    selectedPack === "enterprise" ? null :
+    selectedPack === "custom" ? customCredits :
+    activePack?.credits ?? null;
+  const activePrice: number | null =
+    selectedPack === "enterprise" ? null :
+    selectedPack === "custom" ? customCredits :
+    activePack?.price ?? null;
+
+  const mailBody = activeCredits
+    ? `Hi, I'd like to purchase ${activeCredits} credits for ₹${activePrice}. My registered email is [your email]. Please send payment details.`
+    : "";
+  const mailLink = `mailto:official@thebotcompany.in?subject=Buy Credits - Botzudio&body=${encodeURIComponent(mailBody)}`;
 
   return (
     <div className="stgSectionContent">
@@ -259,12 +312,14 @@ function CreditsSection() {
             <div className="stgWalletLabel">Available Credits</div>
             <div className="stgWalletAmount">{Math.floor(balance)} <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.6 }}>credits</span></div>
           </div>
-          <button className="stgWalletBuyBtn" onClick={() => setShowBuyModal(true)}>Buy Credits</button>
+          <button className="stgWalletBuyBtn" onClick={() => setShowBuyPanel(v => !v)}>
+            {showBuyPanel ? "Hide Packages" : "Buy Credits"}
+          </button>
         </div>
         <div className="stgWalletMeta">
           <div className="stgWalletStat">
             <span className="stgWalletStatLabel">Free Images Left</span>
-            <span className="stgWalletStatVal">{freeImagesRemaining} / 6</span>
+            <span className="stgWalletStatVal">{freeImagesRemaining} / 30</span>
           </div>
           <div className="stgWalletStat">
             <span className="stgWalletStatLabel">Images Left</span>
@@ -276,6 +331,236 @@ function CreditsSection() {
           </div>
         </div>
       </div>
+
+      {/* ── Inline Buy Credits Panel ───────────────────────────────────── */}
+      {showBuyPanel && (
+        <div style={{
+          background: "#fff",
+          border: "2px solid #E2E8F0",
+          borderRadius: 16,
+          overflow: "hidden",
+          marginBottom: 8,
+        }}>
+
+          {/* Header */}
+          <div style={{
+            padding: "16px 24px",
+            borderBottom: "1.5px solid #E2E8F0",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            background: "#F8FAFC",
+          }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: "#1E293B" }}>Choose a Credit Pack</div>
+              <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
+                1 credit = ₹1 · Credits never expire · All 4 models unlocked
+              </div>
+            </div>
+            <button
+              onClick={() => setShowBuyPanel(false)}
+              style={{
+                width: 28, height: 28, borderRadius: "50%",
+                border: "1.5px solid #E2E8F0", background: "transparent",
+                cursor: "pointer", fontSize: 13, color: "#64748B",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >✕</button>
+          </div>
+
+          {/* Pack cards */}
+          <div style={{ padding: "20px 24px 16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+            {CREDIT_PACKS.map(pack => {
+              const isSel = selectedPack === pack.key;
+              return (
+                <div
+                  key={pack.key}
+                  onClick={() => setSelectedPack(pack.key)}
+                  style={{
+                    cursor: "pointer", position: "relative",
+                    border: `2px solid ${isSel ? pack.accent : "#E2E8F0"}`,
+                    borderRadius: 14, padding: "18px 16px",
+                    background: isSel ? `${pack.accent}0d` : "#fff",
+                    boxShadow: isSel ? `0 0 0 3px ${pack.accent}22` : "none",
+                    transition: "all .15s",
+                  }}
+                >
+                  {isSel && (
+                    <div style={{
+                      position: "absolute", top: 10, right: 10,
+                      width: 20, height: 20, borderRadius: "50%",
+                      background: pack.accent,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, color: "#fff", fontWeight: 800,
+                    }}>✓</div>
+                  )}
+                  <div style={{
+                    display: "inline-block", padding: "2px 8px", borderRadius: 9999,
+                    background: `${pack.accent}1a`, color: pack.accent,
+                    fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px",
+                    marginBottom: 10,
+                  }}>{pack.badge}</div>
+                  <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 19, color: "#1E293B", marginBottom: 8 }}>
+                    {pack.label}
+                  </div>
+                  {pack.price !== null ? (
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, color: "#1E293B", lineHeight: 1 }}>
+                        ₹{pack.price}
+                      </span>
+                      {pack.orig && (
+                        <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 13, color: "#94A3B8", textDecoration: "line-through", marginBottom: 3 }}>
+                          ₹{pack.orig}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 22, color: pack.accent, marginBottom: 6 }}>
+                      Contact Us
+                    </div>
+                  )}
+                  {pack.credits !== null ? (
+                    <div style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>
+                      <span style={{ color: pack.accent, fontWeight: 800 }}>{pack.credits}</span> credits
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#64748B" }}>Custom volume · Priority support</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Custom credits row */}
+          <div style={{ padding: "0 24px 20px" }}>
+            <div
+              onClick={() => setSelectedPack("custom")}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                padding: "12px 16px", borderRadius: 10, cursor: "pointer",
+                border: `2px solid ${selectedPack === "custom" ? "#8B5CF6" : "#E2E8F0"}`,
+                background: selectedPack === "custom" ? "#F5F3FF" : "#F8FAFC",
+                transition: "all .15s",
+              }}
+            >
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B", whiteSpace: "nowrap" }}>
+                Custom Amount
+              </div>
+              <input
+                type="number"
+                min={1}
+                value={customInput}
+                onChange={e => { setCustomInput(e.target.value); setSelectedPack("custom"); }}
+                onBlur={() => setCustomInput(String(Math.max(1, parseInt(customInput, 10) || 1)))}
+                onClick={e => e.stopPropagation()}
+                style={{
+                  flex: 1, background: "transparent", border: "none", outline: "none",
+                  fontSize: 15, fontWeight: 800, color: "#8B5CF6", textAlign: "right", minWidth: 0,
+                }}
+                placeholder="500"
+              />
+              <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>
+                credits = ₹{customCredits}
+              </span>
+            </div>
+          </div>
+
+          {/* Generation breakdown */}
+          {activeCredits !== null && (
+            <div style={{ padding: "16px 24px 20px", borderTop: "1.5px solid #E2E8F0" }}>
+              <div style={{
+                fontSize: 11, fontWeight: 700, color: "#94A3B8",
+                textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 12,
+              }}>
+                Generation Breakdown · {activeCredits} credits
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+                {MODEL_ROWS.map(m => (
+                  <div key={m.label} style={{
+                    textAlign: "center", padding: "16px 10px",
+                    background: "#F8FAFC", borderRadius: 10,
+                    border: "1.5px solid #E2E8F0",
+                  }}>
+                    <div style={{
+                      fontFamily: "'Outfit', sans-serif", fontWeight: 900,
+                      fontSize: 30, color: m.color, lineHeight: 1,
+                    }}>
+                      {Math.floor(activeCredits / m.cr)}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#1E293B", fontWeight: 700, marginTop: 5 }}>
+                      {m.label}
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 3 }}>
+                      {"note" in m ? `${m.unit}s (${m.note})` : `${m.unit}s`} · {m.cr} cr/{m.unit}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Checkout bar */}
+          <div style={{
+            padding: "18px 24px",
+            background: "#F8FAFC",
+            borderTop: "1.5px solid #E2E8F0",
+          }}>
+            {selectedPack === "enterprise" ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1E293B" }}>Need a large volume plan?</div>
+                  <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>Custom pricing · Priority support · SLA</div>
+                </div>
+                <a
+                  href="mailto:official@thebotcompany.in?subject=Enterprise Credits - Botzudio"
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "10px 22px", borderRadius: 9999,
+                    background: "#0369A1", color: "#fff",
+                    fontSize: 13, fontWeight: 800, textDecoration: "none",
+                    border: "2px solid #1E293B", boxShadow: "3px 3px 0 #1E293B",
+                  }}
+                >
+                  Contact Us →
+                </a>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, color: "#1E293B" }}>
+                      ₹{activePrice}
+                    </span>
+                    {selectedPack !== "custom" && activePack?.orig && (
+                      <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 14, color: "#94A3B8", textDecoration: "line-through" }}>
+                        ₹{activePack.orig}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748B", marginTop: 1 }}>
+                    for {activeCredits} credits · Credited within 24h after payment
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <a
+                    href={mailLink}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 6,
+                      padding: "11px 24px", borderRadius: 9999,
+                      background: "#8B5CF6", color: "#fff",
+                      fontSize: 13, fontWeight: 800, textDecoration: "none",
+                      border: "2px solid #1E293B", boxShadow: "3px 3px 0 #1E293B",
+                    }}
+                  >
+                    Proceed to Pay →
+                  </a>
+                  <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "right" }}>
+                    Email sent · UPI link within 24h
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Model pricing table */}
       <SectionCard title="Credits Per Generation">
@@ -345,31 +630,6 @@ function CreditsSection() {
           </div>
         )}
       </SectionCard>
-
-      {showBuyModal && (
-        <div className="stgModalOverlay" onClick={() => setShowBuyModal(false)}>
-          <div className="stgModal" onClick={e => e.stopPropagation()}>
-            <div className="stgModalHeader">
-              <div className="stgModalTitle">Buy Credits</div>
-              <button className="stgModalClose" onClick={() => setShowBuyModal(false)}>✕</button>
-            </div>
-            <div style={{ padding: "24px" }}>
-              <p style={{ color: "var(--muted-color)", fontSize: 14, margin: "0 0 16px" }}>
-                Credits are added manually after payment confirmation. Minimum top-up ₹100.
-              </p>
-              <ol style={{ color: "var(--text)", fontSize: 14, paddingLeft: 20, lineHeight: 2 }}>
-                <li>Email <strong>official@thebotcompany.in</strong> with your registered email + desired amount</li>
-                <li>We'll send a UPI/payment link within 24 hours</li>
-                <li>Credits are added instantly after confirmation</li>
-              </ol>
-              <a className="stgPrimaryBtn" style={{ display:"block", textAlign:"center", textDecoration:"none", marginTop:20 }}
-                href="mailto:official@thebotcompany.in?subject=Buy Credits - Botzudio">
-                Email Us to Buy Credits →
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -388,24 +648,31 @@ function GenerationSection({ settings, update }: {
 
       <SectionCard title="Default Options">
         <SettingRow label="Preferred AI Model" desc="Which model to use by default">
-          <select className="stgSelect" value={settings.preferredModel} onChange={e => update("preferredModel", e.target.value)}>
-            <option value="flash">Gemini 2.5 Flash — Faster</option>
-            <option value="pro">Gemini 2.5 Pro — Higher quality</option>
-          </select>
+          <AppSelect
+            size="lg"
+            value={settings.preferredModel}
+            onChange={val => update("preferredModel", val)}
+            options={[
+              { value: "flash", label: "Gemini 2.5 Flash — Faster" },
+              { value: "pro",   label: "Gemini 2.5 Pro — Higher quality" },
+            ]}
+          />
         </SettingRow>
         <SettingRow label="Default Image Ratio" desc="Aspect ratio for generated images">
-          <select className="stgSelect" value={settings.defaultRatio} onChange={e => update("defaultRatio", e.target.value)}>
-            {(["1:1","3:4","4:3","9:16","16:9"] as const).map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+          <AppSelect
+            size="lg"
+            value={settings.defaultRatio}
+            onChange={val => update("defaultRatio", val)}
+            options={(["1:1","3:4","4:3","9:16","16:9"] as const).map(r => ({ value: r, label: r }))}
+          />
         </SettingRow>
         <SettingRow label="Default Background Style" desc="Starting background theme">
-          <select className="stgSelect" value={settings.defaultBackground} onChange={e => update("defaultBackground", e.target.value)}>
-            {["Studio","Outdoor","Urban","Nature","Minimal","Custom"].map(b => (
-              <option key={b} value={b.toLowerCase()}>{b}</option>
-            ))}
-          </select>
+          <AppSelect
+            size="lg"
+            value={settings.defaultBackground}
+            onChange={val => update("defaultBackground", val)}
+            options={["Studio","Outdoor","Urban","Nature","Minimal","Custom"].map(b => ({ value: b.toLowerCase(), label: b }))}
+          />
         </SettingRow>
         <SettingRow label="Auto-generate Detail Shot" desc="Automatically create a close-up view after generation">
           <Toggle checked={settings.autoDetailShot} onChange={v => update("autoDetailShot", v)} />
@@ -748,9 +1015,13 @@ function SupportSection() {
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
-export default function SettingsPage({ onClose }: { onClose: () => void }) {
-  const [activeSection, setActiveSection] = useState<SectionKey>("profile");
+export default function SettingsPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const initialSection = (location.state as { section?: SectionKey } | null)?.section ?? "profile";
+  const [activeSection, setActiveSection] = useState<SectionKey>(initialSection);
   const [settings, setSettings] = useState<UserSettings>(loadSettings);
+  const [transitioning, setTransitioning] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   function update(key: keyof UserSettings, value: unknown) {
@@ -761,37 +1032,136 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
     });
   }
 
-  // Scroll content to top when section changes
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [activeSection]);
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  function goBackToApp() {
+    setTransitioning(true);
+    setTimeout(() => navigate("/app"), 1000);
+  }
 
-  const activeLabel = SECTIONS.find(s => s.key === activeSection)?.label ?? "";
+  const SIDEBAR_W = 220;
+
+  if (transitioning) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", background: "var(--bg)" }}>
+        {/* Purple sidebar */}
+        <div style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          display: "flex", flexDirection: "column",
+          padding: "14px 12px", gap: 6,
+        }}>
+          {/* Brand */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px", marginBottom: 14 }}>
+            <div className="stgTransSkSide" style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0 }} />
+            <div className="stgTransSkSide" style={{ width: 80, height: 16 }} />
+          </div>
+          {/* Nav items */}
+          {[1,2,3,4,5,6,7,8].map(i => (
+            <div key={i} className="stgTransSkSide" style={{ height: 36 }} />
+          ))}
+        </div>
+
+        {/* Content area */}
+        <div style={{ flex: 1, padding: 28, display: "flex", flexDirection: "column", gap: 18, overflow: "hidden" }}>
+          {/* Top header bar */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div className="stgTransSk" style={{ height: 32, width: 220, borderRadius: 8 }} />
+            <div className="stgTransSk" style={{ height: 32, width: 120, borderRadius: 8, marginLeft: "auto" }} />
+          </div>
+          {/* Toolbar row */}
+          <div style={{ display: "flex", gap: 10 }}>
+            {[160, 130, 110].map((w, i) => (
+              <div key={i} className="stgTransSk" style={{ height: 38, width: w, borderRadius: 8 }} />
+            ))}
+          </div>
+          {/* Image grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, flex: 1 }}>
+            {[1,2,3,4,5,6,7,8].map(i => (
+              <div key={i} className="stgTransSk" style={{ borderRadius: 10, aspectRatio: "3/4" }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="stgOverlay">
-      <div className="stgShell">
-        {/* Sidebar */}
-        <aside className="stgSidebar">
-          <div className="stgSidebarHeader">
-            <div className="stgSidebarTitle">Settings</div>
-          </div>
-          <nav className="stgNav">
+    <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+
+      {/* ── Split header ──────────────────────────────────────────────── */}
+      <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
+        {/* Left: purple brand area (same width as sidebar) */}
+        <div style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          borderBottom: "2px solid rgba(255,255,255,0.2)",
+          display: "flex", alignItems: "center",
+          padding: "0 16px", gap: 10,
+        }}>
+          <div style={{
+            width: 34, height: 34, borderRadius: 8,
+            background: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontFamily: "'Outfit', sans-serif", fontWeight: 900,
+            fontSize: 13, color: "var(--accent)", flexShrink: 0,
+          }}>BZ</div>
+          <span style={{
+            fontFamily: "'Outfit', sans-serif", fontWeight: 900,
+            fontSize: 17, color: "#fff", letterSpacing: "-0.3px",
+          }}>Botzudio</span>
+        </div>
+
+        {/* Right: content header */}
+        <div style={{
+          flex: 1,
+          background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
+          display: "flex", alignItems: "center",
+          padding: "0 24px",
+        }}>
+          <button
+            type="button"
+            className="stgBackBtn"
+            onClick={goBackToApp}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 5l-7 7 7 7"/>
+            </svg>
+            Back to App
+          </button>
+        </div>
+      </header>
+
+      {/* ── Two-panel shell ─────────────────────────────────────────── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 60px)" }}>
+
+        {/* Sidebar — matches main app purple sidebar */}
+        <aside style={{
+          width: SIDEBAR_W, flexShrink: 0,
+          background: "var(--accent)",
+          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+          backgroundSize: "18px 18px",
+          display: "flex", flexDirection: "column",
+          overflowY: "auto", overflowX: "hidden",
+          borderRight: "2px solid rgba(255,255,255,0.15)",
+          scrollbarWidth: "thin",
+          scrollbarColor: "rgba(255,255,255,0.3) transparent",
+        }}>
+          <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 10px", flex: 1 }}>
             {SECTIONS.map(s => (
               <button
                 key={s.key}
                 type="button"
-                className={`stgNavBtn${activeSection === s.key ? " stgNavBtnActive" : ""}`}
+                className={activeSection === s.key ? "navButton navButtonActive" : "navButton"}
                 onClick={() => setActiveSection(s.key)}
               >
-                <s.Icon size={15} className="stgNavIcon" strokeWidth={2} />
+                <s.Icon size={15} className="navButtonIcon" strokeWidth={2} />
                 <span>{s.label}</span>
               </button>
             ))}
@@ -800,15 +1170,6 @@ export default function SettingsPage({ onClose }: { onClose: () => void }) {
 
         {/* Content */}
         <div className="stgContent" ref={contentRef}>
-          <div className="stgTopBar">
-            <div className="stgTopBarTitle">{activeLabel}</div>
-            <button type="button" className="stgCloseBtn" onClick={onClose} aria-label="Close settings">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6L6 18M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-
           <div className="stgContentInner">
             {activeSection === "profile"       && <ProfileSection       settings={settings} update={update} />}
             {activeSection === "credits"       && <CreditsSection />}

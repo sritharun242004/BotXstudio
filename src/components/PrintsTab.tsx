@@ -1,8 +1,10 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import FieldLabel from "./FieldLabel";
 import PrintsColorPicker from "./PrintsColorPicker";
+import AppSelect from "./AppSelect";
 import type { StoryboardConfig } from "../lib/storyboards";
 import { normalizeHexColor } from "../lib/utils";
+import { startTour } from "./GuidedTour";
 
 type GarmentConfig = {
   id: string;
@@ -193,6 +195,17 @@ export default function PrintsTab({
   return (
     <div className="storyboardLibrary">
       <div>
+        {/* ── Tour banner ──────────────────────────────────────── */}
+        <div className="tourBanner" data-tour="prints-banner">
+          <div className="tourBannerText">
+            <span className="tourBannerTitle">New to Add Prints?</span>
+            <span className="tourBannerSub">Let us walk you through how to apply your design to a garment.</span>
+          </div>
+          <button type="button" className="tourBannerBtn" onClick={() => startTour("prints")}>
+            ▶ Quick Tour
+          </button>
+        </div>
+
         <div className="sectionTitle" style={{ marginTop: 0 }}>Inputs</div>
 
         {/* ── Two-column: Garment (left) + Color Picker (right) ── */}
@@ -206,18 +219,15 @@ export default function PrintsTab({
           }}
         >
           {/* Left: Garment Category + White Garment Photos */}
-          <div className="card">
+          <div className="card" data-tour="prints-garment-category">
             <div style={{ marginBottom: 16 }}>
               <FieldLabel label="Garment Category" info={selectedGarment.description} />
-              <select
-                className="control"
+              <AppSelect
                 value={config.printGarmentCategory}
-                onChange={(e) => onConfigUpdate({ printGarmentCategory: e.target.value })}
-              >
-                {ALL_GARMENTS.map(g => (
-                  <option key={g.id} value={g.name}>{g.name}</option>
-                ))}
-              </select>
+                onChange={(val) => onConfigUpdate({ printGarmentCategory: val })}
+                options={ALL_GARMENTS.map(g => ({ value: g.name, label: g.name }))}
+                size="md"
+              />
             </div>
 
             {selectedGarment.name !== "Saree" && (
@@ -226,7 +236,7 @@ export default function PrintsTab({
                   label="White Garment Photos"
                   info={isFullCloth ? "A full view of the cloth is required." : "Front and back views are required."}
                 />
-                <div className="printsGarmentCards">
+                <div className="printsGarmentCards" data-tour="prints-garment-photos">
                   {/* Front / Full slot */}
                   <div className="printsCardSlot">
                     <span className="printsCardLabel">{isFullCloth ? "Full" : "Front"}</span>
@@ -297,7 +307,7 @@ export default function PrintsTab({
 
           {/* Right: Color Picker */}
           {showColorSelector && (
-            <div className="card">
+            <div className="card" data-tour="prints-color-picker">
               <FieldLabel label="Choose Garment Color" info="Select a base color for the garment before applying a print." />
               <PrintsColorPicker
                 value={colorPickerValue}
@@ -309,8 +319,8 @@ export default function PrintsTab({
         </div>
 
         {/* ── Print Design Upload ── */}
-        <div className="card" style={{ marginTop: 10 }}>
-          <FieldLabel label="Print Design" info="Upload your design artwork. Back is optional — if omitted, the front design is applied to both views." />
+        <div className="card" style={{ marginTop: 10 }} data-tour="prints-design">
+          <FieldLabel label="Print Design" info="Upload your design artwork. Back is optional — if omitted, only the front view is generated." />
           <div className="printsDesignCards">
             {/* Front Design */}
             <div className="printsCardSlot">
@@ -365,7 +375,7 @@ export default function PrintsTab({
             )}
           </div>
           {!isFullCloth && runtime.prints.printDesignFrontDataUrl && !runtime.prints.printDesignBackDataUrl && (
-            <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>No back design — front design will be applied to both views.</div>
+            <div className="muted" style={{ fontSize: 11, marginTop: 10 }}>No back design uploaded — only the front view will be generated.</div>
           )}
         </div>
 
@@ -376,7 +386,7 @@ export default function PrintsTab({
           <textarea id="printAdditionalPrompt" className="control" rows={4} value={config.printAdditionalPrompt} onChange={(e) => onConfigUpdate({ printAdditionalPrompt: e.target.value })} placeholder="Optional: e.g., all-over small repeating pattern; align with seams; keep neckline and cuffs clean." />
         </div>
 
-        <div className="actions" style={{ marginTop: 14, justifyContent: "space-between" }}>
+        <div className="actions" style={{ marginTop: 14, justifyContent: "space-between" }} data-tour="prints-generate">
           <button type="button" className="btnPrimary" onClick={onGenerate} disabled={generateDisabled}>
             {runtime.prints.generating ? `Generating... ${timerText}` : "Generate Printed Garment"}
           </button>

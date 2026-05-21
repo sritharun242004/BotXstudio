@@ -317,10 +317,9 @@ export default function LoginPage() {
 
   // ── Left panel features ───────────────────────────────────────────────────
   const features = [
-    { icon: "✦", label: "Studio-quality images in 60 seconds"   },
-    { icon: "✦", label: "Zero photography budget needed"         },
-    { icon: "✦", label: "Any garment — flat lay or hanger shot"  },
-    { icon: "✦", label: "Front, side, back & detail — all views" },
+    { icon: "✦", label: "Studio-quality images in 60 seconds"  },
+    { icon: "✦", label: "Zero photography budget needed"        },
+    { icon: "✦", label: "Any garment — flat lay or hanger shot" },
   ];
 
   // ── Stage titles / subtitles ──────────────────────────────────────────────
@@ -348,7 +347,8 @@ export default function LoginPage() {
 
       {/* ── Page background ────────────────────────────────────────────── */}
       <div style={{
-        minHeight: "100vh",
+        height: "100vh",
+        overflow: "hidden",
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "#FFFDF5",
         backgroundImage: [
@@ -357,8 +357,9 @@ export default function LoginPage() {
           "radial-gradient(circle, rgba(139,92,246,0.04) 1px, transparent 1px)",
         ].join(","),
         backgroundSize: "100% 100%, 100% 100%, 28px 28px",
-        padding: "24px 16px",
+        padding: "20px 16px",
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+        boxSizing: "border-box",
       }}>
 
         {/* ── Card wrapper ─────────────────────────────────────────────── */}
@@ -374,7 +375,7 @@ export default function LoginPage() {
           {/* ── LEFT: dark brand panel ─────────────────────────────────── */}
           <div style={{
             background: "#1E293B",
-            padding: "52px 40px",
+            padding: "36px 36px",
             display: "flex", flexDirection: "column",
             justifyContent: "space-between",
             position: "relative", overflow: "hidden",
@@ -385,7 +386,7 @@ export default function LoginPage() {
 
             {/* Brand */}
             <div style={{ position:"relative", zIndex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:40 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
                 <div style={{
                   width:42, height:42, borderRadius:10,
                   background:"#8B5CF6",
@@ -404,16 +405,16 @@ export default function LoginPage() {
               }}>
                 AI-powered fashion<br />photography.
               </h2>
-              <p style={{ fontSize:14, color:"rgba(255,255,255,0.55)", lineHeight:1.65, marginBottom:36, maxWidth:280 }}>
+              <p style={{ fontSize:13, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:22, maxWidth:280 }}>
                 Professional catalog images from a flat lay. No photographer. No studio. No delays.
               </p>
 
               {/* Features */}
-              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                 {features.map(({ icon, label }) => (
                   <div key={label} className="auth-feature-chip" style={{
                     display:"flex", alignItems:"center", gap:10,
-                    padding:"10px 14px", borderRadius:10,
+                    padding:"9px 14px", borderRadius:10,
                     background:"rgba(255,255,255,0.07)",
                     border:"1px solid rgba(255,255,255,0.1)",
                     transition:"background .15s",
@@ -426,7 +427,7 @@ export default function LoginPage() {
             </div>
 
             {/* Bottom stat */}
-            <div style={{ position:"relative", zIndex:1, marginTop:32, paddingTop:24, borderTop:"1px solid rgba(255,255,255,0.1)" }}>
+            <div style={{ position:"relative", zIndex:1, marginTop:20, paddingTop:16, borderTop:"1px solid rgba(255,255,255,0.1)" }}>
               <div style={{ display:"flex", gap:28 }}>
                 {[["10k+","Images generated"],["90%","Cost savings"],["60s","Per image"]].map(([val, lbl]) => (
                   <div key={lbl}>
@@ -439,7 +440,7 @@ export default function LoginPage() {
           </div>
 
           {/* ── RIGHT: form panel ──────────────────────────────────────── */}
-          <div style={{ background:"#fff", padding:"52px 40px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+          <div style={{ background:"#fff", padding:"36px 40px", display:"flex", flexDirection:"column", justifyContent:"center" }}>
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -621,27 +622,6 @@ export default function LoginPage() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Admin link */}
-            <div style={{ marginTop:36, paddingTop:18, borderTop:"1px solid #F1F5F9", textAlign:"center" }}>
-              <button
-                type="button"
-                onClick={() => navigate("/admin/login")}
-                style={{
-                  display:"inline-flex", alignItems:"center", gap:6,
-                  padding:"7px 16px", borderRadius:9999,
-                  border:"1.5px solid #E2E8F0", background:"transparent",
-                  color:"#94A3B8", fontSize:12, fontWeight:600,
-                  cursor:"pointer", transition:"all .15s", fontFamily:"inherit",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor="#8B5CF6"; e.currentTarget.style.color="#8B5CF6"; e.currentTarget.style.background="rgba(139,92,246,0.06)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor="#E2E8F0"; e.currentTarget.style.color="#94A3B8"; e.currentTarget.style.background="transparent"; }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-                Admin Panel
-              </button>
-            </div>
           </div>
         </div>
 

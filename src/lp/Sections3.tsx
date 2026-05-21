@@ -64,22 +64,66 @@ export function Guarantee() {
   );
 }
 
+const MODEL_ROWS = [
+  { name: "Flash Model",  note: "5 cr / img",    free: true  },
+  { name: "ProMax Model", note: "20 cr / img",   free: true  },
+  { name: "Plus Model",   note: "15 cr / set",   free: false },
+  { name: "Pro Model",    note: "6–25 cr / img", free: false },
+];
+
 export function Pricing() {
-  const plans = [
+  const packs = [
     {
-      name: "Free", price: "₹0", period: "/ month", tag: "Try it out",
-      features: ["6 images / month", "All garment types", "Standard 1080×1440px", "Community support"],
-      cta: "Start Free", popular: false,
+      tag: "Free",
+      name: "Starter",
+      price: "₹0",
+      sub: "on signup — no card needed",
+      credits: 30,
+      note: "~6 Flash images",
+      models: ["Flash Model", "ProMax Model"],
+      lockedModels: ["Plus Model", "Pro Model"],
+      cta: "Get Started Free",
+      popular: false,
+      highlight: false,
     },
     {
-      name: "Growth", price: "₹999", period: "/ month", tag: "Most Popular",
-      features: ["200 images / month", "Priority generation", "High-res export", "Print-on-garment simulator", "Multi-angle views", "Email support"],
-      cta: "Start Free Trial →", popular: true,
+      tag: "Pack 1",
+      name: "Basic",
+      price: "₹299",
+      sub: "one-time · never expires",
+      credits: 60,
+      note: "~12 Flash images",
+      models: ["Flash Model", "ProMax Model", "Plus Model", "Pro Model"],
+      lockedModels: [],
+      cta: "Buy 60 Credits →",
+      popular: false,
+      highlight: false,
     },
     {
-      name: "Scale", price: "₹2,499", period: "/ month", tag: "High volume",
-      features: ["Unlimited images", "Dedicated queue", "Custom model training", "Multi-seat access", "Asset sharing", "Dedicated support"],
-      cta: "Contact Us", popular: false,
+      tag: "Most Popular",
+      name: "Growth",
+      price: "₹999",
+      sub: "one-time · never expires",
+      credits: 250,
+      note: "~50 Flash images",
+      models: ["Flash Model", "ProMax Model", "Plus Model", "Pro Model"],
+      lockedModels: [],
+      cta: "Buy 250 Credits →",
+      popular: true,
+      highlight: true,
+    },
+    {
+      tag: "Best Value",
+      name: "Studio",
+      price: "₹2,499",
+      sub: "one-time · never expires",
+      credits: 700,
+      note: "~140 Flash images",
+      models: ["Flash Model", "ProMax Model", "Plus Model", "Pro Model"],
+      lockedModels: [],
+      cta: "Buy 700 Credits →",
+      popular: false,
+      highlight: false,
     },
   ];
 
@@ -88,53 +132,95 @@ export function Pricing() {
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={staggerContainer}>
         <motion.div className="lp-section-label" variants={fadeInUp}>✦ Pricing</motion.div>
         <motion.h2 className="lp-section-title" variants={fadeInUp}>
-          Start free. Scale when you're ready.
+          Pay per image. No subscription.
         </motion.h2>
         <motion.p className="lp-section-sub" variants={fadeInUp}>
-          No credit card required for the Free plan. Cancel anytime.
+          Buy credits once, use them anytime. Credits never expire. Start free with 30 credits — no card needed.
         </motion.p>
       </motion.div>
-      <div className="lp-pricing-grid">
-        {plans.map((plan, i) => (
+
+      {/* Model availability legend */}
+      <motion.div
+        className="lp-model-legend"
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ delay: 0.1 }}
+      >
+        {MODEL_ROWS.map(m => (
+          <div key={m.name} className="lp-model-legend-item">
+            <span className={`lp-model-dot ${m.free ? "lp-model-dot-free" : "lp-model-dot-paid"}`} />
+            <span className="lp-model-legend-name">{m.name}</span>
+            <span className="lp-model-legend-note">{m.note}</span>
+            <span className={`lp-model-legend-badge ${m.free ? "lp-badge-free" : "lp-badge-paid"}`}>
+              {m.free ? "Free included" : "Credits required"}
+            </span>
+          </div>
+        ))}
+      </motion.div>
+
+      <div className="lp-pricing-grid lp-pricing-grid-4">
+        {packs.map((pack, i) => (
           <motion.div
-            key={plan.name}
-            className={`lp-pricing-card ${plan.popular ? " lp-pricing-popular" : ""}`}
+            key={pack.name}
+            className={`lp-pricing-card lp-credit-card ${pack.highlight ? "lp-pricing-popular" : ""}`}
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-50px" }}
-            transition={{ delay: i * 0.15, duration: 0.5 }}
-            whileHover={plan.popular ? { y: -10, transition: { duration: 0.2 } } : { y: -5, transition: { duration: 0.2 } }}
+            transition={{ delay: i * 0.1, duration: 0.45 }}
+            whileHover={{ y: pack.highlight ? -10 : -5, transition: { duration: 0.18 } }}
           >
-            {plan.popular && <div className="lp-popular-badge">Most Popular</div>}
-            <div className="lp-pricing-tag">{plan.tag}</div>
-            <h3 className="lp-pricing-name">{plan.name}</h3>
-            <div className="lp-pricing-price">
-              <span className="lp-price-num">{plan.price}</span>
-              <span className="lp-price-per">{plan.period}</span>
+            {pack.popular && <div className="lp-popular-badge">{pack.tag}</div>}
+
+            <div className="lp-credit-tag">{pack.popular ? "" : pack.tag}</div>
+            <h3 className="lp-pricing-name">{pack.name}</h3>
+
+            <div className="lp-credit-price-row">
+              <span className="lp-price-num">{pack.price}</span>
+              <div className="lp-credit-badge-wrap">
+                <span className="lp-credit-count">{pack.credits}</span>
+                <span className="lp-credit-word">credits</span>
+              </div>
             </div>
-            <ul className="lp-pricing-features">
-              {plan.features.map(f => (
-                <li key={f}><span className="lp-check">✓</span>{f}</li>
-              ))}
+            <div className="lp-credit-sub">{pack.sub}</div>
+            <div className="lp-credit-note">{pack.note}</div>
+
+            <div className="lp-credit-divider" />
+
+            <div className="lp-credit-models-label">Models unlocked</div>
+            <ul className="lp-credit-models">
+              {MODEL_ROWS.map(m => {
+                const unlocked = pack.models.includes(m.name);
+                return (
+                  <li key={m.name} className={unlocked ? "lp-model-on" : "lp-model-off"}>
+                    <span>{unlocked ? "✓" : "🔒"}</span>
+                    <span>{m.name}</span>
+                    <span className="lp-model-cost">{m.note}</span>
+                  </li>
+                );
+              })}
             </ul>
+
             <Link
               to={APP}
-              className={plan.popular ? "lp-btn-primary" : "lp-btn-secondary"}
+              className={pack.highlight ? "lp-btn-primary" : "lp-btn-secondary"}
               style={{ width: "100%", justifyContent: "center", marginTop: "auto" }}
             >
-              {plan.cta}
+              {pack.cta}
             </Link>
           </motion.div>
         ))}
       </div>
-      <motion.p 
+
+      <motion.p
         className="lp-pricing-footnote"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         viewport={{ once: true }}
         transition={{ delay: 0.5 }}
       >
-        Photoshoot alternative. Cancel anytime. No credit card required for the Free plan.
+        Credits are shared across all features — image generation, prints, and try-on.
+        No subscription. No monthly renewal. Buy once, use anytime.
       </motion.p>
     </section>
   );

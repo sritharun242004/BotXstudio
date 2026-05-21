@@ -84,7 +84,7 @@ export function Nav() {
         display: "flex", alignItems: "center",
         padding: "5px 6px",
         gap: 2,
-        flex: 1,
+        marginLeft: "auto",
       }}>
         {NAV_LINKS.map(({ label, href }) => (
           <a
@@ -149,21 +149,22 @@ export function Nav() {
             display: "flex", alignItems: "center", gap: 6,
             padding: "8px 18px",
             borderRadius: 9999,
-            background: "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
+            background: "#8B5CF6",
             color: "#fff",
-            fontSize: 13, fontWeight: 700,
+            fontSize: 13, fontWeight: 800,
             textDecoration: "none",
-            boxShadow: "0 2px 14px rgba(139,92,246,0.38)",
-            transition: "transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s ease",
+            border: "2px solid #1E293B",
+            boxShadow: "3px 3px 0 #1E293B",
+            transition: "transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease",
             marginRight: 4,
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.transform = "translateY(-2px)";
-            e.currentTarget.style.boxShadow = "0 6px 22px rgba(139,92,246,0.52)";
+            e.currentTarget.style.transform = "translate(-2px,-2px)";
+            e.currentTarget.style.boxShadow = "5px 5px 0 #1E293B";
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow = "0 2px 14px rgba(139,92,246,0.38)";
+            e.currentTarget.style.transform = "translate(0,0)";
+            e.currentTarget.style.boxShadow = "3px 3px 0 #1E293B";
           }}
         >
           Get Started Free
