@@ -1,6 +1,5 @@
 import { GARMENT_TYPES, IMAGE_GENERATION_MODELS, type ImageGenerationModelId } from "../lib/storyboards";
 import { useCredits } from "../context/CreditsContext";
-import { useNavigate } from "react-router-dom";
 
 interface StoryboardEditorHeaderProps {
   title: string;
@@ -48,9 +47,7 @@ export default function StoryboardEditorHeader({
   onGarmentTypeChange,
   onImageModelChange,
 }: StoryboardEditorHeaderProps) {
-  const { modelPricing, balance } = useCredits();
-  const navigate = useNavigate();
-  const isPaidUser = balance > 0;
+  const { modelPricing } = useCredits();
 
   return (
     <div className="storyboardEditorCardHeader" aria-label="Storyboard manager">
@@ -133,24 +130,22 @@ export default function StoryboardEditorHeader({
 
       {/* ── Image Generation Model ───────────────────────────────── */}
       <div className="garmentTypeRow" style={{ marginTop: 16 }}>
-        <div className="sectionTitle" style={{ margin: "0 0 10px" }}>
+        <div className="sectionTitle" style={{ margin: "0 0 4px" }}>
           Image generation model
         </div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
+          Mood Board uses Flash — generates <strong>1 image per run</strong>. Use Multi Angle tab for back &amp; detail views.
+        </div>
         <div className="modelSelectorCards">
-          {IMAGE_GENERATION_MODELS.map((m) => {
+          {IMAGE_GENERATION_MODELS.filter(m => m.id === "gemini-2.5-flash-image").map((m) => {
             const active = imageModel === m.id;
-            const locked = !m.freeEligible && !isPaidUser;
             return (
               <div key={m.id} className="modelCardWrap" style={{ position: "relative" }}>
                 <button
                   type="button"
-                  disabled={disabled || locked}
-                  onClick={() => locked
-                    ? navigate("/app/settings", { state: { section: "credits" } })
-                    : onImageModelChange(m.id)
-                  }
-                  className={["modelCard", m.colorClass, active ? "modelCardActive" : "", locked ? "modelCardLocked" : ""].filter(Boolean).join(" ")}
-                  title={locked ? "Purchase credits to unlock this model" : m.id}
+                  disabled={disabled}
+                  onClick={() => onImageModelChange(m.id)}
+                  className={["modelCard", m.colorClass, active ? "modelCardActive" : ""].filter(Boolean).join(" ")}
                 >
                   <div className="modelCardHeader">
                     <span className="modelCardName">{m.label}</span>
@@ -170,21 +165,13 @@ export default function StoryboardEditorHeader({
                       {getModelCreditsDisplay(m.id, modelPricing)}
                     </span>
                   </div>
-
-                  {locked && (
-                    <div className="modelCardLockOverlay">
-                      <div className="modelCardLockIcon">🔒</div>
-                      <div className="modelCardLockLabel">Credits required</div>
-                      <div className="modelCardLockCta">Buy credits to unlock →</div>
-                    </div>
-                  )}
                 </button>
               </div>
             );
           })}
         </div>
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Flash &amp; ProMax included in your 30 free credits. Plus &amp; Pro require purchased credits.
+          Included in your 30 free credits · 5 credits per image · Single image generation only
         </div>
       </div>
 

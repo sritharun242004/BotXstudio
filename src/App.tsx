@@ -2483,8 +2483,6 @@ export default function App() {
                           onResultImagePointerLeave={onResultImagePointerLeave}
                           onOpenImage={openImageModal}
                           onRetry={retryMainImage}
-                          onGenerateAngles={generateMultipleAngles}
-                          onDownloadAll={downloadAllImages}
                         />
                       </div>
                     </div>
