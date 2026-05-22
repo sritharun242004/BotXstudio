@@ -602,7 +602,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard"
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon"
       ? stored : "prints";
   });
 
@@ -2379,7 +2379,7 @@ export default function App() {
             <button
               type="button"
               className={`navButton${activeTab === "tryon" ? " navButtonActive" : ""}`}
-              onClick={() => navigate("/app/tryon")}
+              onClick={() => setActiveTab("tryon")}
             >
               <Shirt size={16} className="navButtonIcon" />
               Try On
@@ -2693,7 +2693,7 @@ export default function App() {
             <button
               type="button"
               className={`navButton${activeTab === "tryon" ? " navButtonActive" : ""}`}
-              onClick={() => { navigate("/app/tryon"); setMobileNavOpen(false); }}
+              onClick={() => { setActiveTab("tryon"); setMobileNavOpen(false); }}
             >
               <Shirt size={16} className="navButtonIcon" />
               Try On
