@@ -676,13 +676,13 @@ export default function DocumentsTab() {
 
   /* ── Page ────────────────────────────────────────────────── */
   return (
-    <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ──────────────────────────────────── */}
       <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
 
         {/* Purple brand */}
-        <div style={{
+        <div className="stgHeaderBrandCol" style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
@@ -731,7 +731,7 @@ export default function DocumentsTab() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
         {/* Purple sidebar — real app nav */}
-        <aside style={{
+        <aside className="stgAppSidebar" style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",

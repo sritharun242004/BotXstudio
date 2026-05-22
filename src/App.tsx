@@ -575,11 +575,16 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(() => getSession());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!userMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      if (
+        userMenuRef.current && !userMenuRef.current.contains(t) &&
+        mobileUserMenuRef.current && !mobileUserMenuRef.current.contains(t)
+      ) {
         setUserMenuOpen(false);
       }
     };
@@ -2264,6 +2269,56 @@ export default function App() {
       </div>
 
       <div className="appShell">
+
+        {/* ── Mobile Header (hidden on desktop) ─────────────────────────────── */}
+        <header className="mobileHeader">
+          <div className="mobileHeaderBrand">
+            <div className="mobileHeaderLogo">BZ</div>
+            <span className="mobileHeaderTitle">Botzudio</span>
+          </div>
+          <div className="mobileHeaderRight" ref={mobileUserMenuRef}>
+            {userMenuOpen && (
+              <div className="sidebarUserMenu mobileUserMenu">
+                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); }}>
+                  <Settings size={14} /> Settings
+                </button>
+                <button type="button" className="sidebarMenuOption" onClick={() => { setActiveTab("dashboard"); setUserMenuOpen(false); }}>
+                  <LayoutDashboard size={14} /> Dashboard
+                </button>
+                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "credits" } }); setUserMenuOpen(false); }}>
+                  <BarChart2 size={14} /> Credits
+                </button>
+                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/documentation"); setUserMenuOpen(false); }}>
+                  <BookOpen size={14} /> Documents
+                </button>
+                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setUserMenuOpen(false); }}>
+                  <LifeBuoy size={14} /> Help &amp; Support
+                </button>
+                {session?.email === ADMIN_EMAIL && (
+                  <>
+                    <div className="sidebarMenuDivider" />
+                    <button type="button" className="sidebarMenuOption sidebarMenuOptionAdmin" onClick={() => window.open("/admin", "_blank")}>
+                      <ShieldCheck size={14} /> Admin Panel
+                    </button>
+                  </>
+                )}
+                <div className="sidebarMenuDivider" />
+                <button type="button" className="sidebarMenuOption sidebarMenuOptionDanger" onClick={handleLogout}>
+                  <LogOut size={14} /> Logout
+                </button>
+              </div>
+            )}
+            <button
+              type="button"
+              className="mobileHeaderUserBtn"
+              onClick={() => setUserMenuOpen(o => !o)}
+              aria-label="User menu"
+            >
+              {(session?.name || session?.email || "U")[0]?.toUpperCase()}
+            </button>
+          </div>
+        </header>
+
         <aside className="sidebar">
           {/* Brand */}
           <div className="sidebarBrand">
@@ -2539,6 +2594,38 @@ export default function App() {
 
           </div>
         </main>
+
+        {/* ── Mobile Bottom Tab Bar (hidden on desktop) ─────────────────────── */}
+        <nav className="mobileTabBar" aria-label="Main navigation">
+          {([
+            { tab: "prints",    label: "Prints",   Icon: Palette    },
+            { tab: "generate",  label: "Generate", Icon: Sparkles   },
+            { tab: "tryon",     label: "Try On",   Icon: Shirt      },
+            { tab: "saved",     label: "Saved",    Icon: Bookmark   },
+            { tab: "assets",    label: "Assets",   Icon: FolderOpen },
+          ] as const).map(({ tab, label, Icon }) => (
+            <button
+              key={tab}
+              type="button"
+              className={`mobileTabBtn${activeTab === tab ? " mobileTabBtnActive" : ""}`}
+              onClick={() => setActiveTab(tab)}
+              aria-label={label}
+            >
+              <Icon size={20} />
+              <span className="mobileTabLabel">{label}</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            className="mobileTabBtn"
+            onClick={() => setUserMenuOpen(o => !o)}
+            aria-label="More options"
+          >
+            <MoreVertical size={20} />
+            <span className="mobileTabLabel">More</span>
+          </button>
+        </nav>
+
       </div>
 
       <ImageModal

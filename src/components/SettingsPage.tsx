@@ -377,7 +377,7 @@ function CreditsSection() {
           </div>
 
           {/* Pack cards */}
-          <div style={{ padding: "20px 24px 16px", display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+          <div style={{ padding: "20px 24px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
             {CREDIT_PACKS.map(pack => {
               const isSel = selectedPack === pack.key;
               return (
@@ -1109,12 +1109,12 @@ export default function SettingsPage() {
   const activeLabel = SECTIONS.find(s => s.key === activeSection)?.label ?? "Settings";
 
   return (
-    <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
         {/* Purple brand — identical to main app nav */}
-        <div style={{
+        <div className="stgHeaderBrandCol" style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
@@ -1155,7 +1155,7 @@ export default function SettingsPage() {
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
         {/* Purple app sidebar — real app nav, navigates back to app tabs */}
-        <aside style={{
+        <aside className="stgAppSidebar" style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",

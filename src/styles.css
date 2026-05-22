@@ -1948,40 +1948,244 @@ input[type="file"]::file-selector-button:hover {
 .printBundleBtnDone { background: #22c55e; border-color: #22c55e; box-shadow: 2px 2px 0px #166534; }
 .printBundleBtnDone:hover { background: #16a34a; }
 
+/* ─── Mobile-only elements (hidden on desktop) ───────────────────── */
+.mobileHeader   { display: none; }
+.mobileTabBar   { display: none; }
+
 /* ─── Responsive ─────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+
+  /* ── App shell: flex column, full viewport ── */
+  .appRoot {
+    height: 100svh;
+    overflow: hidden;
+  }
   .appShell {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    overflow: hidden;
   }
-  .sidebar {
-    position: static;
+
+  /* ── Hide desktop sidebar ── */
+  .sidebar { display: none !important; }
+
+  /* ── Mobile top header ── */
+  .mobileHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--accent);
+    background-image: radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px);
+    background-size: 18px 18px;
+    padding: 0 14px;
+    height: 52px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 200;
+  }
+  .mobileHeaderBrand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mobileHeaderLogo {
+    width: 30px;
+    height: 30px;
+    background: #fff;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 900;
+    font-size: 12px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .mobileHeaderTitle {
+    font-family: var(--font-heading);
+    font-size: 17px;
+    font-weight: 800;
+    color: #fff;
+  }
+  .mobileHeaderRight {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .mobileHeaderUserBtn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.18);
+    border: 1.5px solid rgba(255,255,255,0.35);
+    color: #fff;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.15s;
+  }
+  .mobileHeaderUserBtn:hover { background: rgba(255,255,255,0.28); }
+
+  /* Mobile user menu — drops from top-right */
+  .mobileUserMenu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    bottom: auto;
+    left: auto;
+    min-width: 200px;
+    z-index: 300;
+  }
+
+  /* ── Main content fills remaining space ── */
+  .mainContent {
+    flex: 1;
     height: auto;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 12px;
-    gap: 8px;
-  }
-  .sidebarBrand { padding: 0; border: none; }
-  .sidebarNav {
-    flex-direction: row;
-    flex-wrap: nowrap;
-    padding: 0;
-    gap: 4px;
-    overflow-x: auto;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
+  }
+  .container {
+    padding: 16px 12px 20px;
+  }
+  .header {
+    margin-bottom: 14px;
+  }
+  .title { font-size: 20px; }
+  .titleLarge { font-size: 22px; }
+  .sectionTitle { margin-top: 16px; margin-bottom: 8px; }
+
+  /* ── Mobile bottom tab bar ── */
+  .mobileTabBar {
+    display: flex;
+    align-items: stretch;
+    background: #fff;
+    border-top: 2px solid var(--border);
+    height: 60px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 100;
+    overflow-x: auto;
     scrollbar-width: none;
   }
-  .sidebarNav::-webkit-scrollbar { display: none; }
-  .navButton { padding: 7px 12px; font-size: 13px; }
-  .sidebarUser { padding: 0; border: none; margin-top: 0; display: flex; align-items: center; gap: 10px; }
-  .sidebarUserInfo { margin-bottom: 0; }
-  .sidebarUserDetails { display: none; }
-  .sidebarLogoutBtn { width: auto; padding: 6px 14px; }
-  .container { padding: 16px 14px 32px; }
-  .storyBoard { grid-template-columns: 1fr; }
-  .savedImagesGrid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
-  .btnPrimary, .btnSecondary, .btnDanger { min-height: 48px; }
+  .mobileTabBar::-webkit-scrollbar { display: none; }
+  .mobileTabBtn {
+    flex: 1;
+    min-width: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    border: none;
+    background: transparent;
+    color: var(--muted-color);
+    cursor: pointer;
+    padding: 4px 2px;
+    transition: color 0.15s, background 0.15s;
+    font-family: var(--font-body);
+  }
+  .mobileTabBtn:active { background: #f3f4f6; }
+  .mobileTabBtnActive { color: var(--accent); }
+  .mobileTabBtnActive svg { stroke: var(--accent); }
+  .mobileTabLabel {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* ── Storyboard grid: single column ── */
+  .storyBoard { grid-template-columns: 1fr; gap: 16px; }
+
+  /* Result pane: not sticky on mobile */
+  .result {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Editor card adjustments */
+  .storyboardEditorCard { border-radius: 0; border-left: none; border-right: none; }
+  .storyboardEditorCardBody { padding: 0; }
+  .parameterSection { padding: 16px 14px; }
+  .parameterSection > div + div { margin-top: 16px; }
+
+  /* Storyboard header */
+  .storyboardEditorHeaderMain { flex-wrap: wrap; gap: 8px; }
+  .storyboardEditorHeaderName { min-width: 0; width: 100%; }
+  .storyboardEditorHeaderActions { flex-wrap: wrap; gap: 6px; }
+
+  /* Cards: reduce shadow on mobile */
+  .card { box-shadow: 3px 3px 0px var(--border-strong); }
+
+  /* Saved images grid */
+  .savedImagesGrid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+
+  /* Buttons */
+  .btnPrimary, .btnSecondary, .btnDanger { min-height: 44px; }
+  .btn { font-size: 13px; padding: 8px 14px; }
+
+  /* Image upload areas */
+  .garmentDropZone, .uploadDropZone { min-height: 110px; padding: 14px; }
+
+  /* Assets tab grid */
+  .atAssetsGrid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+  .atThumb { height: 100px; }
+
+  /* ── Settings & Docs pages (stg) ── */
+  .stgHeaderBrandCol { display: none !important; }
+  .stgAppSidebar { display: none !important; }
+  .stgShell {
+    max-width: 100%;
+    height: 100svh;
+    max-height: 100svh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    flex-direction: column;
+  }
+  .stgSidebar { display: none; }
+  .stgContent { flex: 1; min-height: 0; }
+  .stgContentInner { padding: 20px 16px 24px; }
+  .stgTopBar { padding: 12px 14px; }
+  .stgTabBar { padding: 0 8px; }
+  .stgTab { padding: 11px 10px 9px; font-size: 11.5px; }
+  .stgSectionTitle { font-size: 20px; }
+  .stgBackBtn { font-size: 12px; padding: 6px 12px; }
+
+  /* Settings / Docs page wrappers */
+  .stgPage {
+    padding: 0;
+    background: var(--bg);
+    height: 100svh !important;
+    min-height: 100svh;
+    align-items: flex-start;
+  }
+  /* Root page containers use inline height:100vh — force svh on mobile */
+  .stgRootPage { height: 100svh !important; }
+
+  /* ── PrintsTab mobile ── */
+  .printTabGrid { grid-template-columns: 1fr !important; }
+  .printSidePanel { width: 100% !important; }
+
+  /* ── TryOnTab mobile ── */
+  .tryonLayout { flex-direction: column !important; }
+  .tryonSidebar { width: 100% !important; border-right: none !important; border-bottom: 2px solid var(--border); }
+
+  /* ── Dashboard mobile ── */
+  .dbGrid { grid-template-columns: 1fr !important; }
+
+  /* ── Storyboard library cards ── */
+  .sbLibCard { min-height: 120px; }
+  .sbLibGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 }
 
 /* ─── Reduced Motion ─────────────────────────────────────────────── */
