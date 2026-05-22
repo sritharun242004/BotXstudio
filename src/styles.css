@@ -3165,7 +3165,7 @@ input[type="file"]::file-selector-button:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   aspect-ratio: 3/4;
   border: 2px dashed var(--border-subtle, #cbd5e1);
@@ -3175,14 +3175,38 @@ input[type="file"]::file-selector-button:hover {
   font-size: 0.78rem;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 150ms, background 150ms, color 150ms;
+  transition: border-color 150ms, background 150ms, color 150ms, box-shadow 150ms;
   user-select: none;
 }
 
+.garmentUploadSlotPrimary {
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+}
+
+.garmentUploadSlotSub {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted, #94a3b8);
+  opacity: 0.8;
+}
+
 .garmentUploadSlot:hover {
-  border-color: var(--accent, #6366f1);
-  background: var(--accent-subtle, #eef2ff);
-  color: var(--accent, #6366f1);
+  border-color: #8B5CF6;
+  background: rgba(139,92,246,0.04);
+  color: #7C3AED;
+}
+.garmentUploadSlot:hover .garmentUploadSlotSub {
+  color: #8B5CF6;
+}
+
+.garmentUploadSlotDragActive {
+  border-color: #8B5CF6 !important;
+  border-style: solid !important;
+  background: rgba(139,92,246,0.08) !important;
+  color: #7C3AED !important;
+  box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
 }
 
 .garmentUploadSlotDisabled {

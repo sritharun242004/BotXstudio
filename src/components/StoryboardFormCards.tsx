@@ -338,6 +338,7 @@ export default function StoryboardFormCards({
 }: StoryboardFormCardsProps) {
   const isFlashModel = (config.imageModel || "").toLowerCase().includes("flash") || config.imageModel === "hybrid-editorial";
 
+  const [dragOver, setDragOver] = useState<string | null>(null);
   const [showSavedPrints, setShowSavedPrints] = useState(false);
   const [showSavedGarments, setShowSavedGarments] = useState(false);
   const [showSavedBackgrounds, setShowSavedBackgrounds] = useState(false);
@@ -536,11 +537,29 @@ export default function StoryboardFormCards({
                     </button>
                   </div>
                 ) : (
-                  <label htmlFor={`garmentFront-${activeStoryboardId}`} className="garmentUploadSlot">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span>Upload front</span>
+                  <label
+                    htmlFor={`garmentFront-${activeStoryboardId}`}
+                    className={`garmentUploadSlot${dragOver === "garment-front" ? " garmentUploadSlotDragActive" : ""}`}
+                    onDragOver={(e) => { e.preventDefault(); setDragOver("garment-front"); }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onGarmentFrontFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                  >
+                    {dragOver === "garment-front" ? (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }}>
+                          <path d="M12 3v10" /><path d="M8 9l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                        </svg>
+                        <span className="garmentUploadSlotPrimary">Drop image here</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span className="garmentUploadSlotPrimary">Drag &amp; drop</span>
+                        <span className="garmentUploadSlotSub">or click to upload</span>
+                      </>
+                    )}
                   </label>
                 )}
                 <input id={`garmentFront-${activeStoryboardId}`} type="file" accept="image/*" onChange={onGarmentFrontFileChange} style={{ display: "none" }} />
@@ -562,13 +581,28 @@ export default function StoryboardFormCards({
                 ) : (
                   <label
                     htmlFor={`garmentBack-${activeStoryboardId}`}
-                    className={`garmentUploadSlot${!runtime.garmentDataUrls[0] ? " garmentUploadSlotDisabled" : ""}`}
+                    className={`garmentUploadSlot${!runtime.garmentDataUrls[0] ? " garmentUploadSlotDisabled" : ""}${dragOver === "garment-back" ? " garmentUploadSlotDragActive" : ""}`}
                     title={!runtime.garmentDataUrls[0] ? "Upload front view first" : ""}
+                    onDragOver={(e) => { if (!runtime.garmentDataUrls[0]) return; e.preventDefault(); setDragOver("garment-back"); }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={(e) => { if (!runtime.garmentDataUrls[0]) return; e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onGarmentBackFileChange({ target: { files: e.dataTransfer.files } } as any); }}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    <span>Upload back</span>
+                    {dragOver === "garment-back" ? (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 26, height: 26 }}>
+                          <path d="M12 3v10" /><path d="M8 9l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                        </svg>
+                        <span className="garmentUploadSlotPrimary">Drop image here</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 22, height: 22 }}>
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span className="garmentUploadSlotPrimary">Drag &amp; drop</span>
+                        <span className="garmentUploadSlotSub">or click to upload</span>
+                      </>
+                    )}
                   </label>
                 )}
                 <input id={`garmentBack-${activeStoryboardId}`} type="file" accept="image/*" disabled={!runtime.garmentDataUrls[0]} onChange={onGarmentBackFileChange} style={{ display: "none" }} />
@@ -712,13 +746,18 @@ export default function StoryboardFormCards({
                     </div>
 
                     <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                      <div style={{ marginBottom: 12 }}>
+                      <div
+                        style={{ marginBottom: 12, borderRadius: 8, padding: "6px 6px 2px", transition: "background .15s, outline .15s", ...(dragOver === "model" ? { outline: "2px dashed #8B5CF6", background: "rgba(139,92,246,0.04)" } : {}) }}
+                        onDragOver={(e) => { e.preventDefault(); setDragOver("model"); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onModelFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                      >
                         <FieldLabel label="Upload Custom Model" info="Upload an image to serve as the model directly." />
                         <label htmlFor={`upload-model-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
                             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                           </svg>
-                          Upload image
+                          {dragOver === "model" ? "Drop to upload" : "Upload image"}
                         </label>
                         <input id={`upload-model-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onModelFileChange} />
                       </div>
@@ -897,13 +936,18 @@ export default function StoryboardFormCards({
 
                 {!isFlashModel && (
                   <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                    <div style={{ marginBottom: 12 }}>
+                    <div
+                      style={{ marginBottom: 12, borderRadius: 8, padding: "6px 6px 2px", transition: "background .15s, outline .15s", ...(dragOver === "pose" ? { outline: "2px dashed #8B5CF6", background: "rgba(139,92,246,0.04)" } : {}) }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver("pose"); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onPoseFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                    >
                       <FieldLabel label="Upload Custom Pose" info="Upload an image to serve as the exact pose reference." />
                       <label htmlFor={`upload-pose-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
-                        Upload image
+                        {dragOver === "pose" ? "Drop to upload" : "Upload image"}
                       </label>
                       <input id={`upload-pose-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onPoseFileChange} />
                     </div>
@@ -1015,13 +1059,18 @@ export default function StoryboardFormCards({
 
                 {!isFlashModel && (
                   <div className="chooseFromAssets" style={{ marginTop: 16 }}>
-                    <div style={{ marginBottom: 12 }}>
+                    <div
+                      style={{ marginBottom: 12, borderRadius: 8, padding: "6px 6px 2px", transition: "background .15s, outline .15s", ...(dragOver === "background" ? { outline: "2px dashed #8B5CF6", background: "rgba(139,92,246,0.04)" } : {}) }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver("background"); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onBackgroundFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                    >
                       <FieldLabel label="Upload Custom Background" info="Upload an image to serve as the background directly." />
                       <label htmlFor={`upload-bg-${activeStoryboardId}`} className="btnSecondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer", marginTop: 4 }}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 15, height: 15 }}>
                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
-                        Upload image
+                        {dragOver === "background" ? "Drop to upload" : "Upload image"}
                       </label>
                       <input id={`upload-bg-${activeStoryboardId}`} type="file" accept="image/*" style={{ display: "none" }} onChange={onBackgroundFileChange} />
                     </div>

@@ -112,6 +112,7 @@ export default function AssetsTab({
 }: AssetsTabProps) {
   const [uploadTab, setUploadTab] = useState<UploadSubTab>("garment");
   const [libCategory, setLibCategory] = useState<CategoryKey>("all");
+  const [isDragging, setIsDragging] = useState(false);
 
   const activeTabDef = UPLOAD_TABS.find((t) => t.key === uploadTab)!;
 
@@ -195,8 +196,15 @@ export default function AssetsTab({
           <p className="atUploadInfo">{activeTabDef.info}</p>
 
           {/* Compact horizontal drop zone */}
-          <label className="atDropZoneCompact" htmlFor={inputId}>
-            <div className="atDropZoneCompactIcon">
+          <label
+            className="atDropZoneCompact"
+            htmlFor={inputId}
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); fileChangeHandler({ target: { files: e.dataTransfer.files } } as ChangeEvent<HTMLInputElement>); }}
+            style={isDragging ? { borderColor: "#8B5CF6", background: "rgba(139,92,246,0.06)" } : undefined}
+          >
+            <div className="atDropZoneCompactIcon" style={isDragging ? { color: "#8B5CF6" } : undefined}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="17 8 12 3 7 8" />
@@ -204,7 +212,9 @@ export default function AssetsTab({
               </svg>
             </div>
             <div className="atDropZoneCompactBody">
-              <span className="atDropZoneCompactText">Click to upload</span>
+              <span className="atDropZoneCompactText" style={isDragging ? { color: "#7C3AED" } : undefined}>
+                {isDragging ? "Drop to upload" : "Click or drop to upload"}
+              </span>
               <span className="atDropZoneCompactSub">PNG · JPG · WEBP</span>
             </div>
             <input id={inputId} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={fileChangeHandler} />

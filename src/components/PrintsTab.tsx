@@ -142,6 +142,7 @@ export default function PrintsTab({
 }: PrintsTabProps) {
   const [retryOpen, setRetryOpen] = useState(false);
   const [retryComments, setRetryComments] = useState("");
+  const [dragOver, setDragOver] = useState<string | null>(null);
 
   const frontFileRef = useRef<HTMLInputElement>(null);
   const backFileRef = useRef<HTMLInputElement>(null);
@@ -254,9 +255,16 @@ export default function PrintsTab({
                         </button>
                       </div>
                     ) : (
-                      <label htmlFor="printBaseGarmentFront" className="printsUploadCard">
+                      <label
+                        htmlFor="printBaseGarmentFront"
+                        className="printsUploadCard"
+                        onDragOver={(e) => { e.preventDefault(); setDragOver("front-garment"); }}
+                        onDragLeave={() => setDragOver(null)}
+                        onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onBaseGarmentFrontFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                        style={dragOver === "front-garment" ? { borderColor: "#8B5CF6", background: "rgba(139,92,246,0.06)", color: "#7C3AED" } : undefined}
+                      >
                         <UploadCardIcon />
-                        <span>{isFullCloth ? "Upload cloth" : "Upload front"}</span>
+                        <span>{dragOver === "front-garment" ? "Drop to upload" : (isFullCloth ? "Upload cloth" : "Upload front")}</span>
                         <input
                           id="printBaseGarmentFront"
                           ref={frontFileRef}
@@ -286,9 +294,16 @@ export default function PrintsTab({
                           </button>
                         </div>
                       ) : (
-                        <label htmlFor="printBaseGarmentBack" className="printsUploadCard">
+                        <label
+                          htmlFor="printBaseGarmentBack"
+                          className="printsUploadCard"
+                          onDragOver={(e) => { e.preventDefault(); setDragOver("back-garment"); }}
+                          onDragLeave={() => setDragOver(null)}
+                          onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onBaseGarmentBackFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                          style={dragOver === "back-garment" ? { borderColor: "#8B5CF6", background: "rgba(139,92,246,0.06)", color: "#7C3AED" } : undefined}
+                        >
                           <UploadCardIcon />
-                          <span>Upload back</span>
+                          <span>{dragOver === "back-garment" ? "Drop to upload" : "Upload back"}</span>
                           <input
                             id="printBaseGarmentBack"
                             ref={backFileRef}
@@ -339,9 +354,16 @@ export default function PrintsTab({
                   </button>
                 </div>
               ) : (
-                <label htmlFor="printDesignFront" className="printsDesignUpload">
+                <label
+                  htmlFor="printDesignFront"
+                  className="printsDesignUpload"
+                  onDragOver={(e) => { e.preventDefault(); setDragOver("front-design"); }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onPrintDesignFrontFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                  style={dragOver === "front-design" ? { borderColor: "#8B5CF6", background: "rgba(139,92,246,0.06)", color: "#7C3AED" } : undefined}
+                >
                   <UploadCardIcon />
-                  <span>Upload front</span>
+                  <span>{dragOver === "front-design" ? "Drop to upload" : "Upload front"}</span>
                   <input id="printDesignFront" type="file" accept="image/*" style={{ display: "none" }} onChange={onPrintDesignFrontFileChange} />
                 </label>
               )}
@@ -366,9 +388,16 @@ export default function PrintsTab({
                     </button>
                   </div>
                 ) : (
-                  <label htmlFor="printDesignBack" className="printsDesignUpload">
+                  <label
+                    htmlFor="printDesignBack"
+                    className="printsDesignUpload"
+                    onDragOver={(e) => { e.preventDefault(); setDragOver("back-design"); }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={(e) => { e.preventDefault(); setDragOver(null); const file = e.dataTransfer.files[0]; if (file) onPrintDesignBackFileChange({ target: { files: e.dataTransfer.files } } as any); }}
+                    style={dragOver === "back-design" ? { borderColor: "#8B5CF6", background: "rgba(139,92,246,0.06)", color: "#7C3AED" } : undefined}
+                  >
                     <UploadCardIcon />
-                    <span>Upload back</span>
+                    <span>{dragOver === "back-design" ? "Drop to upload" : "Upload back"}</span>
                     <input id="printDesignBack" type="file" accept="image/*" style={{ display: "none" }} onChange={onPrintDesignBackFileChange} />
                   </label>
                 )}

@@ -112,6 +112,7 @@ function UploadSlot({
   importSections: React.ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   return (
     <div style={{ minWidth: 0 }} data-tour={dataTour}>
@@ -144,18 +145,26 @@ function UploadSlot({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => { e.preventDefault(); setIsDragging(false); const file = e.dataTransfer.files[0]; if (file) onFile(file); }}
           style={{
-            width: "100%", aspectRatio: "3/4", border: "2px dashed #CBD5E1", borderRadius: 14,
-            background: "#F8FAFC", cursor: "pointer",
+            width: "100%", aspectRatio: "3/4",
+            border: `2px dashed ${isDragging ? "#8B5CF6" : "#CBD5E1"}`,
+            borderRadius: 14,
+            background: isDragging ? "rgba(139,92,246,0.08)" : "#F8FAFC",
+            cursor: "pointer",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
             transition: "border-color .15s, background .15s",
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = "#8B5CF6"; e.currentTarget.style.background = "rgba(139,92,246,0.04)"; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#F8FAFC"; }}
+          onMouseEnter={e => { if (!isDragging) { e.currentTarget.style.borderColor = "#8B5CF6"; e.currentTarget.style.background = "rgba(139,92,246,0.04)"; } }}
+          onMouseLeave={e => { if (!isDragging) { e.currentTarget.style.borderColor = "#CBD5E1"; e.currentTarget.style.background = "#F8FAFC"; } }}
         >
-          <Upload size={24} strokeWidth={1.5} color="#94A3B8" />
-          <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>Upload {label}</span>
-          <span style={{ fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "0 12px" }}>{hint}</span>
+          <Upload size={24} strokeWidth={1.5} color={isDragging ? "#8B5CF6" : "#94A3B8"} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: isDragging ? "#7C3AED" : "#64748B" }}>
+            {isDragging ? "Drop to upload" : `Upload ${label}`}
+          </span>
+          {!isDragging && <span style={{ fontSize: 10, color: "#94A3B8", textAlign: "center", padding: "0 12px" }}>{hint}</span>}
         </button>
       )}
 
