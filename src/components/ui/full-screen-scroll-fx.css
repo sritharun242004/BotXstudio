@@ -294,3 +294,129 @@
     font-size: clamp(1.8rem, 8vw, 3.5rem);
   }
 }
+
+/* ── Mobile: fix overlapping layout ─────────────────────────── */
+@media (max-width: 600px) {
+  /* Switch from grid to flex column — step number → title → thumbnail */
+  .fx-content {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 52px 20px 68px;
+    row-gap: 0;
+    gap: 0;
+  }
+
+  /* Step number + description at the top */
+  .fx-right {
+    order: 1;
+    width: 100%;
+    height: auto !important;
+    overflow: visible;
+    display: flex;
+    justify-content: center;
+  }
+
+  .fx-right .fx-track {
+    transform: none !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Hide inactive right items, show only active */
+  .fx-right-item:not(.active) {
+    display: none;
+  }
+
+  .fx-right-item.active {
+    transform: none !important;
+    padding-right: 0;
+    opacity: 1 !important;
+    text-align: center;
+  }
+
+  /* Force inner text to center on mobile */
+  .fx-right-item.active > div {
+    text-align: center !important;
+  }
+
+  /* Remove the dot indicator on mobile */
+  .fx-right-item.active::after {
+    display: none;
+  }
+
+  /* Big title in the middle — takes flex: 1 so it grows to fill space */
+  .fx-center {
+    order: 2;
+    height: auto !important;
+    overflow: visible;
+    flex: 1;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  /* Make featured title non-absolute so it doesn't overlay */
+  .fx-featured {
+    position: relative !important;
+    display: none;
+  }
+
+  .fx-featured.active {
+    display: block;
+  }
+
+  .fx-featured-title {
+    font-size: clamp(2rem, 11vw, 3rem) !important;
+    text-align: center;
+    line-height: 1.05;
+  }
+
+  /* Thumbnail at the bottom */
+  .fx-left {
+    order: 3;
+    width: 100%;
+    height: auto !important;
+    overflow: visible;
+    display: flex;
+    justify-content: center;
+  }
+
+  .fx-left .fx-track {
+    transform: none !important;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Hide inactive left items */
+  .fx-left-item:not(.active) {
+    display: none;
+  }
+
+  .fx-left-item.active {
+    transform: none !important;
+    padding-left: 0;
+    opacity: 1 !important;
+  }
+
+  .fx-left-item.active::before {
+    display: none;
+  }
+
+  /* Smaller thumbnail on mobile */
+  .fx-left-item.active img {
+    width: 90px !important;
+    height: 120px !important;
+  }
+
+  /* Compact progress bar */
+  .fx-progress {
+    width: 140px;
+  }
+}
