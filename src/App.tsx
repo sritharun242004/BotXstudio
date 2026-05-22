@@ -606,6 +606,14 @@ export default function App() {
       ? stored : "prints";
   });
 
+  // Tab-switch shimmer
+  const [tabShimmer, setTabShimmer] = useState(false);
+  const isFirstTabRender = useRef(true);
+  useEffect(() => {
+    if (isFirstTabRender.current) { isFirstTabRender.current = false; return; }
+    setTabShimmer(true);
+  }, [activeTab]);
+
   // Auto-start prints tour exactly once for new users
   useEffect(() => {
     if (activeTab === "prints" && !localStorage.getItem("bz_tour_prints_v1")) {
@@ -2425,6 +2433,27 @@ export default function App() {
         </aside>
 
         <main className="mainContent">
+          {tabShimmer && (
+            <div
+              className="tabShimmerOverlay"
+              onAnimationEnd={() => setTabShimmer(false)}
+              aria-hidden="true"
+            >
+              <div className="tabShimmerInner">
+                <div className="stgTransSk tabSkTitle" />
+                <div className="tabSkCards">
+                  <div className="stgTransSk tabSkCard" />
+                  <div className="stgTransSk tabSkCard" />
+                </div>
+                <div className="stgTransSk tabSkWide" />
+                <div className="tabSkSmall">
+                  <div className="stgTransSk tabSkSmallBlock" />
+                  <div className="stgTransSk tabSkSmallBlock" />
+                  <div className="stgTransSk tabSkSmallBlock" />
+                </div>
+              </div>
+            </div>
+          )}
           <div className="container">
             <div className="header">
               <h1 className="title titleLarge">{activeTabLabel}</h1>
@@ -2534,6 +2563,8 @@ export default function App() {
                           computedTimings={computedTimings}
                           formatDurationMs={formatDurationMs}
                           mimeToExtension={mimeToExtension}
+                          imageModel={activeConfig.imageModel}
+                          onGenerateAngles={generateMultipleAngles}
                           onResultImagePointerMove={onResultImagePointerMove}
                           onResultImagePointerLeave={onResultImagePointerLeave}
                           onOpenImage={openImageModal}

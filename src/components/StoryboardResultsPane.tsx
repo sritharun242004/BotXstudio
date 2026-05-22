@@ -45,6 +45,8 @@ interface StoryboardResultsPaneProps {
   computedTimings: Timings;
   formatDurationMs: (ms: number | null | undefined) => string;
   mimeToExtension: (mimeType: string | null) => string;
+  imageModel: string;
+  onGenerateAngles: () => void;
   onResultImagePointerMove: (event: React.PointerEvent<HTMLDivElement>) => void;
   onResultImagePointerLeave: (event: React.PointerEvent<HTMLDivElement>) => void;
   onOpenImage: (src: string, title: string, alt?: string, gallery?: Array<{ src: string; title: string; alt?: string }>) => void;
@@ -139,6 +141,8 @@ export default function StoryboardResultsPane({
   computedTimings,
   formatDurationMs,
   mimeToExtension,
+  imageModel,
+  onGenerateAngles,
   onResultImagePointerMove,
   onResultImagePointerLeave,
   onOpenImage,
@@ -347,6 +351,107 @@ export default function StoryboardResultsPane({
                   Generate
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── Multi-angle section (Plus / Pro / ProMax only) ── */}
+          {imageModel !== "gemini-2.5-flash-image" && (
+            <div className="anglesSection">
+              <div className="anglesSectionHeader">
+                <FieldLabel
+                  label="Back & Detail Views"
+                  info="Generate a back view and a close-up detail shot from your main result."
+                />
+                <button
+                  type="button"
+                  className="btnSecondary"
+                  onClick={onGenerateAngles}
+                  disabled={isGenerating || runtime.angles.generating}
+                >
+                  {runtime.angles.generating ? (
+                    <><Spinner /> Generating…</>
+                  ) : (
+                    runtime.angles.backDataUrl ? "Regenerate Angles" : "Generate Angles"
+                  )}
+                </button>
+              </div>
+
+              {runtime.angles.error && (
+                <div className="errorMessage" style={{ marginTop: 8 }}>{runtime.angles.error}</div>
+              )}
+
+              {(runtime.angles.backDataUrl || runtime.angles.detailDataUrl) && (
+                <div className="anglesGrid">
+                  {runtime.angles.backDataUrl && (
+                    <div className="angleTile">
+                      <div className="angleTileLabel">Back view</div>
+                      <div className="angleTileImageWrap">
+                        <img src={runtime.angles.backDataUrl} alt="Back view" draggable={false} />
+                        <div className="angleTileOverlay">
+                          <button
+                            type="button"
+                            className="poseResultOverlayBtn"
+                            onClick={() => onOpenImage(runtime.angles.backDataUrl!, "Back view", "Back view", buildResultGallery())}
+                            title="View"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                            </svg>
+                          </button>
+                          <a
+                            className="poseResultOverlayBtn"
+                            href={runtime.angles.backDataUrl}
+                            download={`back-${Date.now()}.${mimeToExtension(runtime.angles.backMimeType)}`}
+                            title="Download"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3v10" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {runtime.angles.detailDataUrl && (
+                    <div className="angleTile">
+                      <div className="angleTileLabel">Detail shot</div>
+                      <div className="angleTileImageWrap">
+                        <img src={runtime.angles.detailDataUrl} alt="Detail shot" draggable={false} />
+                        <div className="angleTileOverlay">
+                          <button
+                            type="button"
+                            className="poseResultOverlayBtn"
+                            onClick={() => onOpenImage(runtime.angles.detailDataUrl!, "Detail shot", "Detail shot", buildResultGallery())}
+                            title="View"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+                            </svg>
+                          </button>
+                          <a
+                            className="poseResultOverlayBtn"
+                            href={runtime.angles.detailDataUrl}
+                            download={`detail-${Date.now()}.${mimeToExtension(runtime.angles.detailMimeType)}`}
+                            title="Download"
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 3v10" /><path d="M8 11l4 4 4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                            </svg>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {runtime.angles.timingsMs && (
+                <div className="badge" style={{ marginTop: 8 }} title="Time to generate angles">
+                  <span>Back</span><code>{formatDurationMs(runtime.angles.timingsMs.back)}</code>
+                  <span>Detail</span><code>{formatDurationMs(runtime.angles.timingsMs.detail)}</code>
+                  <span>Total</span><code>{formatDurationMs(runtime.angles.timingsMs.total)}</code>
+                </div>
+              )}
             </div>
           )}
         </>

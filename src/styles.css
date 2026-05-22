@@ -364,6 +364,7 @@ body {
   scroll-padding-top: 24px;
   scrollbar-width: thin;
   scrollbar-color: rgba(139,92,246,0.3) transparent;
+  position: relative;
 }
 .mainContent::-webkit-scrollbar { width: 6px; }
 .mainContent::-webkit-scrollbar-track { background: transparent; }
@@ -1475,6 +1476,21 @@ input[type="file"]::file-selector-button:hover {
 .poseResultOverlayBtn:hover { background: rgba(255, 255, 255, 0.3); transform: scale(1.1); }
 .poseResultOverlayBtn svg { width: 18px; height: 18px; }
 
+/* ─── Angles Section ─────────────────────────────────────────────── */
+.anglesSection {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.anglesSectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 /* ─── Angle Tiles ────────────────────────────────────────────────── */
 .anglesGrid {
   display: grid;
@@ -1488,9 +1504,43 @@ input[type="file"]::file-selector-button:hover {
   background: var(--surface);
   border: 2px solid var(--border-strong);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 10px;
   box-shadow: var(--shadow-card);
 }
+.angleTileLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.angleTileImageWrap {
+  position: relative;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+}
+.angleTileImageWrap img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+.angleTileOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.angleTileImageWrap:hover .angleTileOverlay { opacity: 1; }
+
 .angleTile img {
   width: 100%;
   border-radius: var(--radius-sm);
@@ -2185,9 +2235,26 @@ input[type="file"]::file-selector-button:hover {
     box-sizing: border-box;
   }
   .modelCardName { font-size: 13px; }
-  .modelCardDesc { font-size: 10.5px; margin-bottom: 6px; }
-  .modelCardTokenBadge { font-size: 9px; padding: 3px 5px; min-width: 0; flex: 1 1 0; }
-  .modelCardModeBadge { font-size: 8px; padding: 2px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .modelCardDesc {
+    display: -webkit-box;
+    font-size: 10.5px;
+    margin-bottom: 6px;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .modelCardTokenBadge {
+    display: inline-flex;
+    font-size: 9px;
+    padding: 3px 5px;
+    min-width: 0;
+    flex: 1 1 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .modelCardModeBadge { font-size: 8px; padding: 2px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .modelCardFooter { gap: 4px; flex-wrap: wrap; }
   .modelCardCreditBadge { font-size: 10px; padding: 2px 6px; white-space: nowrap; }
 
@@ -3265,15 +3332,21 @@ input[type="file"]::file-selector-button:hover {
 
 /* ── Description ────────────────────────────────────────── */
 .modelCardDesc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   font-size: 11px;
   color: #64748B;
   line-height: 1.55;
+  min-height: 2.1em;
   margin-bottom: 10px;
 }
 
 /* ── Token / provider badge ─────────────────────────────── */
 .modelCardTokenBadge {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 4px;
   flex: 1;
@@ -5212,6 +5285,66 @@ input[type="file"]::file-selector-button:hover {
   background: linear-gradient(90deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.22) 35%, rgba(255,255,255,0.38) 50%, rgba(255,255,255,0.22) 65%, rgba(255,255,255,0.08) 100%);
   background-size: 1200px 100%;
   animation: stgTransShimmer 1.8s linear infinite;
+  border-radius: 8px;
+}
+
+/* Tab switch shimmer overlay */
+@keyframes tabShimmerFade {
+  0%   { opacity: 1; }
+  65%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.tabShimmerOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: var(--bg);
+  animation: tabShimmerFade 0.5s ease forwards;
+  pointer-events: none;
+  padding: 20px 24px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.tabShimmerInner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.tabSkTitle {
+  height: 28px;
+  width: 200px;
+  border-radius: 8px;
+}
+
+.tabSkCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.tabSkCard {
+  height: 130px;
+  border-radius: 12px;
+}
+
+.tabSkWide {
+  height: 72px;
+  border-radius: 10px;
+}
+
+.tabSkSmall {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.tabSkSmallBlock {
+  height: 56px;
   border-radius: 8px;
 }
 
