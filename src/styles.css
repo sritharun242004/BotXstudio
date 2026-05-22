@@ -2143,6 +2143,13 @@ input[type="file"]::file-selector-button:hover {
   }
   .mobileDrawerClose:hover { background: rgba(255,255,255,0.25); }
 
+  .mobileDrawerDivider {
+    height: 1px;
+    background: rgba(255,255,255,0.15);
+    margin: 4px 12px;
+    flex-shrink: 0;
+  }
+
   /* ── Prevent any horizontal overflow ── */
   body { overflow-x: hidden; max-width: 100vw; }
   .appRoot { overflow-x: hidden; max-width: 100vw; }

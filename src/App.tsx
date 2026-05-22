@@ -2660,45 +2660,55 @@ export default function App() {
             </button>
           </nav>
 
-          {/* User row — identical to desktop sidebar */}
+          {/* Direct action buttons — no popup, always tappable */}
+          <div className="mobileDrawerDivider" />
+          <nav className="sidebarNav" style={{ flex: "none", paddingTop: 4, paddingBottom: 4 }}>
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => { navigate("/app/settings"); setMobileNavOpen(false); }}
+            >
+              <Settings size={16} className="navButtonIcon" />
+              Settings
+            </button>
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setMobileNavOpen(false); }}
+            >
+              <LifeBuoy size={16} className="navButtonIcon" />
+              Help &amp; Support
+            </button>
+            {session?.email === ADMIN_EMAIL && (
+              <button
+                type="button"
+                className="navButton"
+                style={{ color: "rgba(255,255,255,0.75)" }}
+                onClick={() => { window.open("/admin", "_blank"); setMobileNavOpen(false); }}
+              >
+                <ShieldCheck size={16} className="navButtonIcon" />
+                Admin Panel
+              </button>
+            )}
+            <button
+              type="button"
+              className="navButton"
+              style={{ color: "#FCA5A5" }}
+              onClick={handleLogout}
+            >
+              <LogOut size={16} className="navButtonIcon" />
+              Logout
+            </button>
+          </nav>
+
+          {/* User info row */}
           {session && (
-            <div className="sidebarUser" ref={userMenuRef}>
-              {userMenuOpen && (
-                <div className="sidebarUserMenu">
-                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); setMobileNavOpen(false); }}>
-                    <Settings size={14} /> Settings
-                  </button>
-                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setUserMenuOpen(false); setMobileNavOpen(false); }}>
-                    <LifeBuoy size={14} /> Help &amp; Support
-                  </button>
-                  {session.email === ADMIN_EMAIL && (
-                    <>
-                      <div className="sidebarMenuDivider" />
-                      <button type="button" className="sidebarMenuOption sidebarMenuOptionAdmin" onClick={() => { window.open("/admin", "_blank"); setMobileNavOpen(false); }}>
-                        <ShieldCheck size={14} /> Admin Panel
-                      </button>
-                    </>
-                  )}
-                  <div className="sidebarMenuDivider" />
-                  <button type="button" className="sidebarMenuOption sidebarMenuOptionDanger" onClick={handleLogout}>
-                    <LogOut size={14} /> Logout
-                  </button>
-                </div>
-              )}
+            <div className="sidebarUser" style={{ marginTop: 0 }}>
               <div className="sidebarUserRow">
                 <div className="sidebarUserAvatar">{(session.name || session.email)[0]?.toUpperCase()}</div>
                 <div className="sidebarUserDetails">
                   <div className="sidebarUserName">{session.name || session.email.split("@")[0]}</div>
                 </div>
-                <button
-                  type="button"
-                  className={`sidebarUserMenuBtn${userMenuOpen ? " sidebarUserMenuBtnActive" : ""}`}
-                  onClick={() => setUserMenuOpen(o => !o)}
-                  title="Options"
-                  aria-label="User menu"
-                >
-                  <MoreVertical size={16} />
-                </button>
               </div>
             </div>
           )}
