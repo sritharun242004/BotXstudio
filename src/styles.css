@@ -2103,32 +2103,45 @@ input[type="file"]::file-selector-button:hover {
   }
 
   /* ── Prevent any horizontal overflow ── */
-  .mainContent { overflow-x: hidden; }
-  .container { overflow-x: hidden; max-width: 100%; }
-  .storyboardEditorCard { overflow: hidden; max-width: 100%; }
+  body { overflow-x: hidden; max-width: 100vw; }
+  .appRoot { overflow-x: hidden; max-width: 100vw; }
+  .mainContent { overflow-x: hidden; max-width: 100%; }
+  .container { overflow-x: hidden; max-width: 100%; box-sizing: border-box; }
+  .storyboardEditorCard { overflow: hidden; max-width: 100%; box-sizing: border-box; }
   .card { max-width: 100%; overflow-x: hidden; box-sizing: border-box; }
   .storyboardEditorHeaderMain { flex-wrap: wrap; gap: 10px; }
   .storyboardEditorHeaderName { min-width: 0; width: 100%; }
   .storyboardEditorHeaderActions { flex-wrap: wrap; gap: 6px; width: 100%; }
 
   /* ── Model selector: 2×2 grid ── */
-  .storyboardEditorCardHeader { padding: 14px 14px 12px; overflow: hidden; max-width: 100%; box-sizing: border-box; }
-  .modelSelectorCards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
+  .storyboardEditorCardHeader {
+    padding: 12px 10px 10px;
+    overflow: hidden;
     width: 100%;
     max-width: 100%;
-    overflow: hidden;
     box-sizing: border-box;
   }
-  .modelCardWrap { min-width: 0; overflow: hidden; }
-  .modelCard { padding: 10px 10px 8px; min-width: 0; overflow: hidden; box-sizing: border-box; }
+  .modelSelectorCards {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .modelCardWrap { min-width: 0; width: 100%; box-sizing: border-box; }
+  .modelCard {
+    padding: 10px 10px 8px;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
   .modelCardName { font-size: 13px; }
   .modelCardDesc { font-size: 10.5px; margin-bottom: 6px; }
-  .modelCardTokenBadge { font-size: 9.5px; padding: 3px 6px; flex-shrink: 1; min-width: 0; }
-  .modelCardModeBadge { font-size: 8px; padding: 2px 6px; }
-  .modelCardFooter { gap: 4px; }
-  .modelCardCreditBadge { font-size: 10px; padding: 2px 6px; }
+  .modelCardTokenBadge { font-size: 9px; padding: 3px 5px; min-width: 0; flex: 1 1 0; }
+  .modelCardModeBadge { font-size: 8px; padding: 2px 6px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .modelCardFooter { gap: 4px; flex-wrap: wrap; }
+  .modelCardCreditBadge { font-size: 10px; padding: 2px 6px; white-space: nowrap; }
 
   /* ── Storyboard grid: single column ── */
   .storyBoard { grid-template-columns: 1fr; gap: 16px; }
