@@ -647,7 +647,7 @@ export function LandingPageTheme() {
                 <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 36, letterSpacing: "-1px", lineHeight: 1, color: "#1E293B" }}>Volume</span>
                 <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 36, letterSpacing: "-1px", lineHeight: 1, color: "#D97706" }}>pricing</span>
               </div>
-              <p style={{ fontSize: 13, color: "#78350F", marginBottom: 20, fontWeight: 500 }}>Buy in bulk · 1 credit = ₹1 or less</p>
+              <p style={{ fontSize: 13, color: "#78350F", marginBottom: 20, fontWeight: 500 }}>Buy in bulk · Volume discounts available</p>
               <div style={{ borderTop: "1.5px solid #FDE68A", paddingTop: 16, marginBottom: 16 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.6px", marginBottom: 12 }}>What's included</p>
                 {[
@@ -663,10 +663,34 @@ export function LandingPageTheme() {
                 ))}
               </div>
               <a
-                href="mailto:bot@thebotcompany.in"
-                style={{ display: "block", width: "100%", marginTop: "auto", background: "#D97706", color: "#fff", fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 15, textAlign: "center", padding: "14px 0", borderRadius: 12, border: "2px solid #92400E", boxShadow: "3px 3px 0 #92400E", textDecoration: "none", cursor: "pointer", boxSizing: "border-box" }}
+                href="https://cal.com/official-thebotcompany-pyaamk/custom-credits-for-enterprise"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  width: "100%", marginTop: "auto", boxSizing: "border-box",
+                  background: "linear-gradient(135deg, #D97706 0%, #B45309 100%)",
+                  color: "#fff",
+                  fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 15,
+                  textAlign: "center", padding: "14px 0", borderRadius: 12,
+                  border: "2px solid #92400E",
+                  boxShadow: "3px 3px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.15)",
+                  textDecoration: "none", cursor: "pointer",
+                  letterSpacing: "0.2px",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.transform = "translate(-2px,-2px)";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "5px 5px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.15)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLAnchorElement).style.transform = "translate(0,0)";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "3px 3px 0 #92400E, inset 0 1px 0 rgba(255,255,255,0.15)";
+                }}
               >
-                Contact Sales →
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+                Book a Call →
               </a>
             </div>
 
