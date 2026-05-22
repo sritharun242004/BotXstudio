@@ -134,10 +134,10 @@ export default function StoryboardEditorHeader({
           Image generation model
         </div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
-          Mood Board uses Flash — generates <strong>1 image per run</strong>. Use Multi Angle tab for back &amp; detail views.
+          Choose your generation model. Flash is included in free credits — Plus, Pro &amp; ProMax require purchased credits.
         </div>
         <div className="modelSelectorCards">
-          {IMAGE_GENERATION_MODELS.filter(m => m.id === "gemini-2.5-flash-image").map((m) => {
+          {IMAGE_GENERATION_MODELS.map((m) => {
             const active = imageModel === m.id;
             return (
               <div key={m.id} className="modelCardWrap" style={{ position: "relative" }}>
@@ -171,7 +171,7 @@ export default function StoryboardEditorHeader({
           })}
         </div>
         <div className="muted" style={{ marginTop: 8, fontSize: 12 }}>
-          Included in your 30 free credits · 5 credits per image · Single image generation only
+          Flash &amp; ProMax are included in your 30 free credits. Plus &amp; Pro require additional credits.
         </div>
       </div>
 
