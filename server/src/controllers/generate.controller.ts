@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
 import * as geminiService from "../services/gemini.service.js";
 import type { GeneratePlanInput, GenerateImageInput } from "../validators/generate.validators.js";
-import { env } from "../config/env.js";
+import { env, DEVELOPER_EMAILS } from "../config/env.js";
 import {
   getCreditsForModel,
   FREE_ELIGIBLE_MODELS,
@@ -82,7 +82,7 @@ export async function image(req: Request, res: Response, next: NextFunction) {
       });
 
       const userEmail = (user?.email || "").toLowerCase();
-      isDeveloper = Boolean(env.DEVELOPER_EMAIL && userEmail === env.DEVELOPER_EMAIL.toLowerCase());
+      isDeveloper = DEVELOPER_EMAILS.has(userEmail);
 
       if (!isDeveloper) {
         const isFreeEligible = FREE_ELIGIBLE_MODELS.has(model);

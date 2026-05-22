@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { PrismaClient, Prisma } from "@prisma/client";
-import { env } from "../config/env.js";
+import { env, DEVELOPER_EMAILS } from "../config/env.js";
 import {
   FREE_IMAGE_QUOTA,
   getAllModelPricing,
@@ -121,7 +121,6 @@ export async function adminGetUsers(_req: Request, res: Response, next: NextFunc
       },
       orderBy: { createdAt: "desc" },
     });
-    const devEmail = (env.DEVELOPER_EMAIL || "").toLowerCase();
     res.json(users.map(u => ({
       id: u.id,
       name: u.name,
@@ -129,7 +128,7 @@ export async function adminGetUsers(_req: Request, res: Response, next: NextFunc
       creditsBalance: Number(u.creditsBalance),
       imagesGenerated: u._count.images,
       joinedAt: u.createdAt,
-      isDeveloper: Boolean(devEmail && u.email?.toLowerCase() === devEmail),
+      isDeveloper: DEVELOPER_EMAILS.has((u.email || "").toLowerCase()),
     })));
   } catch (err) {
     next(err);

@@ -39,3 +39,7 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data;
+
+export const DEVELOPER_EMAILS: Set<string> = new Set(
+  (env.DEVELOPER_EMAIL || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean)
+);
