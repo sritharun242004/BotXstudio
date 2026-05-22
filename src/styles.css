@@ -2102,6 +2102,20 @@ input[type="file"]::file-selector-button:hover {
     white-space: nowrap;
   }
 
+  /* ── Prevent any horizontal overflow ── */
+  .mainContent { overflow-x: hidden; }
+  .container { overflow-x: hidden; }
+  .storyboardEditorCard { overflow-x: hidden; }
+  .card { max-width: 100%; overflow-x: hidden; }
+
+  /* ── Model selector: 2×2 grid ── */
+  .modelSelectorCards { grid-template-columns: repeat(2, 1fr); }
+  .modelCard { padding: 11px 12px 10px; }
+  .modelCardName { font-size: 13px; }
+  .modelCardDesc { font-size: 10.5px; margin-bottom: 8px; }
+  .modelCardTokenBadge { font-size: 9.5px; padding: 3px 6px; }
+  .modelCardModeBadge { font-size: 8px; padding: 2px 7px; }
+
   /* ── Storyboard grid: single column ── */
   .storyBoard { grid-template-columns: 1fr; gap: 16px; }
 
@@ -3188,6 +3202,25 @@ input[type="file"]::file-selector-button:hover {
 .modelCardActive .modelCardTokenBadge {
   background: rgba(139,92,246,0.12);
   color: #7C3AED;
+}
+
+.modelCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.modelCardCreditBadge {
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: var(--font-heading, 'Outfit', sans-serif);
 }
 
 /* ── Selected checkmark ─────────────────────────────────── */

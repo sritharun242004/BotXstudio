@@ -152,15 +152,12 @@ export default function StoryboardEditorHeader({
                     <span className="modelCardModeBadge">{m.mode}</span>
                   </div>
                   <div className="modelCardDesc">{m.desc}</div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 4, gap: 6 }}>
+                  <div className="modelCardFooter">
                     <div className="modelCardTokenBadge">{m.tokenBadge}</div>
-                    <span style={{
+                    <span className="modelCardCreditBadge" style={{
                       background: active ? "rgba(139,92,246,0.15)" : "#F3F0FB",
                       color: active ? "#7C3AED" : "#8B5CF6",
                       border: `1.5px solid ${active ? "rgba(139,92,246,0.4)" : "rgba(139,92,246,0.2)"}`,
-                      borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 800,
-                      flexShrink: 0, whiteSpace: "nowrap",
-                      fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
                     }}>
                       {getModelCreditsDisplay(m.id, modelPricing)}
                     </span>
