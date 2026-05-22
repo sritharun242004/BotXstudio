@@ -4,7 +4,7 @@ import { getSession, logout, type Session } from "./lib/auth";
 import { ADMIN_EMAIL } from "./lib/adminAuth";
 import { useCredits } from "./context/CreditsContext";
 import DashboardTab from "./components/DashboardTab";
-import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt } from "lucide-react";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt, Menu, X } from "lucide-react";
 
 import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
 import FieldLabel from "./components/FieldLabel";
@@ -574,6 +574,7 @@ export default function App() {
   // ── Session ────────────────────────────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(() => getSession());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileUserMenuRef = useRef<HTMLDivElement>(null);
 
@@ -2272,6 +2273,14 @@ export default function App() {
 
         {/* ── Mobile Header (hidden on desktop) ─────────────────────────────── */}
         <header className="mobileHeader">
+          <button
+            type="button"
+            className="mobileHamburgerBtn"
+            onClick={() => setMobileNavOpen(true)}
+            aria-label="Open navigation"
+          >
+            <Menu size={22} />
+          </button>
           <div className="mobileHeaderBrand">
             <div className="mobileHeaderLogo">BZ</div>
             <span className="mobileHeaderTitle">Botzudio</span>
@@ -2281,15 +2290,6 @@ export default function App() {
               <div className="sidebarUserMenu mobileUserMenu">
                 <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); }}>
                   <Settings size={14} /> Settings
-                </button>
-                <button type="button" className="sidebarMenuOption" onClick={() => { setActiveTab("dashboard"); setUserMenuOpen(false); }}>
-                  <LayoutDashboard size={14} /> Dashboard
-                </button>
-                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "credits" } }); setUserMenuOpen(false); }}>
-                  <BarChart2 size={14} /> Credits
-                </button>
-                <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/documentation"); setUserMenuOpen(false); }}>
-                  <BookOpen size={14} /> Documents
                 </button>
                 <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setUserMenuOpen(false); }}>
                   <LifeBuoy size={14} /> Help &amp; Support
@@ -2595,36 +2595,114 @@ export default function App() {
           </div>
         </main>
 
-        {/* ── Mobile Bottom Tab Bar (hidden on desktop) ─────────────────────── */}
-        <nav className="mobileTabBar" aria-label="Main navigation">
-          {([
-            { tab: "prints",    label: "Prints",   Icon: Palette    },
-            { tab: "generate",  label: "Generate", Icon: Sparkles   },
-            { tab: "tryon",     label: "Try On",   Icon: Shirt      },
-            { tab: "saved",     label: "Saved",    Icon: Bookmark   },
-            { tab: "assets",    label: "Assets",   Icon: FolderOpen },
-          ] as const).map(({ tab, label, Icon }) => (
+        {/* ── Mobile Nav Drawer (hidden on desktop) ──────────────────────────── */}
+        {mobileNavOpen && (
+          <div className="mobileDrawerOverlay" onClick={() => setMobileNavOpen(false)} />
+        )}
+        <div className={`mobileDrawer${mobileNavOpen ? " mobileDrawerOpen" : ""}`} aria-hidden={!mobileNavOpen}>
+          {/* Drawer header */}
+          <div className="mobileDrawerHeader">
+            <div className="mobileHeaderBrand">
+              <div className="mobileHeaderLogo">BZ</div>
+              <span className="mobileHeaderTitle">Botzudio</span>
+            </div>
             <button
-              key={tab}
               type="button"
-              className={`mobileTabBtn${activeTab === tab ? " mobileTabBtnActive" : ""}`}
-              onClick={() => setActiveTab(tab)}
-              aria-label={label}
+              className="mobileDrawerClose"
+              onClick={() => setMobileNavOpen(false)}
+              aria-label="Close navigation"
             >
-              <Icon size={20} />
-              <span className="mobileTabLabel">{label}</span>
+              <X size={20} />
             </button>
-          ))}
-          <button
-            type="button"
-            className="mobileTabBtn"
-            onClick={() => setUserMenuOpen(o => !o)}
-            aria-label="More options"
-          >
-            <MoreVertical size={20} />
-            <span className="mobileTabLabel">More</span>
-          </button>
-        </nav>
+          </div>
+
+          {/* Nav — identical structure to desktop sidebar */}
+          <nav className="sidebarNav" role="tablist" aria-label="Main sections">
+            {([
+              { tab: "prints",     label: "Add Prints",      Icon: Palette         },
+              { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
+              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
+              { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
+              { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
+              { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
+            ] as const).map(({ tab, label, Icon }) => (
+              <button
+                key={tab}
+                type="button"
+                className={activeTab === tab ? "navButton navButtonActive" : "navButton"}
+                aria-selected={activeTab === tab}
+                onClick={() => { setActiveTab(tab); setMobileNavOpen(false); }}
+              >
+                <Icon size={16} className="navButtonIcon" />
+                {label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => { navigate("/app/settings", { state: { section: "credits" } }); setMobileNavOpen(false); }}
+            >
+              <BarChart2 size={16} className="navButtonIcon" />
+              Credits
+            </button>
+            <button
+              type="button"
+              className="navButton"
+              onClick={() => { navigate("/app/documentation"); setMobileNavOpen(false); }}
+            >
+              <BookOpen size={16} className="navButtonIcon" />
+              Documents
+            </button>
+            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+              <Box size={16} className="navButtonIcon" />
+              Multi-Angle
+              <span className="navButtonComingSoonBadge">Coming Soon</span>
+            </button>
+          </nav>
+
+          {/* User row — identical to desktop sidebar */}
+          {session && (
+            <div className="sidebarUser" ref={userMenuRef}>
+              {userMenuOpen && (
+                <div className="sidebarUserMenu">
+                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); setMobileNavOpen(false); }}>
+                    <Settings size={14} /> Settings
+                  </button>
+                  <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings", { state: { section: "support" } }); setUserMenuOpen(false); setMobileNavOpen(false); }}>
+                    <LifeBuoy size={14} /> Help &amp; Support
+                  </button>
+                  {session.email === ADMIN_EMAIL && (
+                    <>
+                      <div className="sidebarMenuDivider" />
+                      <button type="button" className="sidebarMenuOption sidebarMenuOptionAdmin" onClick={() => { window.open("/admin", "_blank"); setMobileNavOpen(false); }}>
+                        <ShieldCheck size={14} /> Admin Panel
+                      </button>
+                    </>
+                  )}
+                  <div className="sidebarMenuDivider" />
+                  <button type="button" className="sidebarMenuOption sidebarMenuOptionDanger" onClick={handleLogout}>
+                    <LogOut size={14} /> Logout
+                  </button>
+                </div>
+              )}
+              <div className="sidebarUserRow">
+                <div className="sidebarUserAvatar">{(session.name || session.email)[0]?.toUpperCase()}</div>
+                <div className="sidebarUserDetails">
+                  <div className="sidebarUserName">{session.name || session.email.split("@")[0]}</div>
+                </div>
+                <button
+                  type="button"
+                  className={`sidebarUserMenuBtn${userMenuOpen ? " sidebarUserMenuBtnActive" : ""}`}
+                  onClick={() => setUserMenuOpen(o => !o)}
+                  title="Options"
+                  aria-label="User menu"
+                >
+                  <MoreVertical size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
       </div>
 
