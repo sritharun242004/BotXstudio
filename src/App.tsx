@@ -1665,6 +1665,7 @@ export default function App() {
     } finally {
       updatePrints(sbId, { generating: false });
       stopPrintTimer();
+      refreshBalance();
     }
   }
 
@@ -2171,6 +2172,7 @@ export default function App() {
       showToast("Multi-angle generation failed. Please try again.", "error");
     } finally {
       updateAngles(sbId, { generating: false });
+      refreshBalance();
     }
   }
 

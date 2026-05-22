@@ -253,7 +253,7 @@ const CREDIT_PACKS: CreditPack[] = [
 type BuyPackKey = "basic" | "growth" | "enterprise" | "custom";
 
 function CreditsSection() {
-  const { balance, costPerImageInr, freeImagesRemaining, modelPricing } = useCredits();
+  const { balance, freeImagesRemaining, modelPricing, isDeveloper, creditsSpent } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [coupon, setCoupon] = useState("");
   const [txLoading, setTxLoading] = useState(true);
@@ -268,11 +268,6 @@ function CreditsSection() {
       .catch(() => {})
       .finally(() => setTxLoading(false));
   }, []);
-
-  const imagesLeft = costPerImageInr > 0 ? Math.floor(balance / costPerImageInr) : 0;
-  const totalSpent = transactions
-    .filter(t => t.amountInr < 0)
-    .reduce((s, t) => s + Math.abs(t.amountInr), 0);
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -320,24 +315,29 @@ function CreditsSection() {
         <div className="stgWalletRow">
           <div>
             <div className="stgWalletLabel">Available Credits</div>
-            <div className="stgWalletAmount">{Math.floor(balance)} <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.6 }}>credits</span></div>
+            <div className="stgWalletAmount">
+              {isDeveloper ? "Unlimited" : Math.floor(balance)}
+              {!isDeveloper && <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.6 }}> credits</span>}
+            </div>
           </div>
-          <button className="stgWalletBuyBtn" onClick={() => setShowBuyPanel(v => !v)}>
-            {showBuyPanel ? "Hide Packages" : "Buy Credits"}
-          </button>
+          {!isDeveloper && (
+            <button className="stgWalletBuyBtn" onClick={() => setShowBuyPanel(v => !v)}>
+              {showBuyPanel ? "Hide Packages" : "Buy Credits"}
+            </button>
+          )}
         </div>
         <div className="stgWalletMeta">
           <div className="stgWalletStat">
-            <span className="stgWalletStatLabel">Free Images Left</span>
-            <span className="stgWalletStatVal">{freeImagesRemaining} / 30</span>
-          </div>
-          <div className="stgWalletStat">
-            <span className="stgWalletStatLabel">Images Left</span>
-            <span className="stgWalletStatVal">~{imagesLeft}</span>
+            <span className="stgWalletStatLabel">Free Generations</span>
+            <span className="stgWalletStatVal">
+              {isDeveloper ? "Unlimited" : `${freeImagesRemaining} / 30`}
+            </span>
           </div>
           <div className="stgWalletStat">
             <span className="stgWalletStatLabel">Credits Spent</span>
-            <span className="stgWalletStatVal">{Math.floor(totalSpent)}</span>
+            <span className="stgWalletStatVal">
+              {isDeveloper ? "—" : creditsSpent}
+            </span>
           </div>
         </div>
       </div>

@@ -12,6 +12,8 @@ export interface CreditBalance {
   balance: number;
   freeImagesUsed: number;
   freeImagesRemaining: number;
+  creditsSpent: number;
+  isDeveloper: boolean;
 }
 
 export interface CreditTransaction {

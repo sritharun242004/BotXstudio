@@ -39,15 +39,25 @@ export async function getBalance(req: Request, res: Response, next: NextFunction
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { creditsBalance: true, freeImagesUsed: true },
-    });
+    const [user, spentAgg] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { creditsBalance: true, freeImagesUsed: true, email: true },
+      }),
+      prisma.creditTransaction.aggregate({
+        where: { userId, amountInr: { lt: 0 } },
+        _sum: { amountInr: true },
+      }),
+    ]);
     const freeUsed = user?.freeImagesUsed ?? 0;
+    const isDeveloper = DEVELOPER_EMAILS.has((user?.email || "").toLowerCase());
+    const creditsSpent = Math.floor(Math.abs(Number(spentAgg._sum.amountInr ?? 0)));
     res.json({
       balance: user ? Number(user.creditsBalance) : 0,
       freeImagesUsed: freeUsed,
       freeImagesRemaining: Math.max(0, FREE_IMAGE_QUOTA - freeUsed),
+      creditsSpent,
+      isDeveloper,
     });
   } catch (err) {
     next(err);

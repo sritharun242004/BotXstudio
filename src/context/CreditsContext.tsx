@@ -8,6 +8,8 @@ interface CreditsState {
   costPerImageInr: number;
   freeImagesUsed: number;
   freeImagesRemaining: number;
+  creditsSpent: number;
+  isDeveloper: boolean;
   modelPricing: Record<string, number>;
   loading: boolean;
   refreshBalance: () => Promise<void>;
@@ -19,6 +21,8 @@ const CreditsContext = createContext<CreditsState>({
   costPerImageInr: 10,
   freeImagesUsed: 0,
   freeImagesRemaining: 0,
+  creditsSpent: 0,
+  isDeveloper: false,
   modelPricing: CREDIT_PRICES,
   loading: false,
   refreshBalance: async () => {},
@@ -30,6 +34,8 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const [costPerImageInr, setCostPerImageInr] = useState(10);
   const [freeImagesUsed, setFreeImagesUsed] = useState(0);
   const [freeImagesRemaining, setFreeImagesRemaining] = useState(0);
+  const [creditsSpent, setCreditsSpent] = useState(0);
+  const [isDeveloper, setIsDeveloper] = useState(false);
   const [modelPricing, setModelPricing] = useState<Record<string, number>>(CREDIT_PRICES);
   const [loading, setLoading] = useState(false);
 
@@ -41,6 +47,8 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
       setBalance(data.balance);
       setFreeImagesUsed(data.freeImagesUsed ?? 0);
       setFreeImagesRemaining(data.freeImagesRemaining ?? 0);
+      setCreditsSpent(data.creditsSpent ?? 0);
+      setIsDeveloper(data.isDeveloper ?? false);
     } catch {
       // silently fail — not critical
     }
@@ -49,8 +57,9 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const selfTopUp = useCallback(async () => {
     const result = await selfTopUpCredits();
     setBalance(result.balance);
+    await refreshBalance();
     return result;
-  }, []);
+  }, [refreshBalance]);
 
   useEffect(() => {
     // Fetch live model pricing (no auth required)
@@ -68,13 +77,15 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         setBalance(bal.balance);
         setFreeImagesUsed(bal.freeImagesUsed ?? 0);
         setFreeImagesRemaining(bal.freeImagesRemaining ?? 0);
+        setCreditsSpent(bal.creditsSpent ?? 0);
+        setIsDeveloper(bal.isDeveloper ?? false);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
   return (
-    <CreditsContext.Provider value={{ balance, costPerImageInr, freeImagesUsed, freeImagesRemaining, modelPricing, loading, refreshBalance, selfTopUp }}>
+    <CreditsContext.Provider value={{ balance, costPerImageInr, freeImagesUsed, freeImagesRemaining, creditsSpent, isDeveloper, modelPricing, loading, refreshBalance, selfTopUp }}>
       {children}
     </CreditsContext.Provider>
   );
