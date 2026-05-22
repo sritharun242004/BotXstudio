@@ -104,8 +104,8 @@ const HOW_IT_WORKS_SECTIONS = [
 ];
 
 export function LandingPageTheme() {
-  const [openFaqs, setOpenFaqs] = useState<Set<number>>(() => new Set(FAQS.map((_, i) => i)));
-  const toggleFaq = (i: number) => setOpenFaqs(prev => { const next = new Set(prev); next.has(i) ? next.delete(i) : next.add(i); return next; });
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const toggleFaq = (i: number) => setOpenFaq(prev => (prev === i ? null : i));
 
   return (
     <>
@@ -303,28 +303,23 @@ export function LandingPageTheme() {
       <section id="how-it-works" style={{ background: "#FFFDF5", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B" }}>
         {/* Intro header above the scroll */}
         <div style={{ padding: "72px 28px 36px", textAlign: "center", background: "#FFFDF5" }}>
-          <motion.span
+          <motion.p
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4 }}
             style={{
-              display: "inline-block",
               fontSize: 11,
               fontWeight: 700,
-              letterSpacing: "0.18em",
+              letterSpacing: "1.5px",
               color: "#8B5CF6",
               textTransform: "uppercase",
-              marginBottom: 20,
-              padding: "5px 18px",
-              background: "rgba(139,92,246,0.08)",
-              borderRadius: 20,
-              border: "1px solid rgba(139,92,246,0.22)",
+              marginBottom: 12,
               fontFamily: "'Plus Jakarta Sans', sans-serif",
             }}
           >
-            How It Works
-          </motion.span>
+            ✦ How It Works
+          </motion.p>
           <motion.h2
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -710,7 +705,7 @@ export function LandingPageTheme() {
           </h2>
           <div style={{ display: "flex", flexDirection: "column", border: "2.5px solid #1E293B", borderRadius: 16, overflow: "hidden", boxShadow: "4px 4px 0 #1E293B" }}>
             {FAQS.map((faq, i) => {
-              const isOpen = openFaqs.has(i);
+              const isOpen = openFaq === i;
               return (
                 <div key={i} style={{ background: "#fff", borderBottom: i < FAQS.length - 1 ? "2px solid #1E293B" : "none" }}>
                   <button

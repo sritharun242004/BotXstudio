@@ -98,6 +98,35 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   align-items: center;
   gap: 8px;
 }
+
+/* centered desktop links */
+.lp-nav-center-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+  padding: 5px 6px;
+}
+
+/* auth buttons visible on desktop */
+.lp-nav-auth {
+  display: flex;
+}
+
+/* hamburger hidden on desktop */
+.lp-nav-hamburger-wrap {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* hide desktop center links on mobile */
+  .lp-nav-center-links { display: none; }
+  /* keep auth visible and right-aligned on mobile */
+  .lp-nav-auth { display: flex; }
+  /* show hamburger for nav-links dropdown */
+  .lp-nav-hamburger-wrap { display: flex; align-items: stretch; }
+}
 .lp-nav-link {
   padding: 8px 16px;
   border-radius: var(--radius-full);

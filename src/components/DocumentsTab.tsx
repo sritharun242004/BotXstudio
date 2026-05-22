@@ -7,7 +7,19 @@ import {
   CreditCard, BarChart2, Star, HelpCircle, Lightbulb,
   Info, CheckCircle2, AlertTriangle, ChevronRight,
   Upload, Image, Layers, Zap, Shield,
+  Shirt, LayoutDashboard,
 } from "lucide-react";
+
+const APP_NAV = [
+  { tab: "prints",    label: "Add Prints",       Icon: Palette         },
+  { tab: "generate",  label: "Generate Images",  Icon: Sparkles        },
+  { tab: "tryon",     label: "Try On",           Icon: Shirt           },
+  { tab: "saved",     label: "Saved Images",     Icon: Bookmark        },
+  { tab: "assets",    label: "Uploaded Assets",  Icon: FolderOpen      },
+  { tab: "dashboard", label: "Dashboard",        Icon: LayoutDashboard },
+  { tab: "credits",   label: "Credits",          Icon: CreditCard      },
+  { tab: "docs",      label: "Documents",        Icon: BookOpen        },
+] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -660,14 +672,16 @@ export default function DocumentsTab() {
     );
   }
 
+  const activeLabel = SECTIONS.find(s => s.key === active)?.label ?? "Documentation";
+
   /* ── Page ────────────────────────────────────────────────── */
   return (
     <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
-      {/* ── Split header ──────────────────────────── */}
+      {/* ── Header ──────────────────────────────────── */}
       <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
 
-        {/* Purple brand side */}
+        {/* Purple brand */}
         <div style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
@@ -686,16 +700,15 @@ export default function DocumentsTab() {
           </span>
         </div>
 
-        {/* Cream header side */}
+        {/* Breadcrumb — left: path, right: version + back */}
         <div style={{
           flex: 1, background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
-          display: "flex", alignItems: "center", padding: "0 24px", gap: 12,
+          display: "flex", alignItems: "center", padding: "0 20px", gap: 8,
         }}>
-          <BookOpen size={17} strokeWidth={2} style={{ color: "var(--accent)", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 16, color: "var(--text)", letterSpacing: "-0.2px" }}>
-            Documentation
-          </span>
-          <span style={{ fontSize: 12, color: "var(--muted-color)" }}>User guide &amp; best practices</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.2px" }}>Documentation</span>
+          <span style={{ color: "var(--muted-color)", fontSize: 14, userSelect: "none" }}>›</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
+
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               display: "flex", alignItems: "center", gap: 5,
@@ -714,52 +727,64 @@ export default function DocumentsTab() {
         </div>
       </header>
 
-      {/* ── Two-panel body ────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 60px)" }}>
+      {/* ── Body ────────────────────────────────────── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
-        {/* Purple sidebar */}
+        {/* Purple sidebar — real app nav */}
         <aside style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
           backgroundSize: "18px 18px",
           display: "flex", flexDirection: "column",
-          overflowY: "auto", overflowX: "hidden",
           borderRight: "2px solid rgba(255,255,255,0.15)",
-          scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.3) transparent",
         }}>
-          <nav style={{ display: "flex", flexDirection: "column", padding: "16px 12px", gap: 6 }}>
-            {groups.map(group => (
-              <div key={group}>
-                <div style={{
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                  color: "rgba(255,255,255,0.5)", padding: "12px 8px 5px",
-                }}>
-                  {group}
-                </div>
-                {SECTIONS.filter(s => s.group === group).map(s => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    className={active === s.key ? "navButton navButtonActive" : "navButton"}
-                    onClick={() => setActive(s.key)}
-                  >
-                    <s.Icon size={15} className="navButtonIcon" strokeWidth={2} />
-                    <span>{s.label}</span>
-                  </button>
-                ))}
-              </div>
+          <nav className="sidebarNav" style={{ padding: "10px 10px", flex: 1 }}>
+            {APP_NAV.map(({ tab, label, Icon }) => (
+              <button
+                key={tab}
+                type="button"
+                className={tab === "docs" ? "navButton navButtonActive" : "navButton"}
+                onClick={() => {
+                  if (tab === "docs") return;
+                  if (tab === "credits") { navigate("/app/settings", { state: { section: "credits" } }); return; }
+                  localStorage.setItem("esg_active_tab_v1", tab);
+                  navigate("/app");
+                }}
+              >
+                <Icon size={15} className="navButtonIcon" strokeWidth={2} />
+                <span>{label}</span>
+              </button>
             ))}
           </nav>
         </aside>
 
-        {/* Content scroll area */}
-        <div
-          ref={contentRef}
-          className="stgContent"
-          style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}
-        >
-          {renderContent()}
+        {/* Content column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+          {/* Horizontal tab bar */}
+          <div className="stgTabBar">
+            {SECTIONS.map(s => (
+              <button
+                key={s.key}
+                type="button"
+                className={`stgTab${active === s.key ? " stgTabActive" : ""}`}
+                onClick={() => setActive(s.key)}
+              >
+                <s.Icon size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
+                {s.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Content scroll area */}
+          <div
+            ref={contentRef}
+            className="stgContent"
+            style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}
+          >
+            {renderContent()}
+          </div>
         </div>
       </div>
     </div>

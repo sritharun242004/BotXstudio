@@ -349,6 +349,7 @@ export default function LoginPage() {
       <div style={{
         height: "100vh",
         overflow: "hidden",
+        position: "relative",
         display: "flex", alignItems: "center", justifyContent: "center",
         background: "#FFFDF5",
         backgroundImage: [
@@ -361,6 +362,35 @@ export default function LoginPage() {
         fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
         boxSizing: "border-box",
       }}>
+
+        {/* ── Back to landing ──────────────────────────────────────────── */}
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            position: "absolute", top: 18, left: 18,
+            display: "flex", alignItems: "center", gap: 6,
+            background: "transparent",
+            border: "1.5px solid rgba(30,41,59,0.15)",
+            borderRadius: 9999,
+            padding: "7px 14px",
+            fontSize: 13, fontWeight: 600, color: "#475569",
+            cursor: "pointer",
+            transition: "background .15s, color .15s, border-color .15s",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+            e.currentTarget.style.color = "#7C3AED";
+            e.currentTarget.style.borderColor = "rgba(139,92,246,0.3)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#475569";
+            e.currentTarget.style.borderColor = "rgba(30,41,59,0.15)";
+          }}
+        >
+          <ArrowLeft size={14} strokeWidth={2.5} />
+          Back
+        </button>
 
         {/* ── Card wrapper ─────────────────────────────────────────────── */}
         <div style={{

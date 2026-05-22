@@ -8,15 +8,16 @@ import { IMAGE_GENERATION_MODELS } from "../lib/storyboards";
 import { apiGet } from "../lib/api";
 import {
   User, CreditCard, Sparkles, Palette, Bell, FolderOpen, Shield, Zap,
-  Sliders, BarChart2, HelpCircle, Mail, Bug, Lightbulb, MessageCircle
+  Sliders, BarChart2, HelpCircle, Mail, Bug, Lightbulb, MessageCircle,
+  Bookmark, LayoutDashboard, BookOpen, Shirt,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SectionKey =
-  | "profile" | "credits" | "generation" | "appearance"
+  | "profile" | "credits" | "generation"
   | "notifications" | "assets" | "security" | "performance"
-  | "advanced" | "usage" | "support";
+  | "usage" | "support";
 
 interface UserSettings {
   displayName: string; bio: string;
@@ -69,15 +70,24 @@ const SECTIONS: { key: SectionKey; label: string; Icon: React.ElementType }[] = 
   { key: "profile",       label: "Profile",              Icon: User },
   { key: "credits",       label: "Credits & Billing",    Icon: CreditCard },
   { key: "generation",    label: "Generation",           Icon: Sparkles },
-  { key: "appearance",    label: "Appearance",           Icon: Palette },
   { key: "notifications", label: "Notifications",        Icon: Bell },
   { key: "assets",        label: "Saved Assets",         Icon: FolderOpen },
   { key: "security",      label: "Privacy & Security",   Icon: Shield },
   { key: "performance",   label: "Performance",          Icon: Zap },
-  { key: "advanced",      label: "Advanced",             Icon: Sliders },
   { key: "usage",         label: "Usage",                Icon: BarChart2 },
   { key: "support",       label: "Support",              Icon: HelpCircle },
 ];
+
+const APP_NAV = [
+  { tab: "prints",    label: "Add Prints",       Icon: Palette         },
+  { tab: "generate",  label: "Generate Images",  Icon: Sparkles        },
+  { tab: "tryon",     label: "Try On",           Icon: Shirt           },
+  { tab: "saved",     label: "Saved Images",     Icon: Bookmark        },
+  { tab: "assets",    label: "Uploaded Assets",  Icon: FolderOpen      },
+  { tab: "dashboard", label: "Dashboard",        Icon: LayoutDashboard },
+  { tab: "credits",   label: "Credits",          Icon: BarChart2       },
+  { tab: "docs",      label: "Documents",        Icon: BookOpen        },
+] as const;
 
 // ─── Reusable UI atoms ────────────────────────────────────────────────────────
 
@@ -693,11 +703,23 @@ function GenerationSection({ settings, update }: {
           <Toggle checked={settings.consistencyMode} onChange={v => update("consistencyMode", v)} />
         </SettingRow>
       </SectionCard>
+
+      <SectionCard title="Advanced">
+        <SettingRow label="Show Generation Prompts" desc="Display the AI prompt used for each generation">
+          <Toggle checked={settings.showPrompts} onChange={v => update("showPrompts", v)} />
+        </SettingRow>
+        <SettingRow label="Enable Beta Features" desc="Get access to features that are still being tested">
+          <Toggle checked={settings.betaFeatures} onChange={v => update("betaFeatures", v)} />
+        </SettingRow>
+        <SettingRow label="Experimental UI" desc="Try out interface changes before they go live">
+          <Toggle checked={settings.experimentalUI} onChange={v => update("experimentalUI", v)} />
+        </SettingRow>
+      </SectionCard>
     </div>
   );
 }
 
-// ─── Section: Appearance ──────────────────────────────────────────────────────
+// ─── Section: Appearance (kept for internal use only, not shown in nav) ───────
 
 function AppearanceSection({ settings, update }: {
   settings: UserSettings; update: (k: keyof UserSettings, v: unknown) => void;
@@ -1018,7 +1040,9 @@ function SupportSection() {
 export default function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const initialSection = (location.state as { section?: SectionKey } | null)?.section ?? "profile";
+  const rawSection = (location.state as { section?: string } | null)?.section;
+  const validSections: SectionKey[] = ["profile","credits","generation","notifications","assets","security","performance","usage","support"];
+  const initialSection: SectionKey = (validSections.includes(rawSection as SectionKey) ? rawSection : "profile") as SectionKey;
   const [activeSection, setActiveSection] = useState<SectionKey>(initialSection);
   const [settings, setSettings] = useState<UserSettings>(loadSettings);
   const [transitioning, setTransitioning] = useState(false);
@@ -1046,7 +1070,6 @@ export default function SettingsPage() {
   if (transitioning) {
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", background: "var(--bg)" }}>
-        {/* Purple sidebar */}
         <div style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
@@ -1055,31 +1078,24 @@ export default function SettingsPage() {
           display: "flex", flexDirection: "column",
           padding: "14px 12px", gap: 6,
         }}>
-          {/* Brand */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px", marginBottom: 14 }}>
             <div className="stgTransSkSide" style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0 }} />
             <div className="stgTransSkSide" style={{ width: 80, height: 16 }} />
           </div>
-          {/* Nav items */}
           {[1,2,3,4,5,6,7,8].map(i => (
             <div key={i} className="stgTransSkSide" style={{ height: 36 }} />
           ))}
         </div>
-
-        {/* Content area */}
         <div style={{ flex: 1, padding: 28, display: "flex", flexDirection: "column", gap: 18, overflow: "hidden" }}>
-          {/* Top header bar */}
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div className="stgTransSk" style={{ height: 32, width: 220, borderRadius: 8 }} />
             <div className="stgTransSk" style={{ height: 32, width: 120, borderRadius: 8, marginLeft: "auto" }} />
           </div>
-          {/* Toolbar row */}
           <div style={{ display: "flex", gap: 10 }}>
             {[160, 130, 110].map((w, i) => (
               <div key={i} className="stgTransSk" style={{ height: 38, width: w, borderRadius: 8 }} />
             ))}
           </div>
-          {/* Image grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, flex: 1 }}>
             {[1,2,3,4,5,6,7,8].map(i => (
               <div key={i} className="stgTransSk" style={{ borderRadius: 10, aspectRatio: "3/4" }} />
@@ -1090,12 +1106,14 @@ export default function SettingsPage() {
     );
   }
 
+  const activeLabel = SECTIONS.find(s => s.key === activeSection)?.label ?? "Settings";
+
   return (
     <div style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
 
-      {/* ── Split header ──────────────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────────── */}
       <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
-        {/* Left: purple brand area (same width as sidebar) */}
+        {/* Purple brand — identical to main app nav */}
         <div style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
@@ -1106,30 +1124,25 @@ export default function SettingsPage() {
           padding: "0 16px", gap: 10,
         }}>
           <div style={{
-            width: 34, height: 34, borderRadius: 8,
-            background: "#fff",
+            width: 34, height: 34, borderRadius: 8, background: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontFamily: "'Outfit', sans-serif", fontWeight: 900,
             fontSize: 13, color: "var(--accent)", flexShrink: 0,
           }}>BZ</div>
-          <span style={{
-            fontFamily: "'Outfit', sans-serif", fontWeight: 900,
-            fontSize: 17, color: "#fff", letterSpacing: "-0.3px",
-          }}>Botzudio</span>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 17, color: "#fff", letterSpacing: "-0.3px" }}>
+            Botzudio
+          </span>
         </div>
 
-        {/* Right: content header */}
+        {/* Breadcrumb bar — left: path, right: back button */}
         <div style={{
-          flex: 1,
-          background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
-          display: "flex", alignItems: "center",
-          padding: "0 24px",
+          flex: 1, background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
+          display: "flex", alignItems: "center", padding: "0 20px", gap: 8,
         }}>
-          <button
-            type="button"
-            className="stgBackBtn"
-            onClick={goBackToApp}
-          >
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.2px" }}>Settings</span>
+          <span style={{ color: "var(--muted-color)", fontSize: 14, userSelect: "none" }}>›</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
+          <button type="button" className="stgBackBtn" onClick={goBackToApp} style={{ marginLeft: "auto" }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M19 12H5M12 5l-7 7 7 7"/>
             </svg>
@@ -1138,50 +1151,72 @@ export default function SettingsPage() {
         </div>
       </header>
 
-      {/* ── Two-panel shell ─────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden", height: "calc(100vh - 60px)" }}>
+      {/* ── Body ──────────────────────────────────────────────────────── */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
 
-        {/* Sidebar — matches main app purple sidebar */}
+        {/* Purple app sidebar — real app nav, navigates back to app tabs */}
         <aside style={{
           width: SIDEBAR_W, flexShrink: 0,
           background: "var(--accent)",
           backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
           backgroundSize: "18px 18px",
           display: "flex", flexDirection: "column",
-          overflowY: "auto", overflowX: "hidden",
           borderRight: "2px solid rgba(255,255,255,0.15)",
-          scrollbarWidth: "thin",
-          scrollbarColor: "rgba(255,255,255,0.3) transparent",
         }}>
-          <nav style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 10px", flex: 1 }}>
-            {SECTIONS.map(s => (
+          <nav className="sidebarNav" style={{ padding: "10px 10px", flex: 1 }}>
+            {APP_NAV.map(({ tab, label, Icon }) => (
               <button
-                key={s.key}
+                key={tab}
                 type="button"
-                className={activeSection === s.key ? "navButton navButtonActive" : "navButton"}
-                onClick={() => setActiveSection(s.key)}
+                className="navButton"
+                onClick={() => {
+                  if (tab === "docs") { navigate("/app/documentation"); return; }
+                  if (tab === "credits") { navigate("/app/settings", { state: { section: "credits" } }); setActiveSection("credits"); return; }
+                  localStorage.setItem("esg_active_tab_v1", tab);
+                  navigate("/app");
+                }}
               >
-                <s.Icon size={15} className="navButtonIcon" strokeWidth={2} />
-                <span>{s.label}</span>
+                <Icon size={15} className="navButtonIcon" strokeWidth={2} />
+                <span>{label}</span>
               </button>
             ))}
           </nav>
         </aside>
 
-        {/* Content */}
-        <div className="stgContent" ref={contentRef}>
-          <div className="stgContentInner">
-            {activeSection === "profile"       && <ProfileSection       settings={settings} update={update} />}
-            {activeSection === "credits"       && <CreditsSection />}
-            {activeSection === "generation"    && <GenerationSection    settings={settings} update={update} />}
-            {activeSection === "appearance"    && <AppearanceSection    settings={settings} update={update} />}
-            {activeSection === "notifications" && <NotificationsSection settings={settings} update={update} />}
-            {activeSection === "assets"        && <AssetsSection        settings={settings} update={update} />}
-            {activeSection === "security"      && <SecuritySection      settings={settings} update={update} />}
-            {activeSection === "performance"   && <PerformanceSection   settings={settings} update={update} />}
-            {activeSection === "advanced"      && <AdvancedSection      settings={settings} update={update} />}
-            {activeSection === "usage"         && <UsageSection />}
-            {activeSection === "support"       && <SupportSection />}
+        {/* Content column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+          {/* ── Horizontal tab bar ─────────────────────────────────────── */}
+          <div className="stgTabBar">
+            {SECTIONS.map(s => {
+              const active = activeSection === s.key;
+              return (
+                <button
+                  key={s.key}
+                  type="button"
+                  className={`stgTab${active ? " stgTabActive" : ""}`}
+                  onClick={() => setActiveSection(s.key)}
+                >
+                  <s.Icon size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Section content ────────────────────────────────────────── */}
+          <div className="stgContent" ref={contentRef}>
+            <div className="stgContentInner">
+              {activeSection === "profile"       && <ProfileSection       settings={settings} update={update} />}
+              {activeSection === "credits"       && <CreditsSection />}
+              {activeSection === "generation"    && <GenerationSection    settings={settings} update={update} />}
+              {activeSection === "notifications" && <NotificationsSection settings={settings} update={update} />}
+              {activeSection === "assets"        && <AssetsSection        settings={settings} update={update} />}
+              {activeSection === "security"      && <SecuritySection      settings={settings} update={update} />}
+              {activeSection === "performance"   && <PerformanceSection   settings={settings} update={update} />}
+              {activeSection === "usage"         && <UsageSection />}
+              {activeSection === "support"       && <SupportSection />}
+            </div>
           </div>
         </div>
       </div>
