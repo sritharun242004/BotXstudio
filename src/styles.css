@@ -2275,7 +2275,18 @@ input[type="file"]::file-selector-button:hover {
   /* ── Dashboard mobile ── */
   .dbGrid { grid-template-columns: 1fr !important; }
 
-  /* ── Storyboard library cards ── */
+  /* ── Storyboard library: 3-column grid ── */
+  .storyboardGallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px;
+  }
+  .storyboardCard { border-width: 1.5px; }
+  .storyboardCardTop { padding: 6px 7px 3px; gap: 4px; flex-wrap: wrap; }
+  .storyboardCardTitle { font-size: 11px; font-weight: 700; }
+  .storyboardCardMeta { font-size: 9px; white-space: normal; }
+  .storyboardCardSub { padding: 0 7px 7px; font-size: 10px; }
+
+  /* Legacy aliases */
   .sbLibCard { min-height: 120px; }
   .sbLibGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
 }
