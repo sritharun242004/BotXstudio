@@ -9,7 +9,7 @@ import {
 } from "amazon-cognito-identity-js";
 import { ArrowLeft, ArrowRight, Eye, EyeOff, CheckCircle2, Mail, Lock, ShieldCheck } from "lucide-react";
 import { redirectToLogin } from "../lib/auth";
-import { apiPost } from "../lib/api";
+import { apiPost, setAccessToken } from "../lib/api";
 import type { Session } from "../lib/auth";
 
 const BASE = import.meta.env.BASE_URL;
@@ -212,6 +212,7 @@ export default function LoginPage() {
   ) => {
     const expires = Date.now() + 3600 * 1000;
     localStorage.setItem(TOKENS_KEY, JSON.stringify({ accessToken, idToken, refreshToken, expiresAt: expires }));
+    setAccessToken(accessToken);
 
     const payload = decodeJwt(idToken);
     const userEmail = payload.email || email;
@@ -407,7 +408,8 @@ export default function LoginPage() {
             background: "#1E293B",
             padding: "36px 36px",
             display: "flex", flexDirection: "column",
-            justifyContent: "space-between",
+            justifyContent: "center",
+            alignItems: "center",
             position: "relative", overflow: "hidden",
           }}>
             {/* aurora blobs */}
@@ -415,32 +417,32 @@ export default function LoginPage() {
             <div style={{ position:"absolute", bottom:"15%", right:"5%",  width:180, height:180, borderRadius:"50%", background:"radial-gradient(circle, rgba(244,114,182,0.18) 0%, transparent 70%)", pointerEvents:"none" }} />
 
             {/* Brand */}
-            <div style={{ position:"relative", zIndex:1 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:12, marginBottom:28 }}>
-                <div style={{
-                  width:42, height:42, borderRadius:10,
-                  background:"#8B5CF6",
-                  border:"2px solid rgba(255,255,255,0.3)",
-                  boxShadow:"3px 3px 0 rgba(255,255,255,0.15)",
-                  display:"flex", alignItems:"center", justifyContent:"center",
-                  fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:14, color:"#fff",
-                }}>BZ</div>
-                <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:18, color:"#fff" }}>Botzudio</span>
-              </div>
+            <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", alignItems:"center", textAlign:"center" }}>
+              {/* Logo mark */}
+              <div style={{
+                width:72, height:72, borderRadius:18,
+                background:"#8B5CF6",
+                border:"2.5px solid rgba(255,255,255,0.3)",
+                boxShadow:"4px 4px 0 rgba(255,255,255,0.15)",
+                display:"flex", alignItems:"center", justifyContent:"center",
+                fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:24, color:"#fff",
+                marginBottom:16,
+              }}>BZ</div>
+              <span style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:28, color:"#fff", marginBottom:28 }}>Botzudio</span>
 
               <h2 style={{
                 fontFamily:"'Outfit',sans-serif", fontWeight:900,
-                fontSize:"clamp(24px,3.5vw,34px)", letterSpacing:"-1px",
-                color:"#fff", lineHeight:1.1, marginBottom:14,
+                fontSize:"clamp(22px,3vw,30px)", letterSpacing:"-1px",
+                color:"#fff", lineHeight:1.15, marginBottom:14,
               }}>
                 AI-powered fashion<br />photography.
               </h2>
-              <p style={{ fontSize:13, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:22, maxWidth:280 }}>
+              <p style={{ fontSize:13, color:"rgba(255,255,255,0.55)", lineHeight:1.6, marginBottom:24, maxWidth:260 }}>
                 Professional catalog images from a flat lay. No photographer. No studio. No delays.
               </p>
 
               {/* Features */}
-              <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <div style={{ display:"flex", flexDirection:"column", gap:8, width:"100%" }}>
                 {features.map(({ icon, label }) => (
                   <div key={label} className="auth-feature-chip" style={{
                     display:"flex", alignItems:"center", gap:10,
@@ -451,18 +453,6 @@ export default function LoginPage() {
                   }}>
                     <span style={{ color:"#FBBF24", fontSize:10 }}>{icon}</span>
                     <span style={{ fontSize:13, fontWeight:600, color:"rgba(255,255,255,0.80)" }}>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Bottom stat */}
-            <div style={{ position:"relative", zIndex:1, marginTop:20, paddingTop:16, borderTop:"1px solid rgba(255,255,255,0.1)" }}>
-              <div style={{ display:"flex", gap:28 }}>
-                {[["10k+","Images generated"],["90%","Cost savings"],["60s","Per image"]].map(([val, lbl]) => (
-                  <div key={lbl}>
-                    <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:900, fontSize:22, color:"#8B5CF6", letterSpacing:"-0.5px" }}>{val}</div>
-                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.45)", fontWeight:600, textTransform:"uppercase", letterSpacing:".1em" }}>{lbl}</div>
                   </div>
                 ))}
               </div>

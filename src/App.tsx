@@ -602,7 +602,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon"
+    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard"
       ? stored : "prints";
   });
 
@@ -2345,7 +2345,6 @@ export default function App() {
             {([
               { tab: "prints",     label: "Add Prints",      Icon: Palette         },
               { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
-              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
               { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
@@ -2376,6 +2375,11 @@ export default function App() {
             >
               <BookOpen size={16} className="navButtonIcon" />
               Documents
+            </button>
+            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+              <Shirt size={16} className="navButtonIcon" />
+              Try On
+              <span className="navButtonComingSoonBadge">Coming Soon</span>
             </button>
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
               <Box size={16} className="navButtonIcon" />
@@ -2652,7 +2656,6 @@ export default function App() {
             {([
               { tab: "prints",     label: "Add Prints",      Icon: Palette         },
               { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
-              { tab: "tryon",      label: "Try On",           Icon: Shirt           },
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
               { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
@@ -2683,6 +2686,11 @@ export default function App() {
             >
               <BookOpen size={16} className="navButtonIcon" />
               Documents
+            </button>
+            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+              <Shirt size={16} className="navButtonIcon" />
+              Try On
+              <span className="navButtonComingSoonBadge">Coming Soon</span>
             </button>
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
               <Box size={16} className="navButtonIcon" />
