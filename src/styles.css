@@ -2176,6 +2176,16 @@ input[type="file"]::file-selector-button:hover {
   .printTabGrid { grid-template-columns: 1fr !important; }
   .printSidePanel { width: 100% !important; }
 
+  /* Inputs section: stack garment + color picker vertically */
+  .printsInputsGrid { grid-template-columns: 1fr !important; }
+
+  /* Reduce tall fixed-height upload cards */
+  .printsUploadCard { height: 150px; }
+  .printsGarmentCard { height: 150px; }
+
+  /* Shrink color picker gradient area */
+  .pcArea { height: 170px; }
+
   /* ── TryOnTab mobile ── */
   .tryonLayout { flex-direction: column !important; }
   .tryonSidebar { width: 100% !important; border-right: none !important; border-bottom: 2px solid var(--border); }

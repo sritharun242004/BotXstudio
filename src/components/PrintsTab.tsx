@@ -210,6 +210,7 @@ export default function PrintsTab({
 
         {/* ── Two-column: Garment (left) + Color Picker (right) ── */}
         <div
+          className="printsInputsGrid"
           style={{
             display: "grid",
             gridTemplateColumns: "1fr 1fr",
