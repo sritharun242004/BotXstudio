@@ -2376,10 +2376,13 @@ export default function App() {
               <BookOpen size={16} className="navButtonIcon" />
               Documents
             </button>
-            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+            <button
+              type="button"
+              className={`navButton${activeTab === "tryon" ? " navButtonActive" : ""}`}
+              onClick={() => navigate("/app/tryon")}
+            >
               <Shirt size={16} className="navButtonIcon" />
               Try On
-              <span className="navButtonComingSoonBadge">Coming Soon</span>
             </button>
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
               <Box size={16} className="navButtonIcon" />
@@ -2687,10 +2690,13 @@ export default function App() {
               <BookOpen size={16} className="navButtonIcon" />
               Documents
             </button>
-            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
+            <button
+              type="button"
+              className={`navButton${activeTab === "tryon" ? " navButtonActive" : ""}`}
+              onClick={() => { navigate("/app/tryon"); setMobileNavOpen(false); }}
+            >
               <Shirt size={16} className="navButtonIcon" />
               Try On
-              <span className="navButtonComingSoonBadge">Coming Soon</span>
             </button>
             <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
               <Box size={16} className="navButtonIcon" />
