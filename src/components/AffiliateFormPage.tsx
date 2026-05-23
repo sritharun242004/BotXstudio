@@ -84,7 +84,7 @@ export default function AffiliateFormPage({ affiliateId, onSaved, onCancel }: Pr
         name: name.trim(),
         email: email.trim(),
         phone: phone.trim() || undefined,
-        commissionPercentage: parseFloat(commission) || 10,
+        commissionPercentage: parseFloat(commission) || 0,
         bonusCredits: parseInt(bonusCredits) || 0,
         instagram: instagram.trim() || undefined,
         youtube: youtube.trim() || undefined,

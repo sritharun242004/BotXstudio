@@ -1,12 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { Affiliate, AffiliateClick, AffiliateUser } from "../lib/affiliateAdmin";
-import { affiliateAdminGet, affiliateAdminGetActivity, affiliateAdminGetUsers } from "../lib/affiliateAdmin";
+import {
+  affiliateAdminGet,
+  affiliateAdminUpdate,
+  affiliateAdminGetActivity,
+  affiliateAdminGetUsers,
+  affiliateAdminGetProfileUploadUrl,
+  uploadImageToS3,
+} from "../lib/affiliateAdmin";
 
 interface Props {
   affiliateId: string;
   onBack: () => void;
-  onEdit: (id: string) => void;
 }
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function CopyBtn({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -32,142 +40,392 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   );
 }
 
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="adFormField">
+      <label className="adFormLabel">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+const STATUS_MAP: Record<string, { bg: string; color: string }> = {
   active:    { bg: "#DCFCE7", color: "#16A34A" },
   suspended: { bg: "#FEF3C7", color: "#D97706" },
   inactive:  { bg: "#F1F5F9", color: "#94A3B8" },
 };
 
-export default function AffiliateProfilePage({ affiliateId, onBack, onEdit }: Props) {
-  const [aff, setAff] = useState<Affiliate | null>(null);
-  const [activity, setActivity] = useState<AffiliateClick[]>([]);
-  const [users, setUsers] = useState<AffiliateUser[]>([]);
-  const [tab, setTab] = useState<"activity" | "users">("activity");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+// ─── form state derived from affiliate ────────────────────────────────────────
 
-  useEffect(() => {
+function toForm(a: Affiliate) {
+  return {
+    name:                 a.name,
+    email:                a.email,
+    phone:                a.phone ?? "",
+    location:             a.location ?? "",
+    bio:                  a.bio ?? "",
+    instagram:            a.instagram ?? "",
+    youtube:              a.youtube ?? "",
+    linkedin:             a.linkedin ?? "",
+    commissionPercentage: String(a.commissionPercentage),
+    bonusCredits:         String(a.bonusCredits ?? 0),
+    status:               a.status,
+    bankName:             a.bankName ?? "",
+    accountNumber:        a.accountNumber ?? "",
+    upiId:                a.upiId ?? "",
+  };
+}
+
+type FormState = ReturnType<typeof toForm>;
+
+// ─── main component ───────────────────────────────────────────────────────────
+
+export default function AffiliateProfilePage({ affiliateId, onBack }: Props) {
+  const [aff, setAff]           = useState<Affiliate | null>(null);
+  const [form, setForm]         = useState<FormState | null>(null);
+  const [activity, setActivity] = useState<AffiliateClick[]>([]);
+  const [users, setUsers]       = useState<AffiliateUser[]>([]);
+  const [tab, setTab]           = useState<"activity" | "users">("activity");
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [imgUploading, setImgUploading] = useState(false);
+  const [savedAt, setSavedAt]   = useState<Date | null>(null);
+  const [error, setError]       = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [imgPreview, setImgPreview] = useState<string | null>(null);
+  const [pendingImg, setPendingImg] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const load = useCallback(async () => {
     setLoading(true);
     setError("");
-    Promise.all([
-      affiliateAdminGet(affiliateId),
-      affiliateAdminGetActivity(affiliateId),
-      affiliateAdminGetUsers(affiliateId),
-    ])
-      .then(([affData, actData, usersData]) => {
-        setAff(affData);
-        setActivity(actData);
-        setUsers(usersData);
-      })
-      .catch((e: any) => setError(e.message || "Failed to load"))
-      .finally(() => setLoading(false));
+    try {
+      const [affData, actData, usersData] = await Promise.all([
+        affiliateAdminGet(affiliateId),
+        affiliateAdminGetActivity(affiliateId),
+        affiliateAdminGetUsers(affiliateId),
+      ]);
+      setAff(affData);
+      setForm(toForm(affData));
+      setImgPreview(affData.profileImageUrl);
+      setActivity(actData);
+      setUsers(usersData);
+    } catch (e: any) {
+      setError(e.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
   }, [affiliateId]);
 
-  if (loading) return <div className="adPage"><div className="adEmpty">Loading affiliate…</div></div>;
-  if (error || !aff) return <div className="adPage"><div className="adEmpty" style={{ color: "#EF4444" }}>{error || "Affiliate not found"}</div></div>;
+  useEffect(() => { load(); }, [load]);
 
-  const sc = STATUS_COLORS[aff.status] ?? STATUS_COLORS.inactive;
+  function set(key: keyof FormState, val: string) {
+    setForm(prev => prev ? { ...prev, [key]: val } : prev);
+    setSavedAt(null);
+    setSaveError("");
+  }
+
+  function isDirty() {
+    if (!aff || !form) return false;
+    const orig = toForm(aff);
+    return (Object.keys(form) as (keyof FormState)[]).some(k => form[k] !== orig[k]) || pendingImg !== null;
+  }
+
+  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingImg(file);
+    setSavedAt(null);
+    const reader = new FileReader();
+    reader.onload = () => setImgPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function handleSave() {
+    if (!aff || !form) return;
+    setSaving(true);
+    setSaveError("");
+    try {
+      let updated = await affiliateAdminUpdate(aff.id, {
+        name:                 form.name.trim(),
+        email:                form.email.trim(),
+        phone:                form.phone.trim() || undefined,
+        location:             form.location.trim() || undefined,
+        bio:                  form.bio.trim() || undefined,
+        instagram:            form.instagram.trim() || undefined,
+        youtube:              form.youtube.trim() || undefined,
+        linkedin:             form.linkedin.trim() || undefined,
+        commissionPercentage: parseFloat(form.commissionPercentage) || 0,
+        bonusCredits:         parseInt(form.bonusCredits) || 0,
+        status:               form.status,
+        bankName:             form.bankName.trim() || undefined,
+        accountNumber:        form.accountNumber.trim() || undefined,
+        upiId:                form.upiId.trim() || undefined,
+      });
+
+      if (pendingImg) {
+        setImgUploading(true);
+        try {
+          const { uploadUrl, publicUrl } = await affiliateAdminGetProfileUploadUrl(aff.id, pendingImg.type);
+          await uploadImageToS3(uploadUrl, pendingImg);
+          updated = await affiliateAdminUpdate(aff.id, { profileImageUrl: publicUrl });
+          setPendingImg(null);
+        } finally {
+          setImgUploading(false);
+        }
+      }
+
+      setAff(updated);
+      setForm(toForm(updated));
+      setSavedAt(new Date());
+    } catch (e: any) {
+      setSaveError(e.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <div className="adPage"><div className="adEmpty">Loading affiliate…</div></div>;
+  if (error || !aff || !form) return <div className="adPage"><div className="adEmpty" style={{ color: "#EF4444" }}>{error || "Not found"}</div></div>;
+
+  const sc = STATUS_MAP[form.status] ?? STATUS_MAP.inactive;
+  const dirty = isDirty();
+  const busy = saving || imgUploading;
 
   return (
     <div className="adPage">
+      {/* ── Header ── */}
       <div className="adPageHeader">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <button className="adActionBtn" onClick={onBack}>← Back</button>
           <div>
-            <h2 className="adPageTitle">Affiliate Profile</h2>
-            <p className="adPageSub">Analytics and referral details</p>
+            <h2 className="adPageTitle">{form.name || aff.name}</h2>
+            <p className="adPageSub">Edit affiliate details — changes save immediately</p>
           </div>
         </div>
-        <button className="adPrimaryBtn" onClick={() => onEdit(aff.id)}>Edit</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {savedAt && !dirty && (
+            <span style={{ fontSize: 13, color: "#10B981", fontWeight: 600 }}>
+              ✓ Saved {savedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          {saveError && <span style={{ fontSize: 13, color: "#EF4444" }}>{saveError}</span>}
+          <button
+            className="adPrimaryBtn"
+            onClick={handleSave}
+            disabled={!dirty || busy}
+            style={{ opacity: !dirty || busy ? 0.55 : 1, minWidth: 130 }}
+          >
+            {busy ? "Saving…" : dirty ? "Save Changes" : "Saved"}
+          </button>
+        </div>
       </div>
 
-      {/* Profile card */}
-      <div className="adTableCard">
-        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "flex-start" }}>
-          {aff.profileImageUrl ? (
-            <img src={aff.profileImageUrl} alt={aff.name} style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: "3px solid #E2E8F0", flexShrink: 0 }} />
-          ) : (
-            <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#8B5CF620", color: "#8B5CF6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 30, fontWeight: 800, flexShrink: 0 }}>
-              {aff.name[0]?.toUpperCase()}
-            </div>
-          )}
+      {/* ── Two-column edit layout ── */}
+      <div className="adAffFormLayout">
 
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 4 }}>
-              <span style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", fontFamily: "Outfit,system-ui,sans-serif" }}>{aff.name}</span>
-              <span style={{ padding: "3px 10px", borderRadius: 9999, fontSize: 11, fontWeight: 700, background: sc.bg, color: sc.color, textTransform: "capitalize" }}>{aff.status}</span>
+        {/* ── Left: info + social + payment ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Profile basics */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Profile Information</div>
+            <div className="adFormGrid">
+              <Field label="Full Name">
+                <input className="adFormInput" value={form.name} onChange={e => set("name", e.target.value)} />
+              </Field>
+              <Field label="Email">
+                <input className="adFormInput" type="email" value={form.email} onChange={e => set("email", e.target.value)} />
+              </Field>
+              <Field label="Phone">
+                <input className="adFormInput" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="+91 9999999999" />
+              </Field>
+              <Field label="Location">
+                <input className="adFormInput" value={form.location} onChange={e => set("location", e.target.value)} placeholder="City, State" />
+              </Field>
+              <div className="adFormField" style={{ gridColumn: "1 / -1" }}>
+                <label className="adFormLabel">Bio</label>
+                <textarea className="adFormTextarea" value={form.bio} onChange={e => set("bio", e.target.value)} rows={3} placeholder="Short intro…" />
+              </div>
             </div>
-            <div style={{ fontSize: 13, color: "#64748B" }}>{aff.email}{aff.phone ? ` · ${aff.phone}` : ""}</div>
-            {aff.location && <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 2 }}>{aff.location}</div>}
-            {aff.bio && <div style={{ fontSize: 13, color: "#475569", marginTop: 8, maxWidth: 480 }}>{aff.bio}</div>}
-            {(aff.instagram || aff.youtube || aff.linkedin) && (
-              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                {aff.instagram && (
-                  <a href={aff.instagram.startsWith("http") ? aff.instagram : `https://instagram.com/${aff.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer" className="adSocialChip adSocialInsta">Instagram</a>
-                )}
-                {aff.youtube && (
-                  <a href={aff.youtube} target="_blank" rel="noopener noreferrer" className="adSocialChip adSocialYt">YouTube</a>
-                )}
-                {aff.linkedin && (
-                  <a href={aff.linkedin} target="_blank" rel="noopener noreferrer" className="adSocialChip adSocialLi">LinkedIn</a>
-                )}
+          </div>
+
+          {/* Social */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Social Media</div>
+            <div className="adFormGrid">
+              <Field label="Instagram">
+                <input className="adFormInput" value={form.instagram} onChange={e => set("instagram", e.target.value)} placeholder="@handle or URL" />
+              </Field>
+              <Field label="YouTube">
+                <input className="adFormInput" value={form.youtube} onChange={e => set("youtube", e.target.value)} placeholder="Channel URL" />
+              </Field>
+              <div className="adFormField" style={{ gridColumn: "1 / -1" }}>
+                <label className="adFormLabel">LinkedIn</label>
+                <input className="adFormInput" value={form.linkedin} onChange={e => set("linkedin", e.target.value)} placeholder="Profile URL" />
+              </div>
+            </div>
+          </div>
+
+          {/* Payment */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Payment Details</div>
+            <div className="adFormGrid">
+              <Field label="Bank Name">
+                <input className="adFormInput" value={form.bankName} onChange={e => set("bankName", e.target.value)} placeholder="HDFC Bank" />
+              </Field>
+              <Field label="Account Number">
+                <input className="adFormInput" value={form.accountNumber} onChange={e => set("accountNumber", e.target.value)} placeholder="XXXXXXXXXXXXXXXX" />
+              </Field>
+              <div className="adFormField" style={{ gridColumn: "1 / -1" }}>
+                <label className="adFormLabel">UPI ID</label>
+                <input className="adFormInput" value={form.upiId} onChange={e => set("upiId", e.target.value)} placeholder="name@upi" />
+              </div>
+            </div>
+          </div>
+
+          {/* Referral link (read-only) */}
+          <div className="adTableCard">
+            <div className="adSectionLabel" style={{ marginBottom: 8 }}>Referral Link</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, fontFamily: "monospace", fontSize: 13, background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 10, padding: "10px 14px", color: "#475569", wordBreak: "break-all", minWidth: 180 }}>
+                {aff.referralLink}
+              </div>
+              <CopyBtn text={aff.referralLink} />
+              {aff.qrCodeUrl && <a href={aff.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="adActionBtn">QR Code</a>}
+            </div>
+            {aff.qrCodeUrl && (
+              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
+                <img src={aff.qrCodeUrl} alt="QR" style={{ width: 90, height: 90, borderRadius: 10, border: "2px solid #E2E8F0" }} />
+                <div style={{ fontSize: 12, color: "#64748B" }}>Share with the affiliate for easy referral link distribution.</div>
               </div>
             )}
           </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 180 }}>
-            <div>
-              <div className="adSectionLabel" style={{ marginBottom: 4 }}>Code</div>
-              <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 800, background: "#F1F5F9", padding: "5px 12px", borderRadius: 8, color: "#475569" }}>{aff.affiliateCode}</span>
-            </div>
-            <div>
-              <div className="adSectionLabel" style={{ marginBottom: 4 }}>Commission</div>
-              <span style={{ fontSize: 18, fontWeight: 800, color: "#8B5CF6" }}>{aff.commissionPercentage}%</span>
-            </div>
-            <div>
-              <div className="adSectionLabel" style={{ marginBottom: 4 }}>Signup Bonus</div>
-              <span style={{ fontSize: 18, fontWeight: 800, color: "#10B981" }}>₹{aff.bonusCredits ?? 0}</span>
-            </div>
-            <div>
-              <div className="adSectionLabel" style={{ marginBottom: 4 }}>Joined</div>
-              <span style={{ fontSize: 13, color: "#475569" }}>{new Date(aff.joinedDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
-            </div>
-          </div>
         </div>
 
-        {/* Referral link */}
-        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid #F1F5F9" }}>
-          <div className="adSectionLabel" style={{ marginBottom: 8 }}>Referral Link</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ flex: 1, fontFamily: "monospace", fontSize: 13, background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 10, padding: "10px 14px", color: "#475569", minWidth: 200, wordBreak: "break-all" }}>
-              {aff.referralLink}
+        {/* ── Right: image + commission + status ── */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+          {/* Profile image */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Profile Image</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+              {imgPreview ? (
+                <img src={imgPreview} alt="Profile" style={{ width: 100, height: 100, borderRadius: "50%", objectFit: "cover", border: "3px solid #E2E8F0" }} />
+              ) : (
+                <div style={{ width: 100, height: 100, borderRadius: "50%", background: "#8B5CF620", color: "#8B5CF6", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 36, fontWeight: 800 }}>
+                  {form.name[0]?.toUpperCase() || "?"}
+                </div>
+              )}
+              <button type="button" className="adActionBtn adActionBtnEdit" style={{ width: "100%" }} onClick={() => fileRef.current?.click()}>
+                Change Image
+              </button>
+              <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={handleImagePick} />
+              <div style={{ fontSize: 11, color: "#94A3B8" }}>PNG · JPG · WEBP · Saved with the form</div>
             </div>
-            <CopyBtn text={aff.referralLink} />
-            {aff.qrCodeUrl && (
-              <a href={aff.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="adActionBtn">QR Code</a>
-            )}
+          </div>
+
+          {/* Affiliate code (read-only) */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Affiliate Code</div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 800, background: "#F1F5F9", padding: "12px 16px", borderRadius: 10, color: "#8B5CF6", letterSpacing: 2 }}>
+                {aff.affiliateCode}
+              </div>
+              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>Permanent — cannot be changed</div>
+            </div>
+          </div>
+
+          {/* Commission & bonus — most important editable fields */}
+          <div className="adTableCard" style={{ border: "2px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.02)" }}>
+            <div className="adSectionLabel">Commission & Bonus</div>
+
+            <Field label="Commission Rate (%)">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  className="adFormInput"
+                  type="number" min="0" max="100" step="0.5"
+                  value={form.commissionPercentage}
+                  onChange={e => set("commissionPercentage", e.target.value)}
+                  style={{ maxWidth: 90 }}
+                />
+                <span style={{ fontSize: 13, color: "#64748B" }}>% of purchase</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+                ₹1000 purchase → ₹{((parseFloat(form.commissionPercentage) || 0) * 10).toFixed(0)} earned
+              </div>
+            </Field>
+
+            <div style={{ height: 14 }} />
+
+            <Field label="Signup Bonus Credits (₹)">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  className="adFormInput"
+                  type="number" min="0" max="10000" step="10"
+                  value={form.bonusCredits}
+                  onChange={e => set("bonusCredits", e.target.value)}
+                  style={{ maxWidth: 90 }}
+                />
+                <span style={{ fontSize: 13, color: "#64748B" }}>free credits on signup</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+                New users who sign up via this link get ₹{parseInt(form.bonusCredits) || 0} added instantly
+              </div>
+            </Field>
+
+            {/* Live preview badge */}
+            <div style={{ marginTop: 16, padding: "10px 14px", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, fontSize: 13, color: "#16A34A", fontWeight: 600 }}>
+              🎁 Referral banner shows: <em>"Sign up and get ₹{parseInt(form.bonusCredits) || 0} free credits"</em>
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="adTableCard">
+            <div className="adSectionLabel">Account Status</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {(["active", "suspended", "inactive"] as const).map(s => {
+                const col = STATUS_MAP[s];
+                const active = form.status === s;
+                return (
+                  <button
+                    key={s}
+                    onClick={() => set("status", s)}
+                    style={{
+                      padding: "8px 18px",
+                      borderRadius: 9999,
+                      border: `2px solid ${active ? col.color : "#E2E8F0"}`,
+                      background: active ? col.bg : "#fff",
+                      color: active ? col.color : "#94A3B8",
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      textTransform: "capitalize",
+                      transition: "all 150ms",
+                    }}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "#94A3B8" }}>
+              {form.status === "active"    && "Referral link is live and tracking clicks."}
+              {form.status === "suspended" && "Link is paused — clicks tracked but not attributed."}
+              {form.status === "inactive"  && "Affiliate is inactive — link returns 404."}
+            </div>
+          </div>
+
+          {/* Joined */}
+          <div style={{ padding: "12px 16px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 13, color: "#64748B" }}>
+            <span style={{ fontWeight: 700, color: "#475569" }}>Joined:</span>{" "}
+            {new Date(aff.joinedDate).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
           </div>
         </div>
-
-        {aff.qrCodeUrl && (
-          <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 16 }}>
-            <img src={aff.qrCodeUrl} alt="QR Code" style={{ width: 110, height: 110, borderRadius: 10, border: "2px solid #E2E8F0" }} />
-            <div style={{ fontSize: 13, color: "#64748B" }}>Share this QR code for easy referral link distribution.</div>
-          </div>
-        )}
-
-        {(aff.bankName || aff.upiId) && (
-          <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #F1F5F9" }}>
-            <div className="adSectionLabel" style={{ marginBottom: 8 }}>Payment Details</div>
-            <div style={{ display: "flex", gap: 20, flexWrap: "wrap", fontSize: 13, color: "#475569" }}>
-              {aff.bankName && <span><strong>Bank:</strong> {aff.bankName}{aff.accountNumber ? ` · ${aff.accountNumber}` : ""}</span>}
-              {aff.upiId && <span><strong>UPI:</strong> {aff.upiId}</span>}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Stats */}
+      {/* ── Stats ── */}
       <div className="adStatRow">
         <StatCard label="Total Clicks"   value={aff.totalClicks.toLocaleString()}              sub="Link visits"  color="#3B82F6" />
         <StatCard label="Referred Users" value={aff.totalUsers}                                sub="Signed up"    color="#10B981" />
@@ -175,29 +433,21 @@ export default function AffiliateProfilePage({ affiliateId, onBack, onEdit }: Pr
         <StatCard label="Commission"     value={`₹${Number(aff.totalCommission).toFixed(0)}`} sub="To pay out"   color="#EF4444" />
       </div>
 
-      {/* Activity / Users tabs */}
+      {/* ── Activity / Users tabs ── */}
       <div className="adTableCard">
         <div style={{ display: "flex", gap: 4, marginBottom: 16 }}>
           {(["activity", "users"] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: tab === t ? "#8B5CF6" : "#F1F5F9", color: tab === t ? "#fff" : "#64748B", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
-            >
+            <button key={t} onClick={() => setTab(t)} style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: tab === t ? "#8B5CF6" : "#F1F5F9", color: tab === t ? "#fff" : "#64748B", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
               {t === "activity" ? `Clicks (${activity.length})` : `Users (${users.length})`}
             </button>
           ))}
         </div>
 
         {tab === "activity" && (
-          activity.length === 0 ? (
-            <div className="adEmpty">No click activity yet.</div>
-          ) : (
+          activity.length === 0 ? <div className="adEmpty">No click activity yet.</div> : (
             <div className="adTableWrap">
               <table className="adTable">
-                <thead>
-                  <tr><th>Date & Time</th><th>Device</th><th>Browser</th><th>UTM Source</th><th>UTM Medium</th></tr>
-                </thead>
+                <thead><tr><th>Date & Time</th><th>Device</th><th>Browser</th><th>UTM Source</th><th>UTM Medium</th></tr></thead>
                 <tbody>
                   {activity.slice(0, 50).map(c => (
                     <tr key={c.id}>
@@ -215,24 +465,17 @@ export default function AffiliateProfilePage({ affiliateId, onBack, onEdit }: Pr
         )}
 
         {tab === "users" && (
-          users.length === 0 ? (
-            <div className="adEmpty">No referred users yet.</div>
-          ) : (
+          users.length === 0 ? <div className="adEmpty">No referred users yet.</div> : (
             <div className="adTableWrap">
               <table className="adTable">
-                <thead>
-                  <tr><th>User</th><th>Signup Date</th><th>Purchase Amount</th><th>Commission</th></tr>
-                </thead>
+                <thead><tr><th>User</th><th>Signup Date</th><th>Purchase</th><th>Commission</th></tr></thead>
                 <tbody>
                   {users.map(u => (
                     <tr key={u.userId}>
                       <td>
                         <div className="adUserCell">
                           <div className="adAvatar" style={{ background: "#8B5CF620", color: "#8B5CF6" }}>{u.name[0]?.toUpperCase()}</div>
-                          <div>
-                            <div className="adUserName">{u.name}</div>
-                            <div className="adUserEmail">{u.email}</div>
-                          </div>
+                          <div><div className="adUserName">{u.name}</div><div className="adUserEmail">{u.email}</div></div>
                         </div>
                       </td>
                       <td><span className="adDate">{new Date(u.signupDate).toLocaleDateString("en-IN")}</span></td>
@@ -246,6 +489,23 @@ export default function AffiliateProfilePage({ affiliateId, onBack, onEdit }: Pr
           )
         )}
       </div>
+
+      {/* ── Sticky save bar shown when dirty ── */}
+      {dirty && (
+        <div style={{ position: "sticky", bottom: 20, display: "flex", justifyContent: "flex-end", pointerEvents: "none" }}>
+          <div style={{ pointerEvents: "auto", background: "#0F172A", borderRadius: 14, padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+            <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13 }}>You have unsaved changes</span>
+            <button
+              className="adPrimaryBtn"
+              onClick={handleSave}
+              disabled={busy}
+              style={{ padding: "8px 22px", fontSize: 13 }}
+            >
+              {busy ? "Saving…" : "Save Changes"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
