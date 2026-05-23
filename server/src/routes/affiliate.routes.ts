@@ -15,6 +15,7 @@ import {
   adminGetProfileUploadUrl,
   publicTrackReferral,
   attributeUser,
+  redeemCoupon,
 } from "../controllers/affiliate.controller.js";
 
 export const affiliateRoutes = Router();
@@ -32,6 +33,9 @@ affiliateRoutes.get("/r/:code", referralLimiter, publicTrackReferral);
 
 // ─── Authenticated user: attribute self to affiliate ─────────────────────────
 affiliateRoutes.post("/attribute", authenticate, attributeUser);
+
+// ─── Authenticated user: redeem promo/affiliate code ─────────────────────────
+affiliateRoutes.post("/redeem", authenticate, redeemCoupon);
 
 // ─── Admin: overview ──────────────────────────────────────────────────────────
 affiliateRoutes.get("/admin/overview", adminAuth, adminGetOverview);

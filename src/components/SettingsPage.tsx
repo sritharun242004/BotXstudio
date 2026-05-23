@@ -5,7 +5,7 @@ import { getSession, logout } from "../lib/auth";
 import { useCredits } from "../context/CreditsContext";
 import { fetchCreditTransactions, type CreditTransaction } from "../lib/credits";
 import { IMAGE_GENERATION_MODELS } from "../lib/storyboards";
-import { apiGet } from "../lib/api";
+import { apiGet, apiPost } from "../lib/api";
 import {
   User, CreditCard, Sparkles, Palette, Bell, FolderOpen, Shield, Zap,
   Sliders, BarChart2, HelpCircle, Mail, Bug, Lightbulb, MessageCircle,
@@ -256,6 +256,8 @@ function CreditsSection() {
   const { balance, freeImagesRemaining, modelPricing, isDeveloper, creditsSpent } = useCredits();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [coupon, setCoupon] = useState("");
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [txLoading, setTxLoading] = useState(true);
   const [showBuyPanel, setShowBuyPanel] = useState(false);
   const [selectedPack, setSelectedPack] = useState<BuyPackKey>("growth");
@@ -268,6 +270,24 @@ function CreditsSection() {
       .catch(() => {})
       .finally(() => setTxLoading(false));
   }, []);
+
+  async function handleRedeem() {
+    const code = coupon.trim().toUpperCase();
+    if (!code) return;
+    setCouponBusy(true);
+    setCouponMsg(null);
+    try {
+      const res = await apiPost<{ creditsAdded: number; newBalance: number }>("/api/affiliates/redeem", { code });
+      setCouponMsg({ ok: true, text: `₹${res.creditsAdded} credits added! Your new balance is ₹${res.newBalance}.` });
+      setCoupon("");
+      // Refresh transaction list to show the new entry
+      fetchCreditTransactions().then(setTransactions).catch(() => {});
+    } catch (e: any) {
+      setCouponMsg({ ok: false, text: e.message || "Failed to redeem code" });
+    } finally {
+      setCouponBusy(false);
+    }
+  }
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -609,10 +629,40 @@ function CreditsSection() {
       {/* Redeem coupon */}
       <SectionCard title="Redeem Coupon">
         <div className="stgCouponRow">
-          <input className="stgInput" placeholder="Enter coupon code" value={coupon} onChange={e => setCoupon(e.target.value.toUpperCase())} style={{ flex: 1 }} />
-          <button className="stgPrimaryBtn" style={{ flexShrink: 0 }} onClick={() => {
-            if (coupon.trim()) alert("Coupon redemption requires admin approval. Please contact official@thebotcompany.in with code: " + coupon.trim());
-          }}>Redeem</button>
+          <input
+            className="stgInput"
+            placeholder="Enter promo / affiliate code"
+            value={coupon}
+            onChange={e => { setCoupon(e.target.value.toUpperCase()); setCouponMsg(null); }}
+            onKeyDown={e => e.key === "Enter" && handleRedeem()}
+            disabled={couponBusy}
+            style={{ flex: 1 }}
+          />
+          <button
+            className="stgPrimaryBtn"
+            style={{ flexShrink: 0 }}
+            onClick={handleRedeem}
+            disabled={couponBusy || !coupon.trim()}
+          >
+            {couponBusy ? "Checking…" : "Redeem"}
+          </button>
+        </div>
+        {couponMsg && (
+          <div style={{
+            marginTop: 10,
+            padding: "10px 14px",
+            borderRadius: 8,
+            fontSize: 13,
+            fontWeight: 600,
+            background: couponMsg.ok ? "#F0FDF4" : "#FEF2F2",
+            color: couponMsg.ok ? "#16A34A" : "#DC2626",
+            border: `1px solid ${couponMsg.ok ? "#BBF7D0" : "#FECACA"}`,
+          }}>
+            {couponMsg.ok ? "✓ " : "✗ "}{couponMsg.text}
+          </div>
+        )}
+        <div style={{ marginTop: 8, fontSize: 12, color: "#94A3B8" }}>
+          Each account can redeem one promo code. Affiliate codes are accepted here.
         </div>
       </SectionCard>
 

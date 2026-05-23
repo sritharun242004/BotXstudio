@@ -9,6 +9,7 @@ import {
   listAffiliates,
   trackClick,
   attributeUserToAffiliate,
+  redeemAffiliateCode,
   getOverviewStats,
   getDailySignups,
   getProfileImageUploadUrl,
@@ -219,4 +220,24 @@ export async function attributeUser(req: Request, res: Response, next: NextFunct
     const attributed = await attributeUserToAffiliate(userId, aff.id);
     res.json({ attributed });
   } catch (err) { next(err); }
+}
+
+// ─── Authenticated: redeem affiliate code as promo coupon ─────────────────────
+
+export async function redeemCoupon(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { code } = req.body as { code?: string };
+    if (!code?.trim()) throw new BadRequestError("code is required");
+
+    const userId = req.user?.userId;
+    if (!userId) throw new BadRequestError("User not authenticated");
+
+    const result = await redeemAffiliateCode(userId, code.trim());
+    res.json(result);
+  } catch (err: any) {
+    if (err?.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+    next(err);
+  }
 }

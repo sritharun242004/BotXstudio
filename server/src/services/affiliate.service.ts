@@ -252,6 +252,54 @@ export async function attributeUserToAffiliate(userId: string, affiliateId: stri
   return true;
 }
 
+// ─── Coupon / promo code redemption ──────────────────────────────────────────
+
+export async function redeemAffiliateCode(
+  userId: string,
+  code: string,
+): Promise<{ creditsAdded: number; newBalance: number }> {
+  // 1. Find the affiliate by code
+  const affiliate = await prisma.affiliate.findUnique({ where: { affiliateCode: code.toUpperCase().trim() } });
+  if (!affiliate || affiliate.status !== "active") {
+    throw Object.assign(new Error("Invalid or inactive promo code"), { statusCode: 404 });
+  }
+
+  const bonus = affiliate.bonusCredits ?? 0;
+  if (bonus <= 0) {
+    throw Object.assign(new Error("This promo code has no credit reward"), { statusCode: 400 });
+  }
+
+  // 2. Ensure user hasn't already redeemed any promo / affiliate bonus
+  const existingBonus = await prisma.creditTransaction.findFirst({
+    where: { userId, type: { in: ["affiliate_bonus", "promo_redemption"] } },
+  });
+  if (existingBonus) {
+    throw Object.assign(new Error("You have already redeemed a promo code on this account"), { statusCode: 409 });
+  }
+
+  // 3. Apply credits
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
+  if (!user) throw Object.assign(new Error("User not found"), { statusCode: 404 });
+
+  const newBalance = Number(user.creditsBalance) + bonus;
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      creditsBalance: newBalance,
+      creditTransactions: {
+        create: {
+          amountInr: bonus,
+          type: "promo_redemption",
+          description: `Promo code ${affiliate.affiliateCode} (${affiliate.name}) — ₹${bonus} bonus`,
+          balanceAfter: newBalance,
+        },
+      },
+    },
+  });
+
+  return { creditsAdded: bonus, newBalance };
+}
+
 // ─── Commission ───────────────────────────────────────────────────────────────
 
 export async function recordCommission(userId: string, purchaseAmountInr: number) {

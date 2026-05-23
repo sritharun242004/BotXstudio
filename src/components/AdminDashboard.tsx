@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, type ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAdminSession, adminLogout } from "../lib/adminAuth";
 import {
-  adminFetchUsers, adminTopUpUser,
   adminFetchModelPricing, adminSaveModelPricing,
-  type AdminUser, type ModelPricingRow,
+  type ModelPricingRow,
 } from "../lib/credits";
 import { API_COSTS_INR } from "../lib/pricing";
+import UsersPage from "./UsersPage";
 import AffiliatesPage from "./AffiliatesPage";
 import AffiliateFormPage from "./AffiliateFormPage";
 import AffiliateProfilePage from "./AffiliateProfilePage";
@@ -40,134 +40,6 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
       <div className="adStatValue">{value}</div>
       <div className="adStatLabel">{label}</div>
       {sub && <div className="adStatSub">{sub}</div>}
-    </div>
-  );
-}
-
-// ─── Pages ───────────────────────────────────────────────────────────────────
-
-function UsersPage() {
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [topupId, setTopupId] = useState<string | null>(null);
-  const [topupAmount, setTopupAmount] = useState("");
-  const [topupNote, setTopupNote] = useState("");
-  const [topupBusy, setTopupBusy] = useState(false);
-  const [topupError, setTopupError] = useState("");
-
-  useEffect(() => {
-    adminFetchUsers()
-      .then(setUsers)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const filtered = users.filter(u =>
-    !search ||
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
-
-  async function handleTopup(userId: string) {
-    const amount = parseFloat(topupAmount);
-    if (isNaN(amount) || amount === 0) { setTopupError("Enter a valid amount"); return; }
-    setTopupBusy(true);
-    setTopupError("");
-    try {
-      const updated = await adminTopUpUser(userId, amount, topupNote || undefined);
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, creditsBalance: updated.creditsBalance } : u));
-      setTopupId(null);
-      setTopupAmount("");
-      setTopupNote("");
-    } catch (e: any) {
-      setTopupError(e.message || "Failed");
-    } finally {
-      setTopupBusy(false);
-    }
-  }
-
-  const totalBalance = users.reduce((s, u) => s + u.creditsBalance, 0);
-
-  return (
-    <div className="adPage">
-      <div className="adPageHeader">
-        <div>
-          <h2 className="adPageTitle">Users</h2>
-          <p className="adPageSub">Manage user accounts and credit balances</p>
-        </div>
-      </div>
-
-      <div className="adStatRow">
-        <StatCard label="Total Users"    value={loading ? "…" : users.length}                            sub="Registered accounts"   color="#8B5CF6" />
-        <StatCard label="Total Balance"  value={loading ? "…" : `₹${totalBalance.toFixed(2)}`}           sub="Across all users"      color="#3B82F6" />
-        <StatCard label="Images Total"   value={loading ? "…" : users.reduce((s,u)=>s+u.imagesGenerated,0).toLocaleString()} sub="Generated" color="#10B981" />
-      </div>
-
-      <div className="adTableCard">
-        <div className="adTableToolbar">
-          <input className="adSearch" type="search" placeholder="Search by name or email…" value={search} onChange={e => setSearch(e.target.value)} />
-        </div>
-
-        <div className="adTableWrap">
-          {loading ? (
-            <div className="adEmpty">Loading users…</div>
-          ) : (
-            <table className="adTable">
-              <thead>
-                <tr><th>User</th><th>Balance (₹)</th><th>Images</th><th>Joined</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {filtered.map(u => (
-                  <>
-                    <tr key={u.id}>
-                      <td>
-                        <div className="adUserCell">
-                          <div className="adAvatar" style={{ background: u.isDeveloper ? "#6366F120" : "#8B5CF620", color: u.isDeveloper ? "#6366F1" : "#8B5CF6" }}>{u.name[0]}</div>
-                          <div>
-                            <div className="adUserName" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                              {u.name}
-                              {u.isDeveloper && (
-                                <span style={{ fontSize: 11, fontWeight: 600, background: "#6366F120", color: "#6366F1", border: "1px solid #6366F140", borderRadius: 4, padding: "1px 6px", letterSpacing: "0.02em" }}>
-                                  Developer
-                                </span>
-                              )}
-                            </div>
-                            <div className="adUserEmail">{u.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td><span className="adCreditsNum">{u.isDeveloper ? "Unlimited" : `₹${u.creditsBalance.toFixed(2)}`}</span></td>
-                      <td><span className="adDate">{u.imagesGenerated}</span></td>
-                      <td><span className="adDate">{new Date(u.joinedAt).toLocaleDateString("en-IN")}</span></td>
-                      <td>
-                        <button className="adActionBtn adActionBtnEdit" onClick={() => { setTopupId(topupId === u.id ? null : u.id); setTopupError(""); setTopupAmount(""); setTopupNote(""); }}>
-                          {topupId === u.id ? "Cancel" : "Add / Deduct"}
-                        </button>
-                      </td>
-                    </tr>
-                    {topupId === u.id && (
-                      <tr key={`${u.id}-topup`} className="adTopupRow">
-                        <td colSpan={5}>
-                          <div className="adTopupForm">
-                            <input className="adNumInput" type="number" step="0.01" placeholder="Amount in ₹ (negative to deduct)" value={topupAmount} onChange={e => setTopupAmount(e.target.value)} style={{width:220}} />
-                            <input className="adSearch" type="text" placeholder="Note (optional)" value={topupNote} onChange={e => setTopupNote(e.target.value)} style={{flex:1}} />
-                            <button className="adPrimaryBtn" onClick={() => handleTopup(u.id)} disabled={topupBusy}>
-                              {topupBusy ? "Saving…" : "Confirm"}
-                            </button>
-                            {topupError && <span style={{color:"#EF4444",fontSize:13}}>{topupError}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                ))}
-              </tbody>
-            </table>
-          )}
-          {!loading && filtered.length === 0 && <div className="adEmpty">No users match your search.</div>}
-        </div>
-      </div>
     </div>
   );
 }
