@@ -7121,3 +7121,50 @@ input[type="file"]::file-selector-button:hover {
   line-height: 1.7;
   border-top: 1px solid var(--border);
 }
+
+/* ─── Required field validation error state ───────────────────────────────── */
+
+.requiredFieldError {
+  border-left: 3px solid #ef4444 !important;
+  background: rgba(239, 68, 68, 0.04) !important;
+  border-radius: 8px;
+  transition: border-color 0.2s, background 0.2s;
+  animation: requiredShake 0.35s ease;
+}
+
+.garmentTypeRow.requiredFieldError {
+  border: 1.5px solid rgba(239, 68, 68, 0.5);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(239, 68, 68, 0.04) !important;
+  animation: requiredShake 0.35s ease;
+}
+
+.requiredFieldErrorTitle {
+  color: #ef4444 !important;
+}
+
+.requiredFieldBadge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+@keyframes requiredShake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-4px); }
+  40%  { transform: translateX(4px); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}

@@ -29,6 +29,7 @@ const envSchema = z.object({
   S3_BUCKET: z.string().default("botstudiox-uploads"),
 
   ADMIN_SECRET: z.string().default("bsx-admin-2026"),
+  APP_URL: z.string().default("http://localhost:5173"),
 });
 
 const parsed = envSchema.safeParse(process.env);

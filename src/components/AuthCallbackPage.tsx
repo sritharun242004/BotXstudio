@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { handleCallback, completeProfile } from "../lib/auth";
+import { getAccessToken } from "../lib/api";
+import { attributeUserToAffiliate } from "../lib/affiliateAdmin";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -31,7 +33,19 @@ export default function AuthCallbackPage() {
     }
 
     handleCallback(code)
-      .then(() => {
+      .then(async () => {
+        // Check localStorage (set by ReferralPage component) or cookie (set by server redirect)
+        const cookieMatch = document.cookie.split(";").map(c => c.trim()).find(c => c.startsWith("bsx_affiliate_ref="));
+        const cookieCode = cookieMatch ? cookieMatch.split("=")[1] : null;
+        const affiliateCode = localStorage.getItem("bsx_affiliate_ref") || cookieCode;
+        if (affiliateCode) {
+          const token = getAccessToken();
+          if (token) {
+            await attributeUserToAffiliate(affiliateCode, token).catch(() => {});
+          }
+          localStorage.removeItem("bsx_affiliate_ref");
+          document.cookie = "bsx_affiliate_ref=; Max-Age=0; path=/";
+        }
         window.location.href = BASE + "app";
       })
       .catch((err) => {

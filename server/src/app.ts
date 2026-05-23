@@ -17,6 +17,9 @@ import { fluxRoutes } from "./routes/flux.routes.js";
 import { openaiRoutes } from "./routes/openai.routes.js";
 import { qwenAnglesRoutes } from "./routes/qwen-angles.routes.js";
 import { tryOnRoutes } from "./routes/tryon.routes.js";
+import { affiliateRoutes } from "./routes/affiliate.routes.js";
+import { publicReferralRedirect } from "./controllers/affiliate.controller.js";
+import { rateLimit } from "express-rate-limit";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +53,11 @@ export function createApp() {
   app.use("/api/openai", openaiRoutes);
   app.use("/api/qwen", qwenAnglesRoutes);
   app.use("/api/tryon", tryOnRoutes);
+  app.use("/api/affiliates", affiliateRoutes);
+
+  // Short referral URL — server-side redirect so it works without JS
+  const refLimiter = rateLimit({ windowMs: 60_000, max: 30, standardHeaders: true, legacyHeaders: false });
+  app.get("/r/:code", refLimiter, publicReferralRedirect);
 
   // In production, serve the frontend static build
   if (env.NODE_ENV === "production") {

@@ -306,6 +306,7 @@ interface StoryboardFormCardsProps {
   addPoseFromDataUrl: (url: string, fileName: string) => void;
   onSubmit: () => void;
   onOpenImage: (src: string, title: string, alt?: string) => void;
+  invalidFields?: Set<string>;
 }
 
 export default function StoryboardFormCards({
@@ -335,6 +336,7 @@ export default function StoryboardFormCards({
   addPoseFromDataUrl,
   onSubmit,
   onOpenImage,
+  invalidFields,
 }: StoryboardFormCardsProps) {
   const isFlashModel = (config.imageModel || "").toLowerCase().includes("flash") || config.imageModel === "hybrid-editorial";
 
@@ -519,8 +521,11 @@ export default function StoryboardFormCards({
       <fieldset className="formFieldset" disabled={isGenerating}>
         <div className="storyboardCards">
           {/* ── Garment Photos ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Garment photos</div>
+          <div id="section-garment-photo" className={["parameterSection", invalidFields?.has("garment-photo") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}>
+            <div className={["sectionTitle", invalidFields?.has("garment-photo") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ marginTop: 0 }}>
+              Garment photos
+              {invalidFields?.has("garment-photo") && <span className="requiredFieldBadge">Required</span>}
+            </div>
 
             <div className="garmentSlotGrid">
               {/* Front slot — required */}
@@ -670,8 +675,11 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Models ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Model Person</div>
+          <div id="section-model-person" className={["parameterSection", invalidFields?.has("model-person") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}>
+            <div className={["sectionTitle", invalidFields?.has("model-person") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ marginTop: 0 }}>
+              Model Person
+              {invalidFields?.has("model-person") && <span className="requiredFieldBadge">Required</span>}
+            </div>
 
             {isFlashModel ? (
               <div className="customModelSection" style={{ marginBottom: 24, padding: "12px", background: "rgba(255,255,255,0.03)", borderRadius: "8px" }}>
@@ -859,8 +867,11 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Pose ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Model Pose</div>
+          <div id="section-model-pose" className={["parameterSection", invalidFields?.has("model-pose") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}>
+            <div className={["sectionTitle", invalidFields?.has("model-pose") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ marginTop: 0 }}>
+              Model Pose
+              {invalidFields?.has("model-pose") && <span className="requiredFieldBadge">Required</span>}
+            </div>
 
             <div className="pillGroup" role="group" aria-label="Pose Reference Type" style={{ marginBottom: 16 }}>
               <label className="pill">
@@ -997,8 +1008,11 @@ export default function StoryboardFormCards({
           </div>
 
           {/* ── Background ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Background</div>
+          <div id="section-background" className={["parameterSection", invalidFields?.has("background") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}>
+            <div className={["sectionTitle", invalidFields?.has("background") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ marginTop: 0 }}>
+              Background
+              {invalidFields?.has("background") && <span className="requiredFieldBadge">Required</span>}
+            </div>
 
             <div className="pillGroup" role="group" aria-label="Background Reference Type" style={{ marginBottom: 16 }}>
               <label className="pill">

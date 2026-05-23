@@ -150,3 +150,71 @@ model ApiLog {
 
   @@map("api_logs")
 }
+
+// ─── Affiliate System ───────────────────────────────────────────────────────
+
+model Affiliate {
+  id                   String   @id @default(uuid())
+  name                 String
+  email                String   @unique
+  phone                String?
+  profileImageUrl      String?  @map("profile_image_url")
+  instagram            String?
+  youtube              String?
+  linkedin             String?
+  location             String?
+  bio                  String?
+  affiliateCode        String   @unique @map("affiliate_code")
+  referralLink         String   @map("referral_link")
+  qrCodeUrl            String?  @map("qr_code_url")
+  commissionPercentage Decimal  @default(10) @map("commission_percentage") @db.Decimal(5, 2)
+  bonusCredits         Int      @default(0) @map("bonus_credits")
+  status               String   @default("active")
+  bankName             String?  @map("bank_name")
+  accountNumber        String?  @map("account_number")
+  upiId                String?  @map("upi_id")
+  totalClicks          Int      @default(0) @map("total_clicks")
+  totalUsers           Int      @default(0) @map("total_users")
+  totalRevenue         Decimal  @default(0) @map("total_revenue") @db.Decimal(10, 2)
+  totalCommission      Decimal  @default(0) @map("total_commission") @db.Decimal(10, 2)
+  joinedDate           DateTime @default(now()) @map("joined_date")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  clicks       AffiliateClick[]
+  affiliations UserAffiliation[]
+
+  @@map("affiliates")
+}
+
+model AffiliateClick {
+  id          String   @id @default(uuid())
+  affiliateId String   @map("affiliate_id")
+  sessionId   String?  @map("session_id")
+  ipAddress   String?  @map("ip_address")
+  device      String?
+  browser     String?
+  utmSource   String?  @map("utm_source")
+  utmMedium   String?  @map("utm_medium")
+  timestamp   DateTime @default(now())
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@map("affiliate_clicks")
+}
+
+model UserAffiliation {
+  id                  String   @id @default(uuid())
+  userId              String   @map("user_id")
+  affiliateId         String   @map("affiliate_id")
+  signupDate          DateTime @default(now()) @map("signup_date")
+  purchaseAmount      Decimal  @default(0) @map("purchase_amount") @db.Decimal(10, 2)
+  commissionGenerated Decimal  @default(0) @map("commission_generated") @db.Decimal(10, 2)
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  affiliate Affiliate @relation(fields: [affiliateId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, affiliateId])
+  @@map("user_affiliations")
+}

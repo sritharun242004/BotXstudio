@@ -7,6 +7,10 @@ import {
   type AdminUser, type ModelPricingRow,
 } from "../lib/credits";
 import { API_COSTS_INR } from "../lib/pricing";
+import AffiliatesPage from "./AffiliatesPage";
+import AffiliateFormPage from "./AffiliateFormPage";
+import AffiliateProfilePage from "./AffiliateProfilePage";
+import type { Affiliate } from "../lib/affiliateAdmin";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,7 +23,12 @@ function saveJson<T>(key: string, val: T) { localStorage.setItem(key, JSON.strin
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NavItem = "users" | "templates" | "credits" | "api" | "health";
+type NavItem = "users" | "templates" | "credits" | "api" | "health" | "affiliates";
+
+type AffView =
+  | { mode: "list" }
+  | { mode: "form"; id?: string }
+  | { mode: "profile"; id: string };
 
 interface Template { id: string; label: string; prompt: string; dataUrl: string | null; active: boolean; }
 
@@ -549,11 +558,12 @@ function AppHealthPage() {
 // ─── Admin sidebar nav ────────────────────────────────────────────────────────
 
 const NAV: { key: NavItem; label: string; icon: React.ReactNode }[] = [
-  { key:"users",     label:"Users",      icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
-  { key:"templates", label:"Templates",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> },
-  { key:"credits",   label:"Credits",    icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg> },
-  { key:"api",       label:"API Usage",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
-  { key:"health",    label:"App Health", icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
+  { key:"users",      label:"Users",      icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+  { key:"affiliates", label:"Affiliates", icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> },
+  { key:"templates",  label:"Templates",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> },
+  { key:"credits",    label:"Credits",    icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg> },
+  { key:"api",        label:"API Usage",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+  { key:"health",     label:"App Health", icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
 ];
 
 // ─── Root dashboard ───────────────────────────────────────────────────────────
@@ -561,7 +571,13 @@ const NAV: { key: NavItem; label: string; icon: React.ReactNode }[] = [
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [page, setPage] = useState<NavItem>("users");
+  const [affView, setAffView] = useState<AffView>({ mode: "list" });
   const session = getAdminSession();
+
+  function handleAffNavChange(next: NavItem) {
+    if (next !== "affiliates") setAffView({ mode: "list" });
+    setPage(next);
+  }
 
   useEffect(() => {
     if (!session) navigate("/admin/login", { replace: true });
@@ -591,7 +607,7 @@ export default function AdminDashboard() {
             <button
               key={n.key}
               className={`adNavBtn${page===n.key?" adNavBtnActive":""}`}
-              onClick={() => setPage(n.key)}
+              onClick={() => handleAffNavChange(n.key)}
             >
               <span className="adNavIcon">{n.icon}</span>
               {n.label}
@@ -615,6 +631,27 @@ export default function AdminDashboard() {
       {/* Main */}
       <main className="adMain">
         {page === "users"     && <UsersPage />}
+        {page === "affiliates" && affView.mode === "list" && (
+          <AffiliatesPage
+            onCreateNew={() => setAffView({ mode: "form" })}
+            onViewProfile={(id) => setAffView({ mode: "profile", id })}
+            onEdit={(id) => setAffView({ mode: "form", id })}
+          />
+        )}
+        {page === "affiliates" && affView.mode === "form" && (
+          <AffiliateFormPage
+            affiliateId={affView.id}
+            onSaved={(_aff: Affiliate) => setAffView({ mode: "list" })}
+            onCancel={() => setAffView({ mode: "list" })}
+          />
+        )}
+        {page === "affiliates" && affView.mode === "profile" && (
+          <AffiliateProfilePage
+            affiliateId={affView.id}
+            onBack={() => setAffView({ mode: "list" })}
+            onEdit={(id) => setAffView({ mode: "form", id })}
+          />
+        )}
         {page === "templates" && <TemplatesPage />}
         {page === "credits"   && <CreditsPage />}
         {page === "api"       && <ApiUsagePage />}

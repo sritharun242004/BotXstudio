@@ -664,6 +664,7 @@ export default function App() {
   const [generationStepIndex, setGenerationStepIndex] = useState(0);
   const [generationElapsedMs, setGenerationElapsedMs] = useState(0);
   const [printGenerationElapsedMs, setPrintGenerationElapsedMs] = useState(0);
+  const [generationAttempted, setGenerationAttempted] = useState(false);
 
   // ── Refs (timers, non-reactive values) ────────────────────────────────────
   const generationIntervalRef = useRef<number | null>(null);
@@ -682,6 +683,26 @@ export default function App() {
   );
   const activeConfig = activeStoryboard.config;
   const activeRuntime = storyboardRuntime[activeStoryboardId] ?? createDefaultRuntime();
+
+  // Reset validation state when user switches storyboards
+  useEffect(() => { setGenerationAttempted(false); }, [activeStoryboardId]);
+
+  // Compute which required fields are missing (only shown after a failed generate attempt)
+  const fieldErrors = useMemo(() => {
+    if (!generationAttempted) return new Set<string>();
+    const rt = storyboardRuntime[activeStoryboardId] ?? createDefaultRuntime();
+    const errors = new Set<string>();
+    if (!activeStoryboard.garmentType?.trim()) errors.add("garment-type");
+    if (!activeConfig.imageModel) errors.add("image-model");
+    if (!rt.garmentDataUrls[0]) errors.add("garment-photo");
+    const hasModel = rt.modelDataUrls.length > 0 || activeConfig.modelGender || activeConfig.modelPreset || activeConfig.modelDetails || activeConfig.modelCustomPrompt;
+    if (!hasModel) errors.add("model-person");
+    const hasPose = rt.poseDataUrls.length > 0 || activeConfig.modelPosePreset || activeConfig.modelPoseDetails;
+    if (!hasPose) errors.add("model-pose");
+    const hasBg = rt.backgroundDataUrls.length > 0 || activeConfig.backgroundThemePreset || activeConfig.backgroundThemeDetails;
+    if (!hasBg) errors.add("background");
+    return errors;
+  }, [generationAttempted, activeStoryboard, activeConfig, storyboardRuntime, activeStoryboardId]);
 
   const computedTimings = useMemo(
     () => computeTimingsMs(activeRuntime.resultTimingsMs || {}),
@@ -1207,20 +1228,15 @@ export default function App() {
     const files = Array.from(input?.files ?? []);
     if (!files.length) { if (input) input.value = ""; return; }
 
-    const rt = storyboardRuntime[sbId];
-    const MAX = 4;
-    const remaining = Math.max(0, MAX - (rt?.backgroundDataUrls.length ?? 0));
-    if (!remaining) { if (input) input.value = ""; return; }
-
-    const limited = files.slice(0, remaining);
-    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    const file = files[0]!;
+    const dataUrl = await fileToDataUrl(file);
     setStoryboardRuntime((prev) => {
       const r = prev[sbId]!;
       return {
         ...prev, [sbId]: {
           ...r,
-          backgroundDataUrls: [...r.backgroundDataUrls, ...dataUrls],
-          backgroundFileNames: [...r.backgroundFileNames, ...limited.map((f) => f.name || "background")],
+          backgroundDataUrls: [dataUrl],
+          backgroundFileNames: [file.name || "background"],
         },
       };
     });
@@ -1232,11 +1248,9 @@ export default function App() {
       ),
     );
 
-    for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
-        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
-        .catch(console.error);
-    }
+    await saveImageRecord({ title: file.name || "Uploaded Background", kind: "asset-background", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+      .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+      .catch(console.error);
     if (input) input.value = "";
   }
 
@@ -1246,15 +1260,15 @@ export default function App() {
     const files = Array.from(input?.files ?? []);
     if (!files.length) { if (input) input.value = ""; return; }
 
-    const limited = files.slice(0, 4);
-    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    const file = files[0]!;
+    const dataUrl = await fileToDataUrl(file);
     setStoryboardRuntime((prev) => {
       const r = prev[sbId]!;
       return {
         ...prev, [sbId]: {
           ...r,
-          modelDataUrls: dataUrls,
-          modelFileNames: limited.map((f) => f.name || "model"),
+          modelDataUrls: [dataUrl],
+          modelFileNames: [file.name || "model"],
         },
       };
     });
@@ -1265,11 +1279,9 @@ export default function App() {
       ),
     );
 
-    for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
-        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
-        .catch(console.error);
-    }
+    await saveImageRecord({ title: file.name || "Uploaded Model", kind: "asset-model", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+      .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+      .catch(console.error);
     if (input) input.value = "";
   }
 
@@ -1279,20 +1291,15 @@ export default function App() {
     const files = Array.from(input?.files ?? []);
     if (!files.length) { if (input) input.value = ""; return; }
 
-    const rt = storyboardRuntime[sbId];
-    const MAX = 4;
-    const remaining = Math.max(0, MAX - (rt?.poseDataUrls.length ?? 0));
-    if (!remaining) { if (input) input.value = ""; return; }
-
-    const limited = files.slice(0, remaining);
-    const dataUrls = await Promise.all(limited.map((f) => fileToDataUrl(f)));
+    const file = files[0]!;
+    const dataUrl = await fileToDataUrl(file);
     setStoryboardRuntime((prev) => {
       const r = prev[sbId]!;
       return {
         ...prev, [sbId]: {
           ...r,
-          poseDataUrls: [...r.poseDataUrls, ...dataUrls],
-          poseFileNames: [...r.poseFileNames, ...limited.map((f) => f.name || "pose")],
+          poseDataUrls: [dataUrl],
+          poseFileNames: [file.name || "pose"],
         },
       };
     });
@@ -1304,11 +1311,9 @@ export default function App() {
       ),
     );
 
-    for (const file of limited) {
-      await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
-        .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
-        .catch(console.error);
-    }
+    await saveImageRecord({ title: file.name || "Uploaded Pose", kind: "asset-pose", mimeType: effectiveMimeType(file), blob: file, createdAt: Date.now() })
+      .then((record) => setSavedImages((prev) => [toSavedImageView(record), ...prev]))
+      .catch(console.error);
     if (input) input.value = "";
   }
 
@@ -1365,12 +1370,12 @@ export default function App() {
   async function addBackgroundFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
-    if (!rt || rt.backgroundDataUrls.length >= 4) return;
+    if (!rt) return;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [...r.backgroundDataUrls, dataUrl], backgroundFileNames: [...r.backgroundFileNames, fileName] } };
+        return { ...prev, [sbId]: { ...r, backgroundDataUrls: [dataUrl], backgroundFileNames: [fileName] } };
       });
     } catch (err) { console.error("Failed to load background image", err); showToast("Failed to load background image.", "error"); }
   }
@@ -1396,12 +1401,12 @@ export default function App() {
   async function addPoseFromDataUrl(url: string, fileName: string) {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId];
-    if (!rt || rt.poseDataUrls.length >= 4) return;
+    if (!rt) return;
     try {
       const dataUrl = await ensureDataUrl(url, fileName);
       setStoryboardRuntime((prev) => {
         const r = prev[sbId]!;
-        return { ...prev, [sbId]: { ...r, poseDataUrls: [...r.poseDataUrls, dataUrl], poseFileNames: [...r.poseFileNames, fileName] } };
+        return { ...prev, [sbId]: { ...r, poseDataUrls: [dataUrl], poseFileNames: [fileName] } };
       });
     } catch (err) { console.error("Failed to load pose image", err); showToast("Failed to load pose image.", "error"); }
   }
@@ -1694,14 +1699,36 @@ export default function App() {
     const sbId = activeStoryboardId;
     const rt = storyboardRuntime[sbId]!;
 
+    // Validate all required fields before starting
+    const validationErrors = new Set<string>();
+    if (!activeStoryboard.garmentType?.trim()) validationErrors.add("garment-type");
+    if (!activeConfig.imageModel) validationErrors.add("image-model");
+    if (!rt.garmentDataUrls[0]) validationErrors.add("garment-photo");
+    const hasModel = rt.modelDataUrls.length > 0 || activeConfig.modelGender || activeConfig.modelPreset || activeConfig.modelDetails || activeConfig.modelCustomPrompt;
+    if (!hasModel) validationErrors.add("model-person");
+    const hasPose = rt.poseDataUrls.length > 0 || activeConfig.modelPosePreset || activeConfig.modelPoseDetails;
+    if (!hasPose) validationErrors.add("model-pose");
+    const hasBg = rt.backgroundDataUrls.length > 0 || activeConfig.backgroundThemePreset || activeConfig.backgroundThemeDetails;
+    if (!hasBg) validationErrors.add("background");
+
+    if (validationErrors.size > 0) {
+      setGenerationAttempted(true);
+      const ORDER = ["garment-type", "image-model", "garment-photo", "model-person", "model-pose", "background"];
+      const firstError = ORDER.find((f) => validationErrors.has(f));
+      if (firstError) {
+        setTimeout(() => {
+          document.getElementById(`section-${firstError}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 50);
+      }
+      return;
+    }
+
     updateRuntime(sbId, {
       generateError: null, garmentRefDataUrl: null, garmentRefMimeType: null,
       lastPlan: null, lastFinalPrompt: null, angles: createDefaultAnglesRuntime(),
       chosenSummary: null, debugSummary: null, resultDataUrl: null, resultMimeType: null,
       resultTimingsMs: null, poseResults: [],
     });
-
-    if (!rt.garmentDataUrls[0]) { updateRuntime(sbId, { generateError: "Please upload a front garment photo." }); return; }
 
     setIsGenerating(true);
     setGenerationStepIndex(1);
@@ -1843,6 +1870,7 @@ export default function App() {
         notify: false,
       }).catch(() => {});
 
+      setGenerationAttempted(false);
       showToast("Scene generated successfully!", "success");
     } catch (err: any) {
       const errMsg = err?.message || String(err);
@@ -2515,6 +2543,7 @@ export default function App() {
                       disabled={isGenerating}
                       canDelete={storyboards.length > 1}
                       formatTimestamp={formatStoryboardTimestamp}
+                      invalidFields={fieldErrors}
                       onBack={enterStoryboardLibrary}
                       onDuplicate={duplicateActiveStoryboard}
                       onRequestDelete={requestDeleteActiveStoryboard}
@@ -2532,6 +2561,7 @@ export default function App() {
                           runtime={activeRuntime}
                           activeStoryboardId={activeStoryboardId}
                           isGenerating={isGenerating}
+                          invalidFields={fieldErrors}
                           onGarmentFrontFileChange={onGarmentFrontFileChange}
                           onGarmentBackFileChange={onGarmentBackFileChange}
                           removeGarmentImage={removeGarmentImage}

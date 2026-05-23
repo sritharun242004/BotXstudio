@@ -9,6 +9,7 @@ interface StoryboardEditorHeaderProps {
   disabled: boolean;
   canDelete: boolean;
   formatTimestamp: (iso: string) => string;
+  invalidFields?: Set<string>;
   onBack: () => void;
   onDuplicate: () => void;
   onRequestDelete: () => void;
@@ -40,6 +41,7 @@ export default function StoryboardEditorHeader({
   disabled,
   canDelete,
   formatTimestamp,
+  invalidFields,
   onBack,
   onDuplicate,
   onRequestDelete,
@@ -92,9 +94,13 @@ export default function StoryboardEditorHeader({
       </div>
 
       {/* ── Garment Type ─────────────────────────────────────────── */}
-      <div className="garmentTypeRow">
-        <div className="sectionTitle" style={{ margin: "0 0 8px" }}>
+      <div
+        id="section-garment-type"
+        className={["garmentTypeRow", invalidFields?.has("garment-type") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}
+      >
+        <div className={["sectionTitle", invalidFields?.has("garment-type") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ margin: "0 0 8px" }}>
           What garment type are you generating?
+          {invalidFields?.has("garment-type") && <span className="requiredFieldBadge">Required</span>}
         </div>
         <div className="garmentTypePills">
           {GARMENT_TYPES.map((type) => (
@@ -129,9 +135,14 @@ export default function StoryboardEditorHeader({
       </div>
 
       {/* ── Image Generation Model ───────────────────────────────── */}
-      <div className="garmentTypeRow" style={{ marginTop: 16 }}>
-        <div className="sectionTitle" style={{ margin: "0 0 4px" }}>
+      <div
+        id="section-image-model"
+        className={["garmentTypeRow", invalidFields?.has("image-model") ? "requiredFieldError" : ""].filter(Boolean).join(" ")}
+        style={{ marginTop: 16 }}
+      >
+        <div className={["sectionTitle", invalidFields?.has("image-model") ? "requiredFieldErrorTitle" : ""].filter(Boolean).join(" ")} style={{ margin: "0 0 4px" }}>
           Image generation model
+          {invalidFields?.has("image-model") && <span className="requiredFieldBadge">Required</span>}
         </div>
         <div className="muted" style={{ fontSize: 12, marginBottom: 10 }}>
           Choose your generation model. Flash is included in free credits — Plus, Pro &amp; ProMax require purchased credits.

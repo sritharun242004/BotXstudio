@@ -841,3 +841,86 @@
 .adServiceMeta { display: flex; flex-direction: column; gap: 2px; padding-left: 16px; }
 
 .adServiceStatus { font-size: 12px; font-weight: 700; text-transform: capitalize; }
+
+/* ─── Affiliate form layout ──────────────────────────────────────────────── */
+
+.adAffFormLayout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .adAffFormLayout { grid-template-columns: 1fr; }
+}
+
+.adFormGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 600px) {
+  .adFormGrid { grid-template-columns: 1fr; }
+}
+
+.adFormField { display: flex; flex-direction: column; gap: 5px; }
+
+.adFormLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: #475569;
+  letter-spacing: 0.02em;
+}
+
+.adFormInput {
+  padding: 9px 13px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: #0F172A;
+  outline: none;
+  transition: border-color 150ms;
+  background: #fff;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.adFormInput:focus { border-color: #8B5CF6; background: rgba(139,92,246,0.02); }
+.adFormInput::placeholder { color: #CBD5E1; }
+
+.adFormTextarea {
+  padding: 9px 13px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: #0F172A;
+  outline: none;
+  resize: vertical;
+  transition: border-color 150ms;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.adFormTextarea:focus { border-color: #8B5CF6; }
+.adFormTextarea::placeholder { color: #CBD5E1; }
+
+/* ─── Social chips ───────────────────────────────────────────────────────── */
+
+.adSocialChip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: opacity 150ms;
+}
+
+.adSocialChip:hover { opacity: 0.8; }
+
+.adSocialInsta { background: #FDF2F8; color: #C026D3; }
+.adSocialYt    { background: #FEF2F2; color: #DC2626; }
+.adSocialLi    { background: #EFF6FF; color: #2563EB; }

@@ -8,6 +8,7 @@ import AuthCallbackPage from "./components/AuthCallbackPage";
 import App from "./App";
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
+import ReferralPage from "./components/ReferralPage";
 import SettingsPage from "./components/SettingsPage";
 import DocumentsTab from "./components/DocumentsTab";
 import { getSession, restoreSession } from "./lib/auth";
@@ -87,6 +88,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/app"           element={<ProtectedApp />} />
         <Route path="/app/settings"       element={<ProtectedSettings />} />
         <Route path="/app/documentation"  element={<ProtectedDocs />} />
+        <Route path="/r/:code"       element={<ReferralPage />} />
         <Route path="/admin/login"   element={<AdminLogin />} />
         <Route path="/admin"         element={<ProtectedAdmin />} />
       </Routes>
