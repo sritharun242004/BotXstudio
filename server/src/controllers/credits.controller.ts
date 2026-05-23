@@ -236,6 +236,22 @@ export async function adminTopUpUser(req: Request, res: Response, next: NextFunc
   }
 }
 
+export async function adminDeleteUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    const id = req.params.id as string;
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, email: true } });
+    if (!user) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    // Cascade deletes storyboards, images, assets, apiLogs, creditTransactions, userAffiliations
+    await prisma.user.delete({ where: { id } });
+    res.json({ success: true, deletedEmail: user.email });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── Model pricing endpoints ──────────────────────────────────────────────────
 
 export async function adminGetModelPricing(_req: Request, res: Response, next: NextFunction) {

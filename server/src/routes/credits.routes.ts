@@ -10,6 +10,7 @@ import {
   adminUpdateConfig,
   adminGetUsers,
   adminTopUpUser,
+  adminDeleteUser,
   adminGetModelPricing,
   adminUpdateModelPricing,
   getModelPricing,
@@ -28,6 +29,7 @@ creditsRoutes.get("/admin/config", adminAuth, adminGetConfig);
 creditsRoutes.put("/admin/config", adminAuth, adminUpdateConfig);
 creditsRoutes.get("/admin/users", adminAuth, adminGetUsers);
 creditsRoutes.post("/admin/users/:id/topup", adminAuth, adminTopUpUser);
+creditsRoutes.delete("/admin/users/:id", adminAuth, adminDeleteUser);
 creditsRoutes.get("/admin/model-pricing", adminAuth, adminGetModelPricing);
 creditsRoutes.put("/admin/model-pricing", adminAuth, adminUpdateModelPricing);
 

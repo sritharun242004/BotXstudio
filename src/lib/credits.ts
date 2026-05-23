@@ -90,6 +90,10 @@ export async function adminTopUpUser(userId: string, amountInr: number, descript
   });
 }
 
+export async function adminDeleteUser(userId: string): Promise<void> {
+  return adminFetch<void>(`/api/credits/admin/users/${userId}`, { method: "DELETE" });
+}
+
 export interface ModelPricingRow {
   modelKey: string;
   credits: number;

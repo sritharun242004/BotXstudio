@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { adminFetchUsers, adminTopUpUser, type AdminUser } from "../lib/credits";
+import { adminFetchUsers, adminTopUpUser, adminDeleteUser, type AdminUser } from "../lib/credits";
 import { affiliateAdminList, type Affiliate } from "../lib/affiliateAdmin";
 import { getAdminSession, ADMIN_EMAIL } from "../lib/adminAuth";
 
@@ -137,15 +137,37 @@ function TopupRow({
 
 // ─── All Users table ──────────────────────────────────────────────────────────
 
-function AllUsersTable({ users, onUpdate }: { users: AdminUser[]; onUpdate: (u: AdminUser) => void }) {
+function AllUsersTable({
+  users,
+  onUpdate,
+  onDelete,
+}: {
+  users: AdminUser[];
+  onUpdate: (u: AdminUser) => void;
+  onDelete: (id: string) => void;
+}) {
   const [search, setSearch] = useState("");
   const [topupId, setTopupId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const filtered = users.filter(
     u => !search ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()),
   );
+
+  async function handleDelete(u: AdminUser) {
+    if (!confirm(`Permanently delete "${u.name}" (${u.email})?\n\nThis removes their account, images, storyboards and all data. This cannot be undone.`)) return;
+    setDeletingId(u.id);
+    try {
+      await adminDeleteUser(u.id);
+      onDelete(u.id);
+    } catch (e: any) {
+      alert(e.message || "Failed to delete user");
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   return (
     <div className="adTableCard">
@@ -198,12 +220,22 @@ function AllUsersTable({ users, onUpdate }: { users: AdminUser[]; onUpdate: (u: 
                   </td>
                   <td><span className="adDate">{new Date(u.joinedAt).toLocaleDateString("en-IN")}</span></td>
                   <td>
-                    <button
-                      className="adActionBtn adActionBtnEdit"
-                      onClick={() => setTopupId(topupId === u.id ? null : u.id)}
-                    >
-                      {topupId === u.id ? "Cancel" : "Add / Deduct"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button
+                        className="adActionBtn adActionBtnEdit"
+                        onClick={() => setTopupId(topupId === u.id ? null : u.id)}
+                      >
+                        {topupId === u.id ? "Cancel" : "Add / Deduct"}
+                      </button>
+                      <button
+                        className="adActionBtn"
+                        style={{ color: "#EF4444", borderColor: "#EF444440" }}
+                        onClick={() => handleDelete(u)}
+                        disabled={deletingId === u.id}
+                      >
+                        {deletingId === u.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 {topupId === u.id && (
@@ -652,6 +684,10 @@ export default function UsersPage() {
     setUsers(prev => prev.map(u => u.id === updated.id ? { ...u, ...updated } : u));
   }
 
+  function removeUser(id: string) {
+    setUsers(prev => prev.filter(u => u.id !== id));
+  }
+
   // Category segments
   const developers  = users.filter(u => u.isDeveloper);
   const consumers   = users.filter(u => u.imagesGenerated > 0 && !u.isDeveloper);
@@ -739,7 +775,7 @@ export default function UsersPage() {
         <div className="adTableCard"><div className="adEmpty">Loading users…</div></div>
       ) : (
         <>
-          {tab === "all"        && <AllUsersTable  users={users} onUpdate={updateUser} />}
+          {tab === "all"        && <AllUsersTable  users={users} onUpdate={updateUser} onDelete={removeUser} />}
           {tab === "consumers"  && <ConsumersTable users={users} onUpdate={updateUser} />}
           {tab === "affiliates" && <AffiliatesTab />}
           {tab === "admins"     && <AdminTeamTab isSuperAdmin={isSuperAdmin} />}
