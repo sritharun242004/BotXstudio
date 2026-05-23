@@ -649,7 +649,6 @@ export default function AdminDashboard() {
           <AffiliateProfilePage
             affiliateId={affView.id}
             onBack={() => setAffView({ mode: "list" })}
-            onEdit={(id) => setAffView({ mode: "form", id })}
           />
         )}
         {page === "templates" && <TemplatesPage />}
