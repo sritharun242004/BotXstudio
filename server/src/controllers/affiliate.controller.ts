@@ -31,6 +31,8 @@ const createSchema = z.object({
   bio: z.string().max(500).optional(),
   commissionPercentage: z.number().min(0).max(100).optional(),
   bonusCredits: z.number().int().min(0).max(10000).optional(),
+  promoBonusCredits: z.number().int().min(0).max(10000).optional(),
+  promoValidUntil: z.string().datetime().nullable().optional(),
   bankName: z.string().optional(),
   accountNumber: z.string().optional(),
   upiId: z.string().optional(),

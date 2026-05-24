@@ -1,6 +1,4 @@
 import { PrismaClient } from "@prisma/client";
-import QRCode from "qrcode";
-import { uploadBuffer } from "./s3.service.js";
 import { env } from "../config/env.js";
 
 const prisma = new PrismaClient();
@@ -31,20 +29,6 @@ export async function generateAffiliateCode(name: string): Promise<string> {
   return `${prefix}${seq}`;
 }
 
-// ─── QR code ──────────────────────────────────────────────────────────────────
-
-async function generateAndUploadQR(affiliateId: string, referralLink: string): Promise<string> {
-  const pngBuffer = await QRCode.toBuffer(referralLink, {
-    type: "png",
-    width: 400,
-    margin: 2,
-    color: { dark: "#0F172A", light: "#FFFFFF" },
-  });
-  const key = `affiliates/${affiliateId}/qr-code.png`;
-  await uploadBuffer(key, pngBuffer, "image/png");
-  return `https://${env.S3_BUCKET}.s3.${env.AWS_REGION}.amazonaws.com/${key}`;
-}
-
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export interface CreateAffiliateInput {
@@ -58,6 +42,8 @@ export interface CreateAffiliateInput {
   bio?: string;
   commissionPercentage?: number;
   bonusCredits?: number;
+  promoBonusCredits?: number;
+  promoValidUntil?: string | null; // ISO date string or null
   bankName?: string;
   accountNumber?: string;
   upiId?: string;
@@ -68,7 +54,7 @@ export async function createAffiliate(input: CreateAffiliateInput) {
   const affiliateCode = await generateAffiliateCode(input.name);
   const referralLink = `${env.APP_URL}/r/${affiliateCode}`;
 
-  const affiliate = await prisma.affiliate.create({
+  return prisma.affiliate.create({
     data: {
       name: input.name,
       email: input.email,
@@ -78,8 +64,10 @@ export async function createAffiliate(input: CreateAffiliateInput) {
       linkedin: input.linkedin,
       location: input.location,
       bio: input.bio,
-      commissionPercentage: input.commissionPercentage ?? 10,
+      commissionPercentage: input.commissionPercentage ?? 0,
       bonusCredits: input.bonusCredits ?? 0,
+      promoBonusCredits: input.promoBonusCredits ?? 0,
+      promoValidUntil: input.promoValidUntil ? new Date(input.promoValidUntil) : null,
       bankName: input.bankName,
       accountNumber: input.accountNumber,
       upiId: input.upiId,
@@ -88,38 +76,31 @@ export async function createAffiliate(input: CreateAffiliateInput) {
       referralLink,
     },
   });
-
-  // Generate and upload QR code asynchronously
-  try {
-    const qrCodeUrl = await generateAndUploadQR(affiliate.id, referralLink);
-    return prisma.affiliate.update({
-      where: { id: affiliate.id },
-      data: { qrCodeUrl },
-    });
-  } catch {
-    return affiliate;
-  }
 }
 
 export async function updateAffiliate(id: string, input: Partial<CreateAffiliateInput> & { status?: string }) {
   return prisma.affiliate.update({
     where: { id },
     data: {
-      ...(input.name           !== undefined && { name: input.name }),
-      ...(input.email          !== undefined && { email: input.email }),
-      ...(input.phone          !== undefined && { phone: input.phone }),
-      ...(input.instagram      !== undefined && { instagram: input.instagram }),
-      ...(input.youtube        !== undefined && { youtube: input.youtube }),
-      ...(input.linkedin       !== undefined && { linkedin: input.linkedin }),
-      ...(input.location       !== undefined && { location: input.location }),
-      ...(input.bio            !== undefined && { bio: input.bio }),
+      ...(input.name                !== undefined && { name: input.name }),
+      ...(input.email               !== undefined && { email: input.email }),
+      ...(input.phone               !== undefined && { phone: input.phone }),
+      ...(input.instagram           !== undefined && { instagram: input.instagram }),
+      ...(input.youtube             !== undefined && { youtube: input.youtube }),
+      ...(input.linkedin            !== undefined && { linkedin: input.linkedin }),
+      ...(input.location            !== undefined && { location: input.location }),
+      ...(input.bio                 !== undefined && { bio: input.bio }),
       ...(input.commissionPercentage !== undefined && { commissionPercentage: input.commissionPercentage }),
-      ...(input.bonusCredits   !== undefined && { bonusCredits: input.bonusCredits }),
-      ...(input.bankName       !== undefined && { bankName: input.bankName }),
-      ...(input.accountNumber  !== undefined && { accountNumber: input.accountNumber }),
-      ...(input.upiId          !== undefined && { upiId: input.upiId }),
-      ...(input.profileImageUrl !== undefined && { profileImageUrl: input.profileImageUrl }),
-      ...(input.status         !== undefined && { status: input.status }),
+      ...(input.bonusCredits        !== undefined && { bonusCredits: input.bonusCredits }),
+      ...(input.promoBonusCredits   !== undefined && { promoBonusCredits: input.promoBonusCredits }),
+      ...(input.promoValidUntil !== undefined && {
+        promoValidUntil: input.promoValidUntil ? new Date(input.promoValidUntil) : null,
+      }),
+      ...(input.bankName            !== undefined && { bankName: input.bankName }),
+      ...(input.accountNumber       !== undefined && { accountNumber: input.accountNumber }),
+      ...(input.upiId               !== undefined && { upiId: input.upiId }),
+      ...(input.profileImageUrl     !== undefined && { profileImageUrl: input.profileImageUrl }),
+      ...(input.status              !== undefined && { status: input.status }),
     },
   });
 }
@@ -264,20 +245,26 @@ export async function redeemAffiliateCode(
     throw Object.assign(new Error("Invalid or inactive promo code"), { statusCode: 404 });
   }
 
-  const bonus = affiliate.bonusCredits ?? 0;
+  // 2. Check promo bonus is configured
+  const bonus = affiliate.promoBonusCredits ?? 0;
   if (bonus <= 0) {
-    throw Object.assign(new Error("This promo code has no credit reward"), { statusCode: 400 });
+    throw Object.assign(new Error("This promo code has no credit reward configured"), { statusCode: 400 });
   }
 
-  // 2. Ensure user hasn't already redeemed any promo / affiliate bonus
-  const existingBonus = await prisma.creditTransaction.findFirst({
-    where: { userId, type: { in: ["affiliate_bonus", "promo_redemption"] } },
+  // 3. Check promo code hasn't expired
+  if (affiliate.promoValidUntil && new Date() > new Date(affiliate.promoValidUntil)) {
+    throw Object.assign(new Error("This promo code has expired"), { statusCode: 410 });
+  }
+
+  // 4. One promo per account
+  const alreadyRedeemed = await prisma.creditTransaction.findFirst({
+    where: { userId, type: "promo_redemption" },
   });
-  if (existingBonus) {
+  if (alreadyRedeemed) {
     throw Object.assign(new Error("You have already redeemed a promo code on this account"), { statusCode: 409 });
   }
 
-  // 3. Apply credits
+  // 5. Apply credits
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
   if (!user) throw Object.assign(new Error("User not found"), { statusCode: 404 });
 

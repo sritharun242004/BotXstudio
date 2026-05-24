@@ -69,6 +69,8 @@ function toForm(a: Affiliate) {
     linkedin:             a.linkedin ?? "",
     commissionPercentage: String(a.commissionPercentage),
     bonusCredits:         String(a.bonusCredits ?? 0),
+    promoBonusCredits:    String(a.promoBonusCredits ?? 0),
+    promoValidUntil:      a.promoValidUntil ? a.promoValidUntil.slice(0, 10) : "",
     status:               a.status,
     bankName:             a.bankName ?? "",
     accountNumber:        a.accountNumber ?? "",
@@ -157,6 +159,10 @@ export default function AffiliateProfilePage({ affiliateId, onBack }: Props) {
         linkedin:             form.linkedin.trim() || undefined,
         commissionPercentage: parseFloat(form.commissionPercentage) || 0,
         bonusCredits:         parseInt(form.bonusCredits) || 0,
+        promoBonusCredits:    parseInt(form.promoBonusCredits) || 0,
+        promoValidUntil:      form.promoValidUntil
+          ? new Date(form.promoValidUntil).toISOString()
+          : null,
         status:               form.status,
         bankName:             form.bankName.trim() || undefined,
         accountNumber:        form.accountNumber.trim() || undefined,
@@ -284,22 +290,30 @@ export default function AffiliateProfilePage({ affiliateId, onBack }: Props) {
             </div>
           </div>
 
-          {/* Referral link (read-only) */}
+          {/* Referral link + promo code (read-only) */}
           <div className="adTableCard">
-            <div className="adSectionLabel" style={{ marginBottom: 8 }}>Referral Link</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ flex: 1, fontFamily: "monospace", fontSize: 13, background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 10, padding: "10px 14px", color: "#475569", wordBreak: "break-all", minWidth: 180 }}>
-                {aff.referralLink}
+            <div className="adSectionLabel" style={{ marginBottom: 12 }}>Referral Link & Promo Code</div>
+
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#64748B", marginBottom: 6 }}>REFERRAL LINK</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, fontFamily: "monospace", fontSize: 12, background: "#F8FAFC", border: "1.5px solid #E2E8F0", borderRadius: 10, padding: "10px 14px", color: "#475569", wordBreak: "break-all", minWidth: 180 }}>
+                  {aff.referralLink}
+                </div>
+                <CopyBtn text={aff.referralLink} />
               </div>
-              <CopyBtn text={aff.referralLink} />
-              {aff.qrCodeUrl && <a href={aff.qrCodeUrl} target="_blank" rel="noopener noreferrer" className="adActionBtn">QR Code</a>}
             </div>
-            {aff.qrCodeUrl && (
-              <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 14 }}>
-                <img src={aff.qrCodeUrl} alt="QR" style={{ width: 90, height: 90, borderRadius: 10, border: "2px solid #E2E8F0" }} />
-                <div style={{ fontSize: 12, color: "#64748B" }}>Share with the affiliate for easy referral link distribution.</div>
+
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#64748B", marginBottom: 6 }}>PROMO CODE</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontFamily: "monospace", fontSize: 20, fontWeight: 800, background: "#F1F5F9", padding: "10px 18px", borderRadius: 10, color: "#8B5CF6", letterSpacing: 2 }}>
+                  {aff.affiliateCode}
+                </div>
+                <CopyBtn text={aff.affiliateCode} />
               </div>
-            )}
+              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>Users can enter this code in Credits & Billing to redeem the promo bonus</div>
+            </div>
           </div>
         </div>
 
@@ -325,20 +339,9 @@ export default function AffiliateProfilePage({ affiliateId, onBack }: Props) {
             </div>
           </div>
 
-          {/* Affiliate code (read-only) */}
-          <div className="adTableCard">
-            <div className="adSectionLabel">Affiliate Code</div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 22, fontWeight: 800, background: "#F1F5F9", padding: "12px 16px", borderRadius: 10, color: "#8B5CF6", letterSpacing: 2 }}>
-                {aff.affiliateCode}
-              </div>
-              <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 6 }}>Permanent — cannot be changed</div>
-            </div>
-          </div>
-
-          {/* Commission & bonus — most important editable fields */}
+          {/* Commission & bonus */}
           <div className="adTableCard" style={{ border: "2px solid rgba(139,92,246,0.25)", background: "rgba(139,92,246,0.02)" }}>
-            <div className="adSectionLabel">Commission & Bonus</div>
+            <div className="adSectionLabel">Commission & Signup Bonus</div>
 
             <Field label="Commission Rate (%)">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -367,17 +370,65 @@ export default function AffiliateProfilePage({ affiliateId, onBack }: Props) {
                   onChange={e => set("bonusCredits", e.target.value)}
                   style={{ maxWidth: 90 }}
                 />
-                <span style={{ fontSize: 13, color: "#64748B" }}>free credits on signup</span>
+                <span style={{ fontSize: 13, color: "#64748B" }}>given on link signup</span>
               </div>
               <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
-                New users who sign up via this link get ₹{parseInt(form.bonusCredits) || 0} added instantly
+                Auto-credited when user signs up via the referral link
               </div>
             </Field>
 
-            {/* Live preview badge */}
-            <div style={{ marginTop: 16, padding: "10px 14px", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, fontSize: 13, color: "#16A34A", fontWeight: 600 }}>
-              🎁 Referral banner shows: <em>"Sign up and get ₹{parseInt(form.bonusCredits) || 0} free credits"</em>
+            <div style={{ marginTop: 14, padding: "10px 14px", background: "#F0FDF4", border: "1px solid #BBF7D0", borderRadius: 10, fontSize: 13, color: "#16A34A", fontWeight: 600 }}>
+              🔗 Banner: <em>"Sign up and get ₹{parseInt(form.bonusCredits) || 0} free credits"</em>
             </div>
+          </div>
+
+          {/* Promo code bonus — separate from signup bonus */}
+          <div className="adTableCard" style={{ border: "2px solid rgba(59,130,246,0.25)", background: "rgba(59,130,246,0.02)" }}>
+            <div className="adSectionLabel">Promo Code Bonus</div>
+            <div style={{ fontSize: 12, color: "#64748B", marginBottom: 14 }}>
+              Any user can enter the promo code <strong style={{ color: "#8B5CF6" }}>{aff.affiliateCode}</strong> in Credits & Billing to claim this bonus (one per account).
+            </div>
+
+            <Field label="Promo Bonus Credits (₹)">
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  className="adFormInput"
+                  type="number" min="0" max="10000" step="10"
+                  value={form.promoBonusCredits}
+                  onChange={e => set("promoBonusCredits", e.target.value)}
+                  style={{ maxWidth: 90 }}
+                />
+                <span style={{ fontSize: 13, color: "#64748B" }}>credits on redemption</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+                Set to 0 to disable promo code redemption
+              </div>
+            </Field>
+
+            <div style={{ height: 14 }} />
+
+            <Field label="Valid Until">
+              <input
+                className="adFormInput"
+                type="date"
+                value={form.promoValidUntil}
+                onChange={e => set("promoValidUntil", e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                style={{ maxWidth: 180 }}
+              />
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 4 }}>
+                {form.promoValidUntil
+                  ? `Expires ${new Date(form.promoValidUntil).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`
+                  : "Leave empty for no expiry"}
+              </div>
+            </Field>
+
+            {parseInt(form.promoBonusCredits) > 0 && (
+              <div style={{ marginTop: 14, padding: "10px 14px", background: "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 10, fontSize: 13, color: "#1D4ED8", fontWeight: 600 }}>
+                🎟️ Redeeming <strong>{aff.affiliateCode}</strong> gives ₹{parseInt(form.promoBonusCredits)} credits
+                {form.promoValidUntil ? ` · Valid till ${new Date(form.promoValidUntil).toLocaleDateString("en-IN")}` : " · No expiry"}
+              </div>
+            )}
           </div>
 
           {/* Status */}

@@ -33,6 +33,8 @@ export interface Affiliate {
   qrCodeUrl: string | null;
   commissionPercentage: number;
   bonusCredits: number;
+  promoBonusCredits: number;
+  promoValidUntil: string | null;
   status: "active" | "suspended" | "inactive";
   bankName: string | null;
   accountNumber: string | null;
@@ -100,6 +102,8 @@ export interface CreateAffiliateInput {
   bio?: string;
   commissionPercentage?: number;
   bonusCredits?: number;
+  promoBonusCredits?: number;
+  promoValidUntil?: string | null;
   bankName?: string;
   accountNumber?: string;
   upiId?: string;

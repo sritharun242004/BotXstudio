@@ -27,8 +27,10 @@ export default function AffiliateFormPage({ affiliateId, onSaved, onCancel }: Pr
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [commission, setCommission] = useState("10");
-  const [bonusCredits, setBonusCredits] = useState("50");
+  const [commission, setCommission] = useState("0");
+  const [bonusCredits, setBonusCredits] = useState("0");
+  const [promoBonusCredits, setPromoBonusCredits] = useState("0");
+  const [promoValidUntil, setPromoValidUntil] = useState("");
   const [status, setStatus] = useState("active");
   const [instagram, setInstagram] = useState("");
   const [youtube, setYoutube] = useState("");
@@ -49,6 +51,8 @@ export default function AffiliateFormPage({ affiliateId, onSaved, onCancel }: Pr
         setPhone(aff.phone ?? "");
         setCommission(String(aff.commissionPercentage));
         setBonusCredits(String(aff.bonusCredits ?? 0));
+        setPromoBonusCredits(String(aff.promoBonusCredits ?? 0));
+        setPromoValidUntil(aff.promoValidUntil ? aff.promoValidUntil.slice(0, 10) : "");
         setStatus(aff.status);
         setInstagram(aff.instagram ?? "");
         setYoutube(aff.youtube ?? "");
@@ -86,6 +90,8 @@ export default function AffiliateFormPage({ affiliateId, onSaved, onCancel }: Pr
         phone: phone.trim() || undefined,
         commissionPercentage: parseFloat(commission) || 0,
         bonusCredits: parseInt(bonusCredits) || 0,
+        promoBonusCredits: parseInt(promoBonusCredits) || 0,
+        promoValidUntil: promoValidUntil ? new Date(promoValidUntil).toISOString() : null,
         instagram: instagram.trim() || undefined,
         youtube: youtube.trim() || undefined,
         linkedin: linkedin.trim() || undefined,
@@ -251,11 +257,37 @@ export default function AffiliateFormPage({ affiliateId, onSaved, onCancel }: Pr
               <label className="adFormLabel">Signup Bonus Credits (₹)</label>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <input className="adFormInput" type="number" min="0" max="10000" step="10" value={bonusCredits} onChange={e => setBonusCredits(e.target.value)} style={{ maxWidth: 100 }} />
-                <span style={{ fontSize: 13, color: "#64748B" }}>free credits on signup</span>
+                <span style={{ fontSize: 13, color: "#64748B" }}>given on link signup</span>
               </div>
               <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>
-                New users who sign up via this link get ₹{parseInt(bonusCredits) || 0} added instantly
+                Auto-credited when user signs up via the referral link
               </div>
+            </div>
+
+            <div style={{ height: 1, background: "#F1F5F9", margin: "18px 0" }} />
+
+            <div className="adFormField">
+              <label className="adFormLabel">Promo Code Bonus Credits (₹)</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <input className="adFormInput" type="number" min="0" max="10000" step="10" value={promoBonusCredits} onChange={e => setPromoBonusCredits(e.target.value)} style={{ maxWidth: 100 }} />
+                <span style={{ fontSize: 13, color: "#64748B" }}>on manual code redemption</span>
+              </div>
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>
+                Any user can enter the code in Credits & Billing (one per account)
+              </div>
+            </div>
+
+            <div className="adFormField" style={{ marginTop: 16 }}>
+              <label className="adFormLabel">Promo Code Valid Until</label>
+              <input
+                className="adFormInput"
+                type="date"
+                value={promoValidUntil}
+                onChange={e => setPromoValidUntil(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                style={{ maxWidth: 180 }}
+              />
+              <div style={{ fontSize: 12, color: "#94A3B8", marginTop: 6 }}>Leave empty for no expiry</div>
             </div>
 
             {isEdit && (
