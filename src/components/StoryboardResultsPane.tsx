@@ -34,6 +34,7 @@ type RuntimeLite = {
   angles: AnglesRuntime;
   poseResults: PoseResult[];
   promptsUsed?: PromptsUsed;
+  generateError: string | null;
 };
 
 interface StoryboardResultsPaneProps {
@@ -51,6 +52,7 @@ interface StoryboardResultsPaneProps {
   onResultImagePointerLeave: (event: React.PointerEvent<HTMLDivElement>) => void;
   onOpenImage: (src: string, title: string, alt?: string, gallery?: Array<{ src: string; title: string; alt?: string }>) => void;
   onRetry: (comment: string) => void;
+  onSubmit: () => void;
 }
 
 function PromptViewerModal({ prompts, onClose }: { prompts: NonNullable<PromptsUsed>; onClose: () => void }) {
@@ -147,6 +149,7 @@ export default function StoryboardResultsPane({
   onResultImagePointerLeave,
   onOpenImage,
   onRetry,
+  onSubmit,
 }: StoryboardResultsPaneProps) {
   const [retryOpen, setRetryOpen] = useState(false);
   const [retryComments, setRetryComments] = useState("");
@@ -463,6 +466,21 @@ export default function StoryboardResultsPane({
           </div>
         </div>
       )}
+
+      {/* ── Generate button ── */}
+      <div className="resultGenerateRow">
+        <button
+          type="button"
+          className="btnPrimary resultGenerateBtn"
+          disabled={isGenerating}
+          onClick={onSubmit}
+        >
+          {isGenerating ? "Generating…" : "Generate look"}
+        </button>
+        {runtime.generateError && (
+          <div className="error" style={{ marginTop: 8 }}>{runtime.generateError}</div>
+        )}
+      </div>
 
     </div>
 

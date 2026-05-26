@@ -4,6 +4,7 @@ import {
   Zap, Hash, Timer, Calendar,
 } from "lucide-react";
 import { apiGet } from "../lib/api";
+import { getModelCreditCost } from "../lib/pricing";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -550,6 +551,15 @@ export default function DashboardTab() {
             <div className="dbEmpty">No API calls recorded yet.</div>
           ) : (
             <div className="dbCallsList">
+              {/* Header row */}
+              <div className="dbCallRow dbCallRowHeader">
+                <span className="dbCallType">Type</span>
+                <span className="dbCallModel">Model</span>
+                <span className="dbCallToks">Credits</span>
+                <span className="dbCallMs">Duration</span>
+                <span className="dbCallStatus">Status</span>
+                <span className="dbCallDate">Date</span>
+              </div>
               {activity.logs.slice(0, 6).map((log, i) => (
                 <div
                   key={log.id}
@@ -558,7 +568,7 @@ export default function DashboardTab() {
                 >
                   <span className={`dbCallType dbCallType-${log.type}`}>{log.type}</span>
                   <span className="dbCallModel">{shortModel(log.model)}</span>
-                  <span className="dbCallToks">{fmtNum(log.totalTokens)} tok</span>
+                  <span className="dbCallToks">{getModelCreditCost(log.model)} cr</span>
                   <span className="dbCallMs">{log.latencyMs.toLocaleString()}ms</span>
                   <span className={`dbCallStatus dbCallStatus-${log.status}`}>{log.status}</span>
                   <span className="dbCallDate">{fmtDateTime(log.createdAt)}</span>

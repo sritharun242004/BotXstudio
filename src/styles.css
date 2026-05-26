@@ -1277,6 +1277,22 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .resultEmpty { flex-direction: column; gap: 8px; text-align: center; padding: 32px; }
+
+.resultGenerateRow {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.resultGenerateBtn {
+  width: 100%;
+  max-width: 320px;
+  padding: 13px 32px;
+  font-size: 15px;
+  font-weight: 800;
+  justify-content: center;
+}
 .resultEmptyTitle {
   font-family: var(--font-heading);
   font-size: 18px;
@@ -5315,7 +5331,7 @@ input[type="file"]::file-selector-button:hover {
 /* Tab switch shimmer overlay */
 @keyframes tabShimmerFade {
   0%   { opacity: 1; }
-  65%  { opacity: 1; }
+  80%  { opacity: 1; }
   100% { opacity: 0; }
 }
 
@@ -5324,7 +5340,7 @@ input[type="file"]::file-selector-button:hover {
   inset: 0;
   z-index: 20;
   background: var(--bg);
-  animation: tabShimmerFade 0.5s ease forwards;
+  animation: tabShimmerFade 1s ease forwards;
   pointer-events: none;
   padding: 20px 24px;
   box-sizing: border-box;
@@ -6474,6 +6490,18 @@ input[type="file"]::file-selector-button:hover {
 .dbCallRow:hover { background: var(--bg); border-radius: var(--radius-sm); }
 .dbCallRowErr { background: #FFF5F5; }
 
+.dbCallRowHeader {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #94A3B8;
+  padding: 5px 4px 8px;
+  border-bottom: 1.5px solid var(--border);
+  animation: none;
+}
+.dbCallRowHeader:hover { background: none; }
+
 .dbCallType {
   padding: 2px 8px;
   border-radius: var(--radius-full);
@@ -7168,3 +7196,573 @@ input[type="file"]::file-selector-button:hover {
   80%  { transform: translateX(3px); }
   100% { transform: translateX(0); }
 }
+
+/* ═══════════════════════════════════════════════════════
+   PREMIUM SETTINGS REDESIGN (EMAILKIT STYLE)
+   ═══════════════════════════════════════════════════════ */
+
+/* ── App Sidebar bottom elements ── */
+.stgAppSidebar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.sidebarFooter {
+  padding: 12px 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(255,255,255,0.12);
+  flex-shrink: 0;
+}
+
+.sidebarFooterLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255,255,255,0.75);
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.sidebarFooterLink:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+/* Credits tracker pill */
+.creditsPillCard {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.creditsPillLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: rgba(255,255,255,0.5);
+  margin-bottom: 2px;
+}
+
+.creditsPillValue {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #fff;
+  font-family: var(--font-heading), sans-serif;
+}
+
+.creditsPillAddBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--accent);
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.creditsPillAddBtn:hover {
+  transform: scale(1.1);
+  background: rgba(255,255,255,0.9);
+}
+
+/* Sidebar user card */
+.userFooterRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px 0;
+}
+
+.userFooterAvatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
+  border: 1.5px solid rgba(255,255,255,0.3);
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.userFooterDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.userFooterName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.userFooterEmail {
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
+.userFooterLogout {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.6);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.userFooterLogout:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+/* ── Breadcrumb bar & Header layout ── */
+.stgContentHeader {
+  padding: 28px 40px 10px;
+  flex-shrink: 0;
+}
+
+.stgBreadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted-color);
+  margin-bottom: 24px;
+}
+
+.stgBreadcrumbLink {
+  color: var(--muted-color);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.stgBreadcrumbLink:hover {
+  color: var(--text);
+}
+
+.stgBreadcrumbSep {
+  color: var(--border-strong);
+  user-select: none;
+}
+
+.stgBreadcrumbActive {
+  color: var(--text);
+}
+
+.stgHeaderTitle {
+  font-family: var(--font-heading);
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.8px;
+}
+
+/* ── Horizontal Navigation Tabs (Flat Underline) ── */
+.stgHorizontalTabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  border-bottom: 1.5px solid var(--border);
+  padding: 0 40px;
+  background: transparent;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.stgHorizontalTabs::-webkit-scrollbar { display: none; }
+
+.stgTabItem {
+  background: transparent;
+  border: none;
+  color: var(--muted-color);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 4px;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s ease;
+  white-space: nowrap;
+  outline: none;
+}
+
+.stgTabItem:hover {
+  color: var(--text);
+}
+
+.stgTabItemActive {
+  color: var(--accent) !important;
+}
+
+.stgTabItemActive::after {
+  content: "";
+  position: absolute;
+  bottom: -1.5px;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: var(--accent);
+  border-radius: 9999px;
+}
+
+/* Adjust content padding now that header and tabs are elevated */
+.stgContentInner {
+  padding: 24px 40px 36px;
+}
+
+/* ── Grid Layout for Fields ── */
+.stgGrid2Col {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.stgColSpan2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 768px) {
+  .stgGrid2Col {
+    grid-template-columns: 1fr;
+  }
+  .stgColSpan2 {
+    grid-column: span 1;
+  }
+}
+
+/* ── Cohesive profile card footer ── */
+.stgProfileCardFooter {
+  padding: 18px 22px;
+  background: #F8FAFC;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+
+.stgSignOutLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 700;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+}
+
+.stgSignOutLink:hover {
+  opacity: 0.82;
+  background: rgba(239, 68, 68, 0.04);
+}
+
+/* ── Settings Nested Navigation Tree (EmailKit Style) ── */
+.sidebarNavGroup {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.navSubButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px 8px 24px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  font-family: var(--font-body), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.navSubButtonBranch {
+  font-family: monospace;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: bold;
+  user-select: none;
+}
+
+.navSubButtonLabel {
+  font-size: 13.5px;
+}
+
+.navSubButton:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.navSubButtonActive {
+  background: rgba(255, 255, 255, 0.16) !important;
+  color: #fff !important;
+  font-weight: 700;
+  border-color: rgba(255, 255, 255, 0.28) !important;
+}
+
+.navSubButtonActive .navSubButtonBranch {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Ensure settings page on mobile gets padding-top for the fixed mobile header */
+@media (max-width: 768px) {
+  .stgRootPage {
+    padding-top: 56px !important;
+  }
+}
+
+/* ── Premium Documentation Layout (EmailKit Style) ── */
+.docSidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 24px 16px;
+}
+
+.docSidebarGroup {
+  margin-bottom: 22px;
+}
+
+.docSidebarGroupTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding-left: 12px;
+  margin-bottom: 8px;
+  user-select: none;
+}
+
+.docSidebarLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.docSidebarLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-body), sans-serif;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+  outline: none;
+}
+
+.docSidebarLink:hover {
+  background: rgba(139, 92, 246, 0.05);
+  color: var(--accent);
+}
+
+.docSidebarLinkActive {
+  background: #EDE9FE !important;
+  color: var(--accent) !important;
+  font-weight: 700 !important;
+}
+
+/* Unified Header for Documentation (EmailKit style) */
+.docHeader {
+  height: 60px;
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 2px solid var(--border-strong);
+  background: #F8FAFC; /* Same color as the left sidebar! */
+  position: relative;
+  z-index: 10;
+}
+
+/* Hamburger button inside header */
+.docHeaderHamburger {
+  display: none; /* Hidden on desktop */
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 0;
+  outline: none;
+}
+.docHeaderHamburger:hover {
+  background: var(--border);
+  border-color: var(--border-strong);
+  transform: scale(1.05);
+}
+
+/* Header Back Button */
+.docHeaderBackBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-body), sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.docHeaderBackBtn:hover {
+  background: var(--border);
+  transform: translateX(-2px);
+}
+.docHeaderBackBtn svg {
+  flex-shrink: 0;
+}
+
+/* Close button inside mobile brand container */
+.docSidebarCloseBtn {
+  display: none;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 900px) {
+  .docSidebar {
+    display: none !important; /* Hide static desktop sidebar */
+  }
+  
+  .docHeaderHamburger {
+    display: flex; /* Show Hamburger menu trigger */
+  }
+}
+
+@media (max-width: 600px) {
+  .docHeaderBreadcrumbDocs,
+  .docHeaderBreadcrumbSep {
+    display: none !important; /* Keep only the active chapter title */
+  }
+  
+  .docHeaderVersionBadge {
+    display: none !important; /* Hide version badge on very narrow screens */
+  }
+
+  .docHeaderBackBtn span {
+    display: none !important; /* Hide text "Back to App", keep only the arrow icon */
+  }
+  
+  .docHeaderBackBtn {
+    padding: 8px !important;
+    border-radius: 50% !important;
+    width: 34px !important;
+    height: 34px !important;
+  }
+}
+
+/* Mobile sliding drawer menu */
+.docMobileDrawerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 41, 59, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  animation: docFadeIn 0.2s ease-out forwards;
+}
+
+.docSidebarMobile {
+  display: flex !important; /* Override hide */
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 270px;
+  background: #F8FAFC !important;
+  box-shadow: 6px 0 28px rgba(0, 0, 0, 0.15);
+  animation: docSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  z-index: 2001;
+  padding: 24px 18px;
+}
+
+.docSidebarMobile .docSidebarCloseBtn {
+  display: flex !important; /* Show close button in mobile drawer */
+}
+
+@keyframes docFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes docSlideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import type { StoryboardRecord } from "../lib/storyboards";
 import { startTour } from "./GuidedTour";
 
@@ -39,9 +40,25 @@ export default function StoryboardLibrary({
   }, [storyboards]);
 
   const filtered = useMemo(() => {
-    if (!activeFilter) return storyboards;
-    return storyboards.filter((sb) => sb.garmentType?.trim() === activeFilter);
-  }, [storyboards, activeFilter]);
+    const base = activeFilter
+      ? storyboards.filter((sb) => sb.garmentType?.trim() === activeFilter)
+      : storyboards;
+
+    return [...base].sort((a, b) => {
+      const hasPreviewA = !!(
+        runtimeById[a.id]?.resultDataUrl ||
+        savedPreviewByStoryboardId[a.id] ||
+        runtimeById[a.id]?.garmentDataUrls?.length
+      );
+      const hasPreviewB = !!(
+        runtimeById[b.id]?.resultDataUrl ||
+        savedPreviewByStoryboardId[b.id] ||
+        runtimeById[b.id]?.garmentDataUrls?.length
+      );
+      if (hasPreviewA === hasPreviewB) return 0;
+      return hasPreviewA ? -1 : 1;
+    });
+  }, [storyboards, activeFilter, runtimeById, savedPreviewByStoryboardId]);
 
   function handleOpen(id: string) {
     if (isGenerating) return;
@@ -94,6 +111,46 @@ export default function StoryboardLibrary({
           </div>
         </div>
       )}
+
+      {/* ── Floating create button ──────────────────────────────── */}
+      <button
+        type="button"
+        onClick={onCreate}
+        disabled={isGenerating}
+        title="New mood board"
+        style={{
+          position: "fixed",
+          bottom: 32,
+          right: 32,
+          zIndex: 999,
+          width: 56,
+          height: 56,
+          borderRadius: "9999px",
+          border: "2px solid #1E293B",
+          background: isGenerating
+            ? "#E2E8F0"
+            : "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
+          color: isGenerating ? "#94A3B8" : "#fff",
+          boxShadow: isGenerating ? "none" : "4px 4px 0 #1E293B",
+          cursor: isGenerating ? "not-allowed" : "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s",
+        }}
+        onMouseEnter={e => {
+          if (!isGenerating) {
+            e.currentTarget.style.transform = "translate(-2px,-2px) scale(1.08)";
+            e.currentTarget.style.boxShadow = "6px 6px 0 #1E293B";
+          }
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = "";
+          e.currentTarget.style.boxShadow = isGenerating ? "none" : "4px 4px 0 #1E293B";
+        }}
+      >
+        <Plus size={26} strokeWidth={2.5} />
+      </button>
 
       <div className="storyboardGallery" role="list" aria-label="Mood Boards" data-tour="generate-moodboard-cards">
         {filtered.length === 0 ? (

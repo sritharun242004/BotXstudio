@@ -1,34 +1,34 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Menu, X } from "lucide-react";
 
-const NAV_LINKS = [
-  { label: "Why Us",       href: "#problem"      },
-  { label: "How It Works", href: "#how-it-works"  },
-  { label: "Pricing",      href: "#pricing"       },
+const NAV_HASH_LINKS = [
+  { label: "Why Us",       hash: "#problem"      },
+  { label: "How It Works", hash: "#how-it-works"  },
+  { label: "Pricing",      hash: "#pricing"       },
+];
+
+const NAV_PAGE_LINKS = [
+  { label: "Blog",    to: "/blog"    },
+  { label: "Compare", to: "/compare" },
 ];
 
 const EASE = { duration: 0.5, ease: [0.4, 0, 0.2, 1] } as const;
 
 export function Nav() {
-  const [visible, setVisible]     = useState(false);
-  const [onDark, setOnDark]       = useState(false);
+  const { pathname } = useLocation();
+  const isHome = pathname === "/";
+
+  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setVisible(window.scrollY > window.innerHeight * 0.95);
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    const section = document.getElementById("how-it-works");
-    if (!section) return;
-    const obs = new IntersectionObserver(([e]) => setOnDark(e.isIntersecting), { threshold: 0.05 });
-    obs.observe(section);
-    return () => obs.disconnect();
   }, []);
 
   useEffect(() => {
@@ -41,18 +41,17 @@ export function Nav() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // close mobile menu on scroll
   useEffect(() => {
     const onScroll = () => setMobileOpen(false);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const show = visible && !onDark;
+  const show = true;
 
   return (
     <motion.nav
-      className="lp-nav lp-nav-scrolled"
+      className="lp-nav"
       style={{
         pointerEvents: show ? "auto" : "none",
         backdropFilter: "blur(28px)",
@@ -65,28 +64,27 @@ export function Nav() {
       initial={{ opacity: 0, y: -28, translateX: "-50%" }}
       animate={{
         opacity: show ? 1 : 0,
-        y: visible ? 0 : -28,
+        y: 0,
         translateX: "-50%",
         top: 14,
         height: 56,
         borderRadius: 9999,
-        backgroundColor: "rgba(255,253,245,0.94)",
-        boxShadow: onDark
-          ? "0 2px 24px rgba(30,41,59,0.06), 0 0 0 1px rgba(255,255,255,0.5)"
-          : "0 8px 40px rgba(30,41,59,0.16), 0 0 0 1.5px rgba(30,41,59,0.09)",
+        backgroundColor: isScrolled
+          ? "rgba(255,253,245,0.94)"
+          : "rgba(255,253,245,0.7)",
+        boxShadow: isScrolled
+          ? "0 8px 40px rgba(30,41,59,0.16), 0 0 0 1.5px rgba(30,41,59,0.09)"
+          : "0 2px 10px rgba(30,41,59,0.04), 0 0 0 1px rgba(30,41,59,0.05)",
       }}
       transition={EASE}
     >
       {/* ── Brand ─────────────────────────────── */}
-      <a
-        href="https://thebotcompany.in"
-        target="_blank"
-        rel="noreferrer"
+      <Link
+        to="/"
         style={{
           display: "flex", alignItems: "center", gap: 9,
           padding: "0 16px 0 10px",
           textDecoration: "none", color: "#1E293B",
-          borderRight: "1px solid rgba(30,41,59,0.09)",
           flexShrink: 0,
         }}
       >
@@ -94,14 +92,14 @@ export function Nav() {
         <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: "-0.3px" }}>
           Botzudio
         </span>
-      </a>
+      </Link>
 
       {/* ── Nav links (desktop — centered) ────── */}
       <div className="lp-nav-center-links">
-        {NAV_LINKS.map(({ label, href }) => (
+        {NAV_HASH_LINKS.map(({ label, hash }) => (
           <a
-            key={href}
-            href={href}
+            key={hash}
+            href={isHome ? hash : `/${hash}`}
             style={{
               padding: "6px 12px",
               borderRadius: 9999,
@@ -124,6 +122,32 @@ export function Nav() {
             {label}
           </a>
         ))}
+        {NAV_PAGE_LINKS.map(({ label, to }) => (
+          <Link
+            key={to}
+            to={to}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 9999,
+              fontSize: 13,
+              fontWeight: 600,
+              color: "#475569",
+              textDecoration: "none",
+              whiteSpace: "nowrap",
+              transition: "background .15s, color .15s",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+              e.currentTarget.style.color = "#7C3AED";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = "transparent";
+              e.currentTarget.style.color = "#475569";
+            }}
+          >
+            {label}
+          </Link>
+        ))}
       </div>
 
       {/* ── Auth (desktop) ────────────────────── */}
@@ -134,7 +158,6 @@ export function Nav() {
           padding: "5px 6px 5px 8px",
           gap: 2,
           marginLeft: "auto",
-          borderLeft: "1px solid rgba(30,41,59,0.09)",
           flexShrink: 0,
         }}
       >
@@ -236,10 +259,10 @@ export function Nav() {
                 zIndex: 200,
               }}
             >
-              {NAV_LINKS.map(({ label, href }) => (
+              {NAV_HASH_LINKS.map(({ label, hash }) => (
                 <a
-                  key={href}
-                  href={href}
+                  key={hash}
+                  href={isHome ? hash : `/${hash}`}
                   onClick={() => setMobileOpen(false)}
                   style={{
                     display: "block",
@@ -262,6 +285,33 @@ export function Nav() {
                 >
                   {label}
                 </a>
+              ))}
+              {NAV_PAGE_LINKS.map(({ label, to }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    display: "block",
+                    padding: "10px 16px",
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#475569",
+                    textDecoration: "none",
+                    transition: "background .12s, color .12s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+                    e.currentTarget.style.color = "#7C3AED";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#475569";
+                  }}
+                >
+                  {label}
+                </Link>
               ))}
 
               <div style={{ borderTop: "1px solid rgba(30,41,59,0.08)", margin: "6px 0" }} />

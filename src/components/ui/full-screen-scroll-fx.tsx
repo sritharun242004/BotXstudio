@@ -229,10 +229,16 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
         end: "bottom bottom",
         pin: fixed,
         pinSpacing: true,
+        snap: {
+          snapTo: 1 / total,
+          duration: { min: 0.25, max: 0.55 },
+          delay: 0.05,
+          ease: "power2.inOut",
+        },
         onUpdate: (self) => {
           if (motionOff || isSnappingRef.current) return;
           const prog = self.progress;
-          const target = Math.min(total - 1, Math.floor(prog * total));
+          const target = Math.min(total - 1, Math.floor(prog * total + 0.01));
           if (target !== lastIndexRef.current && !isAnimatingRef.current) {
             const next = lastIndexRef.current + (target > lastIndexRef.current ? 1 : -1);
             goTo(next, false);
@@ -341,7 +347,7 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       leftItemRefs.current.forEach((el, i) => {
         el.classList.toggle("active", i === to);
         gsap.to(el, {
-          opacity: i === to ? 1 : 0.35,
+          opacity: i === to ? 1 : 0,
           x: i === to ? 10 : 0,
           duration: D * 0.6,
           ease: "power3.out",
@@ -350,7 +356,7 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       rightItemRefs.current.forEach((el, i) => {
         el.classList.toggle("active", i === to);
         gsap.to(el, {
-          opacity: i === to ? 1 : 0.35,
+          opacity: i === to ? 1 : 0,
           x: i === to ? -10 : 0,
           duration: D * 0.6,
           ease: "power3.out",
@@ -396,14 +402,14 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
         gsap.fromTo(
           el,
           { opacity: 0, y: 20 },
-          { opacity: i === index ? 1 : 0.35, y: 0, duration: 0.5, delay: i * 0.06, ease: "power3.out" }
+          { opacity: i === index ? 1 : 0, y: 0, duration: 0.5, delay: i * 0.06, ease: "power3.out" }
         );
       });
       rightItemRefs.current.forEach((el, i) => {
         gsap.fromTo(
           el,
           { opacity: 0, y: 20 },
-          { opacity: i === index ? 1 : 0.35, y: 0, duration: 0.5, delay: 0.2 + i * 0.06, ease: "power3.out" }
+          { opacity: i === index ? 1 : 0, y: 0, duration: 0.5, delay: 0.2 + i * 0.06, ease: "power3.out" }
         );
       });
     };

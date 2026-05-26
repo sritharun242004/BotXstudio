@@ -1,16 +1,37 @@
-import { StrictMode, useEffect, useState } from "react";
+import { StrictMode, useEffect, useState, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import LandingPage from "./LandingPage";
-import TermsPage from "./TermsPage";
-import LoginPage from "./components/LoginPage";
-import AuthCallbackPage from "./components/AuthCallbackPage";
-import App from "./App";
-import AdminLogin from "./components/AdminLogin";
-import AdminDashboard from "./components/AdminDashboard";
-import ReferralPage from "./components/ReferralPage";
-import SettingsPage from "./components/SettingsPage";
-import DocumentsTab from "./components/DocumentsTab";
+
+const LandingPage    = lazy(() => import("./LandingPage"));
+const BlogPage       = lazy(() => import("./lp/BlogPage"));
+const ComparePage    = lazy(() => import("./lp/ComparePage"));
+const TermsPage      = lazy(() => import("./TermsPage"));
+const LoginPage      = lazy(() => import("./components/LoginPage"));
+const AuthCallbackPage = lazy(() => import("./components/AuthCallbackPage"));
+const App            = lazy(() => import("./App"));
+const AdminLogin     = lazy(() => import("./components/AdminLogin"));
+const AdminDashboard = lazy(() => import("./components/AdminDashboard"));
+const ReferralPage   = lazy(() => import("./components/ReferralPage"));
+const SettingsPage   = lazy(() => import("./components/SettingsPage"));
+const DocumentsTab   = lazy(() => import("./components/DocumentsTab"));
+
+function PageSpinner() {
+  return (
+    <div style={{
+      position: "fixed", inset: 0, display: "flex",
+      alignItems: "center", justifyContent: "center",
+      background: "var(--bg, #F5F3FF)",
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: "50%",
+        border: "4px solid #EDE9FE",
+        borderTopColor: "#8B5CF6",
+        animation: "bz-spin 0.7s linear infinite",
+      }} />
+      <style>{`@keyframes bz-spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 import { getSession, restoreSession } from "./lib/auth";
 import { getAdminSession } from "./lib/adminAuth"; // used in ProtectedAdmin
 import { CreditsProvider } from "./context/CreditsContext";
@@ -40,7 +61,7 @@ function ProtectedApp() {
   if (checking) {
     const cached = getSession();
     if (!cached) return <Navigate to="/login" replace />;
-    return null; // loading
+    return <PageSpinner />;
   }
 
   if (!authenticated) return <Navigate to="/login" replace />;
@@ -80,18 +101,22 @@ function ProtectedDocs() {
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter basename="/">
-      <Routes>
-        <Route path="/"              element={<LandingPage />} />
-        <Route path="/terms"         element={<TermsPage />} />
-        <Route path="/login"         element={<LoginPage />} />
-        <Route path="/auth/callback" element={<AuthCallbackPage />} />
-        <Route path="/app"           element={<ProtectedApp />} />
-        <Route path="/app/settings"       element={<ProtectedSettings />} />
-        <Route path="/app/documentation"  element={<ProtectedDocs />} />
-        <Route path="/r/:code"       element={<ReferralPage />} />
-        <Route path="/admin/login"   element={<AdminLogin />} />
-        <Route path="/admin"         element={<ProtectedAdmin />} />
-      </Routes>
+      <Suspense fallback={<PageSpinner />}>
+        <Routes>
+          <Route path="/"              element={<LandingPage />} />
+          <Route path="/blog"          element={<BlogPage />} />
+          <Route path="/compare"       element={<ComparePage />} />
+          <Route path="/terms"         element={<TermsPage />} />
+          <Route path="/login"         element={<LoginPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/app"           element={<ProtectedApp />} />
+          <Route path="/app/settings"       element={<ProtectedSettings />} />
+          <Route path="/app/documentation"  element={<ProtectedDocs />} />
+          <Route path="/r/:code"       element={<ReferralPage />} />
+          <Route path="/admin/login"   element={<AdminLogin />} />
+          <Route path="/admin"         element={<ProtectedAdmin />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   </StrictMode>
 );

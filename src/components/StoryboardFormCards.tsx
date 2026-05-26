@@ -1232,17 +1232,7 @@ export default function StoryboardFormCards({
           </div>
           )}
 
-          {/* ── Generate ── */}
-          <div className="parameterSection">
-            <div className="sectionTitle" style={{ marginTop: 0 }}>Generate</div>
-            <div className="actions">
-              <button type="submit" className="btnPrimary" disabled={isGenerating}>
-                {isGenerating ? "Generating..." : "Generate look"}
-              </button>
-            </div>
-
-            {runtime.generateError && <div className="error">{runtime.generateError}</div>}
-          </div>
+          {/* Generate button moved to results pane (right column) */}
         </div>
       </fieldset>
     </form>

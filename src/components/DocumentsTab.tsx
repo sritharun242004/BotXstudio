@@ -1,42 +1,29 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useCredits } from "../context/CreditsContext";
-import { IMAGE_GENERATION_MODELS } from "../lib/storyboards";
 import {
   BookOpen, Sparkles, Palette, Bookmark, FolderOpen,
   CreditCard, BarChart2, Star, HelpCircle, Lightbulb,
   Info, CheckCircle2, AlertTriangle, ChevronRight,
   Upload, Image, Layers, Zap, Shield,
-  Shirt, LayoutDashboard,
+  Menu, X,
 } from "lucide-react";
-
-const APP_NAV = [
-  { tab: "prints",    label: "Add Prints",       Icon: Palette         },
-  { tab: "generate",  label: "Generate Images",  Icon: Sparkles        },
-  { tab: "tryon",     label: "Try On",           Icon: Shirt           },
-  { tab: "saved",     label: "Saved Images",     Icon: Bookmark        },
-  { tab: "assets",    label: "Uploaded Assets",  Icon: FolderOpen      },
-  { tab: "dashboard", label: "Dashboard",        Icon: LayoutDashboard },
-  { tab: "credits",   label: "Credits",          Icon: CreditCard      },
-  { tab: "docs",      label: "Documents",        Icon: BookOpen        },
-] as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type DocKey =
-  | "start" | "generate" | "prints" | "saved"
+  | "start" | "generate" | "saved"
   | "assets" | "credits" | "dashboard" | "best" | "faq";
 
 const SECTIONS: { key: DocKey; label: string; Icon: React.ElementType; group: string }[] = [
   { key: "start",     label: "Getting Started",   Icon: BookOpen,    group: "Overview" },
   { key: "generate",  label: "Generate Images",   Icon: Sparkles,    group: "Tab Guides" },
-  { key: "prints",    label: "Add Prints",        Icon: Palette,     group: "Tab Guides" },
   { key: "saved",     label: "Saved Exports",     Icon: Bookmark,    group: "Tab Guides" },
   { key: "assets",    label: "Uploaded Assets",   Icon: FolderOpen,  group: "Tab Guides" },
   { key: "credits",   label: "Credits & Billing", Icon: CreditCard,  group: "Tab Guides" },
   { key: "dashboard", label: "Dashboard",         Icon: BarChart2,   group: "Tab Guides" },
-  { key: "best",      label: "Best Practices",    Icon: Star,        group: "More" },
-  { key: "faq",       label: "FAQ",               Icon: HelpCircle,  group: "More" },
+  { key: "best",      label: "Best Practices",    Icon: Star,        group: "Resources" },
+  { key: "faq",       label: "FAQ",               Icon: HelpCircle,  group: "Resources" },
 ];
 
 // ─── Content atoms ────────────────────────────────────────────────────────────
@@ -224,47 +211,7 @@ function GenerateSection() {
   );
 }
 
-function PrintsSection() {
-  return (
-    <div className="docContent">
-      <SectionTitle
-        title="Add Prints"
-        desc="Digitally apply print designs onto garments to visualise how they'll look in production."
-      />
 
-      <SubHead>What is Print Application?</SubHead>
-      <p className="docPara">
-        The Add Prints tab lets you take a base garment image and a print/pattern design, then use AI
-        to realistically apply the print onto the garment — accounting for drape, folds, and fabric texture.
-      </p>
-
-      <SubHead>Workflow</SubHead>
-      <Step n={1} title="Upload your base garment">
-        Use a plain, single-colour garment photo (white or light grey works best). The cleaner the base,
-        the more accurate the print placement.
-      </Step>
-      <Step n={2} title="Upload your print design">
-        Upload a flat PNG/JPG of your print artwork. Transparent-background PNGs give the best edge quality.
-      </Step>
-      <Step n={3} title="Set application options">
-        Choose the placement style (all-over, front-panel, repeat tile) and scaling. Add a prompt note
-        to guide placement — e.g. <em>"centered chest placement, subtle scale"</em>.
-      </Step>
-      <Step n={4} title="Generate and compare">
-        Click Generate. Review the result — use the side-by-side view to compare original vs. printed garment.
-      </Step>
-
-      <Callout type="success">
-        For all-over prints, use a 1:1 square artwork file with at least 1000×1000px resolution
-        and a white background for best tiling results.
-      </Callout>
-      <Callout type="tip">
-        Combine the Print tab output with the Generate Images tab — first apply your print, then use
-        the printed garment as the input for a model shot.
-      </Callout>
-    </div>
-  );
-}
 
 function SavedSection() {
   return (
@@ -356,30 +303,24 @@ function AssetsSection() {
   );
 }
 
-function getDocCreditLabel(modelId: string, pricing: Record<string, number>): string {
-  if (modelId === "hybrid-editorial") {
-    const flash = pricing["gemini-2.5-flash-image"] ?? 5;
-    const flux  = pricing["fal-ai/flux-pro/kontext/multi"] ?? 5;
-    return `${flash + flux * 2} credits/set`;
-  }
-  if (modelId === "gpt-image-2") {
-    const min = pricing["gpt-medium-1024x768"] ?? 6;
-    const max = pricing["gpt-high-1024x1024"] ?? 25;
-    return `${min}–${max} credits/img`;
-  }
-  const cost = pricing[modelId];
-  return cost !== undefined ? `${cost} credits/img` : "—";
-}
-
-const MODEL_DOC_NOTES: Record<string, string> = {
-  "gemini-2.5-flash-image":        "Fast ecommerce shots · 6 free images per account",
-  "hybrid-editorial":              "Multi-angle lookbook · Flash + 2× FLUX Kontext",
-  "gpt-image-2":                   "OpenAI cinematic quality · medium or high resolution",
-  "gemini-3-pro-image-preview":    "Highest Gemini quality · ultra-detailed outputs · 6 free images",
-};
-
 function CreditsSection() {
   const { modelPricing } = useCredits();
+
+  const flashCr  = modelPricing["gemini-2.5-flash-image"] ?? 5;
+  const fluxCr   = modelPricing["fal-ai/flux-pro/kontext/multi"] ?? 5;
+  const proMaxCr = modelPricing["gemini-3-pro-image-preview"] ?? 20;
+  const gptMinCr = modelPricing["gpt-medium-1024x768"] ?? 6;
+  const gptMaxCr = modelPricing["gpt-high-1024x1024"] ?? 25;
+  
+  const plusCr   = flashCr + fluxCr * 2;
+  const proAvgCr = Math.round((gptMinCr + gptMaxCr) / 2);
+
+  const MODELS = [
+    { label: "Flash Model",  cost: `${flashCr} credits / img`,  note: "Fast e-commerce preview shots · 6 free images included" },
+    { label: "Plus Model",   cost: `${plusCr} credits / set`,   note: "Multi-angle lookbook consistency set" },
+    { label: "Pro Model",    cost: `${proAvgCr} credits / img`, note: "Cinematic lifestyle quality shots" },
+    { label: "ProMax Model", cost: `${proMaxCr} credits / img`, note: "Highest detail and cinematic outputs · 6 free images" },
+  ] as const;
 
   return (
     <div className="docContent">
@@ -395,13 +336,13 @@ function CreditsSection() {
       </p>
 
       <div className="docCreditBox">
-        {IMAGE_GENERATION_MODELS.map(m => (
-          <div key={m.id} className="docCreditRow">
+        {MODELS.map(m => (
+          <div key={m.label} className="docCreditRow">
             <span className="docCreditLabel">{m.label}</span>
             <span className="docCreditBadge docCreditBadgePurple">
-              {getDocCreditLabel(m.id, modelPricing)}
+              {m.cost}
             </span>
-            <span className="docCreditNote">{MODEL_DOC_NOTES[m.id] ?? ""}</span>
+            <span className="docCreditNote">{m.note}</span>
           </div>
         ))}
         <div className="docCreditRow">
@@ -608,30 +549,26 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function DocumentsTab() {
-  const navigate  = useNavigate();
-  const location  = useLocation();
-  const initial   = (location.state as { section?: DocKey } | null)?.section ?? "start";
-  const [active, setActive]           = useState<DocKey>(initial);
-  const [transitioning, setTransitioning] = useState(false);
+  const location   = useLocation();
+  const navigate   = useNavigate();
+
+  const initial  = (location.state as { section?: DocKey } | null)?.section ?? "start";
+  const [active, setActive]       = useState<DocKey>(initial);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [active]);
 
-  function goBack() {
-    setTransitioning(true);
-    setTimeout(() => navigate("/app"), 1000);
-  }
-
-  const SIDEBAR_W = 220;
-  const groups    = ["Overview", "Tab Guides", "More"];
+  const groups = ["Overview", "Tab Guides", "Resources"];
+  const activeLabel = SECTIONS.find(s => s.key === active)?.label ?? "Documentation";
+  const activeGroup = SECTIONS.find(s => s.key === active)?.group ?? "";
 
   const renderContent = () => {
     switch (active) {
       case "start":     return <StartSection />;
       case "generate":  return <GenerateSection />;
-      case "prints":    return <PrintsSection />;
       case "saved":     return <SavedSection />;
       case "assets":    return <AssetsSection />;
       case "credits":   return <CreditsSection />;
@@ -641,148 +578,119 @@ export default function DocumentsTab() {
     }
   };
 
-  /* ── Transition shimmer ──────────────────────────────────── */
-  if (transitioning) {
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", background: "var(--bg)" }}>
-        <div style={{
-          width: SIDEBAR_W, flexShrink: 0,
-          background: "var(--accent)",
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-          display: "flex", flexDirection: "column", padding: "14px 12px", gap: 6,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 6px", marginBottom: 14 }}>
-            <div className="stgTransSkSide" style={{ width: 34, height: 34, borderRadius: 8, flexShrink: 0 }} />
-            <div className="stgTransSkSide" style={{ width: 80, height: 16 }} />
-          </div>
-          {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="stgTransSkSide" style={{ height: 36 }} />)}
-        </div>
-        <div style={{ flex: 1, padding: 28, display: "flex", flexDirection: "column", gap: 18, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div className="stgTransSk" style={{ height: 32, width: 220, borderRadius: 8 }} />
-            <div className="stgTransSk" style={{ height: 32, width: 120, borderRadius: 8, marginLeft: "auto" }} />
-          </div>
-          <div className="stgTransSk" style={{ height: 28, width: 340, borderRadius: 6 }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 16, flex: 1 }}>
-            {[1,2,3,4].map(i => <div key={i} className="stgTransSk" style={{ height: 80, borderRadius: 10 }} />)}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const activeLabel = SECTIONS.find(s => s.key === active)?.label ?? "Documentation";
-
-  /* ── Page ────────────────────────────────────────────────── */
-  return (
-    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
-
-      {/* ── Header ──────────────────────────────────── */}
-      <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
-
-        {/* Purple brand */}
-        <div className="stgHeaderBrandCol" style={{
-          width: SIDEBAR_W, flexShrink: 0,
-          background: "var(--accent)",
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-          borderBottom: "2px solid rgba(255,255,255,0.2)",
-          display: "flex", alignItems: "center", padding: "0 16px", gap: 10,
-        }}>
+  const DocSidebarNav = ({ onSelect }: { onSelect?: () => void }) => (
+    <nav className="sidebarNav" style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+      {groups.map(grp => (
+        <div key={grp}>
           <div style={{
-            width: 34, height: 34, borderRadius: 8, background: "#fff", flexShrink: 0,
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase", color: "rgba(255,255,255,0.5)",
+            padding: "10px 14px 4px",
+          }}>
+            {grp}
+          </div>
+          {SECTIONS.filter(s => s.group === grp).map(s => {
+            const isSel = active === s.key;
+            return (
+              <button key={s.key} type="button"
+                className={`navButton${isSel ? " navButtonActive" : ""}`}
+                onClick={() => { setActive(s.key); onSelect?.(); }}
+              >
+                <s.Icon size={15} strokeWidth={isSel ? 2.5 : 2} className="navButtonIcon" />
+                <span>{s.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+
+  return (
+    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex" }}>
+
+      {/* ── Purple Doc Sidebar ──────────────────────────────── */}
+      <aside className="stgAppSidebar" style={{
+        width: 220, flexShrink: 0,
+        background: "var(--accent)",
+        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+        backgroundSize: "18px 18px",
+        display: "flex", flexDirection: "column",
+        borderRight: "2px solid rgba(255,255,255,0.15)",
+        height: "100vh",
+      }}>
+        {/* Brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 13, color: "var(--accent)",
+            fontFamily: "'Outfit', sans-serif", fontWeight: 900,
+            fontSize: 12, color: "var(--accent)", flexShrink: 0,
+            border: "1.5px solid rgba(0,0,0,0.1)",
           }}>BZ</div>
-          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 17, color: "#fff", letterSpacing: "-0.3px" }}>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" }}>
             Botzudio
           </span>
         </div>
 
-        {/* Breadcrumb — left: path, right: version + back */}
-        <div style={{
-          flex: 1, background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
-          display: "flex", alignItems: "center", padding: "0 20px", gap: 8,
-        }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.2px" }}>Documentation</span>
-          <span style={{ color: "var(--muted-color)", fontSize: 14, userSelect: "none" }}>›</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
+        <DocSidebarNav />
+      </aside>
 
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+      {/* ── Mobile Hamburger Header ──────────────────────────── */}
+      <header className="mobileHeader">
+        <button type="button" className="mobileHamburgerBtn" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation">
+          <Menu size={22} />
+        </button>
+        <div className="mobileHeaderBrand">
+          <div className="mobileHeaderLogo">BZ</div>
+          <span className="mobileHeaderTitle">Botzudio</span>
+        </div>
+        <div style={{ width: 34 }} />
+      </header>
+
+      {/* ── Mobile Drawer ────────────────────────────────────── */}
+      {mobileNavOpen && <div className="mobileDrawerOverlay" onClick={() => setMobileNavOpen(false)} />}
+      <div className={`mobileDrawer${mobileNavOpen ? " mobileDrawerOpen" : ""}`} aria-hidden={!mobileNavOpen}>
+        <div className="mobileDrawerHeader">
+          <div className="mobileHeaderBrand">
+            <div className="mobileHeaderLogo">BZ</div>
+            <span className="mobileHeaderTitle">Botzudio</span>
+          </div>
+          <button type="button" className="mobileDrawerClose" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation">
+            <X size={20} />
+          </button>
+        </div>
+        <DocSidebarNav onSelect={() => setMobileNavOpen(false)} />
+      </div>
+
+      {/* ── Main Content ─────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+        {/* Content Header */}
+        <div className="stgContentHeader">
+          <div className="stgBreadcrumbs">
+            <span className="stgBreadcrumbLink" style={{ cursor: "pointer" }} onClick={() => { localStorage.setItem("esg_active_tab_v1", "generate"); navigate("/app"); }}>App</span>
+            <span className="stgBreadcrumbSep">›</span>
+            <span className="stgBreadcrumbActive" style={{ color: "var(--muted-color)" }}>{activeGroup}</span>
+            <span className="stgBreadcrumbSep">›</span>
+            <span className="stgBreadcrumbActive" style={{ fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 12 }}>
+            <h1 className="stgHeaderTitle">{activeLabel}</h1>
             <div style={{
               display: "flex", alignItems: "center", gap: 5,
               background: "#EDE9FE", color: "var(--accent)", fontSize: 11, fontWeight: 700,
-              padding: "4px 10px", borderRadius: 999, border: "1.5px solid #DDD6FE", flexShrink: 0,
+              padding: "4px 10px", borderRadius: 999, border: "1.5px solid #DDD6FE",
             }}>
               <Shield size={11} strokeWidth={2} /><span>v2.0</span>
             </div>
-            <button type="button" className="stgBackBtn" onClick={goBack}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 12H5M12 5l-7 7 7 7"/>
-              </svg>
-              Back to App
-            </button>
           </div>
         </div>
-      </header>
 
-      {/* ── Body ────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* Purple sidebar — real app nav */}
-        <aside className="stgAppSidebar" style={{
-          width: SIDEBAR_W, flexShrink: 0,
-          background: "var(--accent)",
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-          display: "flex", flexDirection: "column",
-          borderRight: "2px solid rgba(255,255,255,0.15)",
-        }}>
-          <nav className="sidebarNav" style={{ padding: "10px 10px", flex: 1 }}>
-            {APP_NAV.map(({ tab, label, Icon }) => (
-              <button
-                key={tab}
-                type="button"
-                className={tab === "docs" ? "navButton navButtonActive" : "navButton"}
-                onClick={() => {
-                  if (tab === "docs") return;
-                  if (tab === "credits") { navigate("/app/settings", { state: { section: "credits" } }); return; }
-                  localStorage.setItem("esg_active_tab_v1", tab);
-                  navigate("/app");
-                }}
-              >
-                <Icon size={15} className="navButtonIcon" strokeWidth={2} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Content column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-
-          {/* Horizontal tab bar */}
-          <div className="stgTabBar">
-            {SECTIONS.map(s => (
-              <button
-                key={s.key}
-                type="button"
-                className={`stgTab${active === s.key ? " stgTabActive" : ""}`}
-                onClick={() => setActive(s.key)}
-              >
-                <s.Icon size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
-                {s.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Content scroll area */}
-          <div
-            ref={contentRef}
-            className="stgContent"
-            style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}
-          >
+        {/* Scrollable Content Area */}
+        <div ref={contentRef} className="stgContent" style={{ flex: 1, overflowY: "auto", minWidth: 0, background: "var(--bg)" }}>
+          <div className="stgContentInner">
             {renderContent()}
           </div>
         </div>

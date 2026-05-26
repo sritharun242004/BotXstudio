@@ -9,7 +9,8 @@ import { apiGet, apiPost } from "../lib/api";
 import {
   User, CreditCard, Sparkles, Palette, Bell, FolderOpen, Shield, Zap,
   Sliders, BarChart2, HelpCircle, Mail, Bug, Lightbulb, MessageCircle,
-  Bookmark, LayoutDashboard, BookOpen, Shirt,
+  Bookmark, LayoutDashboard, BookOpen, Shirt, Coins, LogOut, MessageSquare,
+  Menu, X, Settings, HardDrive, Download
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -67,26 +68,22 @@ function saveSettings(s: UserSettings) {
 // ─── Nav sections ─────────────────────────────────────────────────────────────
 
 const SECTIONS: { key: SectionKey; label: string; Icon: React.ElementType }[] = [
-  { key: "profile",       label: "Profile",              Icon: User },
-  { key: "credits",       label: "Credits & Billing",    Icon: CreditCard },
-  { key: "generation",    label: "Generation",           Icon: Sparkles },
-  { key: "notifications", label: "Notifications",        Icon: Bell },
-  { key: "assets",        label: "Saved Assets",         Icon: FolderOpen },
-  { key: "security",      label: "Privacy & Security",   Icon: Shield },
-  { key: "performance",   label: "Performance",          Icon: Zap },
-  { key: "usage",         label: "Usage",                Icon: BarChart2 },
-  { key: "support",       label: "Support",              Icon: HelpCircle },
+  { key: "profile",    label: "Profile",     Icon: User },
+  { key: "credits",    label: "Billing",     Icon: CreditCard },
+  { key: "generation", label: "Generation",  Icon: Sparkles },
+  { key: "assets",     label: "Assets",      Icon: FolderOpen },
+  { key: "security",   label: "Security",    Icon: Shield },
+  { key: "usage",      label: "Usage",       Icon: BarChart2 },
+  { key: "support",    label: "Support",     Icon: HelpCircle },
 ];
 
 const APP_NAV = [
-  { tab: "prints",    label: "Add Prints",       Icon: Palette         },
-  { tab: "generate",  label: "Generate Images",  Icon: Sparkles        },
-  { tab: "tryon",     label: "Try On",           Icon: Shirt           },
-  { tab: "saved",     label: "Saved Images",     Icon: Bookmark        },
-  { tab: "assets",    label: "Uploaded Assets",  Icon: FolderOpen      },
-  { tab: "dashboard", label: "Dashboard",        Icon: LayoutDashboard },
-  { tab: "credits",   label: "Credits",          Icon: BarChart2       },
-  { tab: "docs",      label: "Documents",        Icon: BookOpen        },
+  { tab: "generate",   label: "Generate Images", Icon: Sparkles        },
+  { tab: "tryon",      label: "Try On",          Icon: Shirt           },
+  { tab: "saved",      label: "Saved Images",    Icon: Bookmark        },
+  { tab: "assets",     label: "Uploaded Assets", Icon: FolderOpen      },
+  { tab: "dashboard",  label: "Dashboard",       Icon: LayoutDashboard },
+  { tab: "docs",       label: "Documents",       Icon: BookOpen        },
 ] as const;
 
 // ─── Reusable UI atoms ────────────────────────────────────────────────────────
@@ -159,51 +156,77 @@ function ProfileSection({ settings, update }: {
 
   return (
     <div className="stgSectionContent">
-      <div className="stgSectionHeader">
+      <div className="stgSectionHeader" style={{ display: "none" }}>
+        {/* Title is already in the main content header */}
         <div className="stgSectionTitle">Profile</div>
         <div className="stgSectionDesc">Manage your personal information</div>
       </div>
 
-      <SectionCard title="Your Account">
+      <SectionCard>
         <div className="stgProfileHero">
           <div className="stgProfileAvatar">
             {(name || session?.email || "U")[0].toUpperCase()}
           </div>
           <div>
-            <div className="stgProfileName">{name || session?.name || "No name set"}</div>
-            <div className="stgProfileEmail">{session?.email}</div>
+            <div className="stgProfileName" style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>
+              {name || session?.name || "No name set"}
+            </div>
+            <div className="stgProfileEmail" style={{ fontSize: 13, color: "var(--muted-color)", marginTop: 2 }}>
+              {session?.email}
+            </div>
           </div>
         </div>
 
-        <div className="stgCardPad">
-          <div className="stgFieldGroup">
-            <label className="stgLabel">Display Name</label>
-            <input className="stgInput" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+        <div className="stgCardPad" style={{ padding: 24 }}>
+          <div className="stgGrid2Col">
+            <div className="stgFieldGroup">
+              <label className="stgLabel">Display Name</label>
+              <input className="stgInput" value={name} onChange={e => setName(e.target.value)} placeholder="Your name" />
+            </div>
+            <div className="stgFieldGroup">
+              <label className="stgLabel">Email Address</label>
+              <input className="stgInput" value={session?.email || ""} disabled />
+              <span className="stgFieldNote" style={{ fontSize: 11, display: "block", marginTop: 4 }}>
+                Email is managed via your Cognito account
+              </span>
+            </div>
+            <div className="stgFieldGroup stgColSpan2">
+              <label className="stgLabel">Bio <span className="stgOptional">optional</span></label>
+              <textarea className="stgTextarea" value={bio} onChange={e => setBio(e.target.value)}
+                placeholder="A short bio about yourself…" rows={3} />
+            </div>
           </div>
-          <div className="stgFieldGroup">
-            <label className="stgLabel">Email</label>
-            <input className="stgInput" value={session?.email || ""} disabled />
-            <span className="stgFieldNote">Email is managed via your Cognito account</span>
-          </div>
-          <div className="stgFieldGroup">
-            <label className="stgLabel">Bio <span className="stgOptional">optional</span></label>
-            <textarea className="stgTextarea" value={bio} onChange={e => setBio(e.target.value)}
-              placeholder="A short bio about yourself…" rows={3} />
-          </div>
-          <button className="stgPrimaryBtn" onClick={handleSave}>
-            {saved ? "✓ Saved" : "Save Profile"}
+        </div>
+
+        <div className="stgProfileCardFooter">
+          <button type="button" className="stgSignOutLink" onClick={logout}>
+            <LogOut size={14} strokeWidth={2.5} />
+            Sign Out
+          </button>
+          
+          <button 
+            type="button" 
+            className="stgPrimaryBtn" 
+            onClick={handleSave}
+            style={{ 
+              marginTop: 0, 
+              padding: "9px 20px", 
+              fontSize: 13, 
+              borderRadius: 20, 
+              background: "var(--accent)", 
+              borderColor: "var(--accent)" 
+            }}
+          >
+            {saved ? "✓ Saved" : "Save"}
           </button>
         </div>
       </SectionCard>
 
-      <SectionCard title="Account Actions">
+      <SectionCard title="Account Security">
         <SettingRow label="Change Password" desc="Send a password reset email to your account">
           <SecondaryBtn label="Send Reset Email" onClick={() => {
             window.open(`mailto:official@thebotcompany.in?subject=Password Reset Request`, "_blank");
           }} />
-        </SettingRow>
-        <SettingRow label="Sign Out" desc="Log out of Botzudio on this device">
-          <DangerBtn label="Logout" onClick={logout} />
         </SettingRow>
         <SettingRow label="Delete Account" desc="Permanently delete your account and all data" danger>
           <DangerBtn label="Delete Account" onClick={() => {
@@ -212,6 +235,20 @@ function ProfileSection({ settings, update }: {
             }
           }} />
         </SettingRow>
+      </SectionCard>
+
+      <SectionCard title="Notifications">
+        {([
+          { key:"notifGenComplete", label:"Generation Completed", desc:"Notify when an image finishes generating" },
+          { key:"notifCreditLow",   label:"Credit Low Alert",    desc:"Warn when your balance is running low" },
+          { key:"notifPayment",     label:"Payment Successful",  desc:"Confirm when credits are added to your account" },
+          { key:"notifUpdates",     label:"Product Updates",     desc:"News about platform changes and improvements" },
+          { key:"notifFeatures",    label:"New Features",        desc:"Be the first to know about new capabilities" },
+        ] as const).map(r => (
+          <SettingRow key={r.key} label={r.label} desc={r.desc}>
+            <Toggle checked={settings[r.key] as boolean} onChange={v => update(r.key, v)} />
+          </SettingRow>
+        ))}
       </SectionCard>
     </div>
   );
@@ -245,8 +282,8 @@ interface CreditPack {
 }
 
 const CREDIT_PACKS: CreditPack[] = [
-  { key: "basic",      label: "Basic",      credits: 300,  price: 299,  orig: 499,  badge: "Save 40%", accent: "#8B5CF6" },
-  { key: "growth",     label: "Growth",     credits: 1000, price: 999,  orig: 1499, badge: "Popular",  accent: "#7C3AED" },
+  { key: "basic",      label: "Basic",      credits: 300,  price: 499,  orig: null, badge: "",         accent: "#8B5CF6" },
+  { key: "growth",     label: "Growth",     credits: 1000, price: 1299, orig: 1499, badge: "Popular",  accent: "#7C3AED" },
   { key: "enterprise", label: "Enterprise", credits: null, price: null, orig: null, badge: "Custom",   accent: "#0369A1" },
 ];
 
@@ -259,10 +296,16 @@ function CreditsSection() {
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [txLoading, setTxLoading] = useState(true);
-  const [showBuyPanel, setShowBuyPanel] = useState(false);
-  const [selectedPack, setSelectedPack] = useState<BuyPackKey>("growth");
-  const [customInput, setCustomInput] = useState("500");
-  const customCredits = Math.max(1, parseInt(customInput, 10) || 1);
+
+  const presets = [
+    { credits: 199,   price: 199,  rate: 1.0, discount: 0,  label: "199" },
+    { credits: 500,   price: 499,  rate: 1.0, discount: 0,  label: "500" },
+    { credits: 1000,  price: 999,  rate: 1.0, discount: 0,  label: "1K" },
+    { credits: 2000,  price: 1799, rate: 0.9, discount: 10, label: "2K" },
+    { credits: 5000,  price: 4499, rate: 0.9, discount: 10, label: "5K" },
+    { credits: 10000, price: 7999, rate: 0.8, discount: 20, label: "10K" },
+  ];
+  const [presetIndex, setPresetIndex] = useState(2); // default 1K
 
   useEffect(() => {
     fetchCreditTransactions()
@@ -280,7 +323,6 @@ function CreditsSection() {
       const res = await apiPost<{ creditsAdded: number; newBalance: number }>("/api/affiliates/redeem", { code });
       setCouponMsg({ ok: true, text: `₹${res.creditsAdded} credits added! Your new balance is ₹${res.newBalance}.` });
       setCoupon("");
-      // Refresh transaction list to show the new entry
       fetchCreditTransactions().then(setTransactions).catch(() => {});
     } catch (e: any) {
       setCouponMsg({ ok: false, text: e.message || "Failed to redeem code" });
@@ -301,26 +343,9 @@ function CreditsSection() {
   const plusCr   = flashCr + fluxCr * 2;
   const proAvgCr = Math.round((gptMinCr + gptMaxCr) / 2);
 
-  const MODEL_ROWS = [
-    { label: "Flash",  cr: flashCr,  unit: "img", color: "#8B5CF6" },
-    { label: "ProMax", cr: proMaxCr, unit: "img", color: "#7C3AED" },
-    { label: "Plus",   cr: plusCr,   unit: "set", color: "#06B6D4" },
-    { label: "Pro",    cr: proAvgCr, unit: "img", color: "#F59E0B", note: "avg" },
-  ] as const;
-
-  const activePack = selectedPack !== "custom" ? CREDIT_PACKS.find(p => p.key === selectedPack) : undefined;
-  const activeCredits: number | null =
-    selectedPack === "enterprise" ? null :
-    selectedPack === "custom" ? customCredits :
-    activePack?.credits ?? null;
-  const activePrice: number | null =
-    selectedPack === "enterprise" ? null :
-    selectedPack === "custom" ? customCredits :
-    activePack?.price ?? null;
-
-  const mailBody = activeCredits
-    ? `Hi, I'd like to purchase ${activeCredits} credits for ₹${activePrice}. My registered email is [your email]. Please send payment details.`
-    : "";
+  const activeCredits = presets[presetIndex].credits;
+  const activePrice = presets[presetIndex].price;
+  const mailBody = `Hi, I'd like to purchase ${activeCredits.toLocaleString()} credits for ₹${activePrice.toLocaleString()}. My registered email is [your email]. Please send payment details.`;
   const mailLink = `mailto:official@thebotcompany.in?subject=Buy Credits - Botzudio&body=${encodeURIComponent(mailBody)}`;
 
   return (
@@ -330,269 +355,315 @@ function CreditsSection() {
         <div className="stgSectionDesc">Manage your balance and view spending history</div>
       </div>
 
-      {/* Wallet card */}
-      <div className="stgWalletCard">
-        <div className="stgWalletRow">
-          <div>
-            <div className="stgWalletLabel">Available Credits</div>
-            <div className="stgWalletAmount">
-              {isDeveloper ? "Unlimited" : Math.floor(balance)}
-              {!isDeveloper && <span style={{ fontSize: 14, fontWeight: 500, opacity: 0.6 }}> credits</span>}
-            </div>
-          </div>
-          {!isDeveloper && (
-            <button className="stgWalletBuyBtn" onClick={() => setShowBuyPanel(v => !v)}>
-              {showBuyPanel ? "Hide Packages" : "Buy Credits"}
-            </button>
-          )}
+      {/* Credits Card (Top Panel) */}
+      <div style={{
+        background: "var(--surface)", border: "2px solid var(--border-strong)",
+        borderRadius: "var(--radius-md)", padding: "24px 32px",
+        boxShadow: "var(--shadow-card)", marginBottom: 24
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.8px" }}>Credits</div>
+        <div style={{ fontSize: 14, color: "var(--muted-color)", marginTop: 4 }}>Current Balance</div>
+        
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 8 }}>
+          <span style={{
+            fontSize: 48, fontWeight: 900, color: "var(--quaternary)", // green color for credits!
+            fontFamily: "var(--font-heading)", letterSpacing: "-1px", lineHeight: 1
+          }}>
+            {isDeveloper ? "Unlimited" : Math.floor(balance).toLocaleString()}
+          </span>
+          <span style={{ fontSize: 16, fontWeight: 700, color: "var(--muted-color)" }}>credits</span>
         </div>
-        <div className="stgWalletMeta">
-          <div className="stgWalletStat">
-            <span className="stgWalletStatLabel">Free Generations</span>
-            <span className="stgWalletStatVal">
-              {isDeveloper ? "Unlimited" : `${freeImagesRemaining} / 30`}
-            </span>
-          </div>
-          <div className="stgWalletStat">
-            <span className="stgWalletStatLabel">Credits Spent</span>
-            <span className="stgWalletStatVal">
-              {isDeveloper ? "—" : creditsSpent}
-            </span>
-          </div>
+        
+        <div style={{ fontSize: 13.5, color: "var(--muted-color)", marginTop: 14, fontWeight: 500 }}>
+          Purchase credits to use with Generate, Try On, and Uploaded Assets.
         </div>
       </div>
 
-      {/* ── Inline Buy Credits Panel ───────────────────────────────────── */}
-      {showBuyPanel && (
-        <div style={{
-          background: "#fff",
-          border: "2px solid #E2E8F0",
-          borderRadius: 16,
-          overflow: "hidden",
-          marginBottom: 8,
-        }}>
-
-          {/* Header */}
-          <div style={{
-            padding: "16px 24px",
-            borderBottom: "1.5px solid #E2E8F0",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            background: "#F8FAFC",
-          }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: 17, color: "#1E293B" }}>Choose a Credit Pack</div>
-              <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
-                1 credit = ₹1 · Credits never expire · All 4 models unlocked
-              </div>
-            </div>
-            <button
-              onClick={() => setShowBuyPanel(false)}
-              style={{
-                width: 28, height: 28, borderRadius: "50%",
-                border: "1.5px solid #E2E8F0", background: "transparent",
-                cursor: "pointer", fontSize: 13, color: "#64748B",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >✕</button>
+      {/* Credit Packages */}
+      {!isDeveloper && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 14 }}>
+            Credit Packages
           </div>
-
-          {/* Pack cards */}
-          <div style={{ padding: "20px 24px 16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14 }}>
-            {CREDIT_PACKS.map(pack => {
-              const isSel = selectedPack === pack.key;
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }} className="stgPackGrid">
+            {/* Pack 1 — Basic */}
+            {(() => {
+              const cr = 300;
+              const mailB = `Hi, I'd like to purchase the Basic Pack (${cr} credits) for ₹499. My registered email is [your email]. Please send payment details.`;
               return (
-                <div
-                  key={pack.key}
-                  onClick={() => setSelectedPack(pack.key)}
-                  style={{
-                    cursor: "pointer", position: "relative",
-                    border: `2px solid ${isSel ? pack.accent : "#E2E8F0"}`,
-                    borderRadius: 14, padding: "18px 16px",
-                    background: isSel ? `${pack.accent}0d` : "#fff",
-                    boxShadow: isSel ? `0 0 0 3px ${pack.accent}22` : "none",
-                    transition: "all .15s",
-                  }}
-                >
-                  {isSel && (
-                    <div style={{
-                      position: "absolute", top: 10, right: 10,
-                      width: 20, height: 20, borderRadius: "50%",
-                      background: pack.accent,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, color: "#fff", fontWeight: 800,
-                    }}>✓</div>
-                  )}
-                  <div style={{
-                    display: "inline-block", padding: "2px 8px", borderRadius: 9999,
-                    background: `${pack.accent}1a`, color: pack.accent,
-                    fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px",
-                    marginBottom: 10,
-                  }}>{pack.badge}</div>
-                  <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 19, color: "#1E293B", marginBottom: 8 }}>
-                    {pack.label}
+                <div style={{
+                  background: "var(--surface)", border: "2px solid var(--border-strong)",
+                  borderRadius: 20, padding: "24px 24px 20px", position: "relative",
+                  boxShadow: "var(--shadow-card)", display: "flex", flexDirection: "column", gap: 0,
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--muted-color)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Pack 1</div>
+                  <div style={{ fontFamily: "var(--font-heading)", fontSize: 28, fontWeight: 900, color: "var(--text)", marginBottom: 8 }}>Basic</div>
+                  <div style={{ fontFamily: "var(--font-heading)", fontSize: 32, fontWeight: 900, color: "var(--text)", marginBottom: 10 }}>₹499</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                    <div style={{ background: "#F3F0FF", border: "2px solid #DDD6FE", borderRadius: 10, padding: "6px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: "var(--accent)" }}>{cr}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)" }}>credits</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted-color)", fontWeight: 500, lineHeight: 1.5 }}>one-time<br />never expires</div>
                   </div>
-                  {pack.price !== null ? (
-                    <div style={{ display: "flex", alignItems: "flex-end", gap: 8, marginBottom: 6 }}>
-                      <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, color: "#1E293B", lineHeight: 1 }}>
-                        ₹{pack.price}
-                      </span>
-                      {pack.orig && (
-                        <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 13, color: "#94A3B8", textDecoration: "line-through", marginBottom: 3 }}>
-                          ₹{pack.orig}
-                        </span>
-                      )}
+                  <div style={{ height: 1, background: "var(--border)", marginBottom: 14 }} />
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>What you can generate</div>
+                  {[
+                    { label: "Flash",  val: `~${Math.floor(cr / flashCr)} images`,           note: `${flashCr} cr each` },
+                    { label: "ProMax", val: `~${Math.floor(cr / proMaxCr)} images`,           note: `${proMaxCr} cr each` },
+                    { label: "Plus",   val: `~${Math.floor(cr / plusCr)} sets`,               note: `${plusCr} cr/set` },
+                    { label: "Pro",    val: `${Math.floor(cr / gptMaxCr)}–${Math.floor(cr / gptMinCr)} images`, note: `${gptMinCr}–${gptMaxCr} cr each` },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                      <span style={{ fontWeight: 700, color: "var(--text)", minWidth: 52 }}>{r.label}</span>
+                      <span style={{ fontWeight: 800, color: "var(--accent)", flex: 1 }}>{r.val}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted-color)", fontWeight: 500 }}>{r.note}</span>
                     </div>
-                  ) : (
-                    <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 22, color: pack.accent, marginBottom: 6 }}>
-                      Contact Us
-                    </div>
-                  )}
-                  {pack.credits !== null ? (
-                    <div style={{ fontSize: 13, color: "#64748B", fontWeight: 600 }}>
-                      <span style={{ color: pack.accent, fontWeight: 800 }}>{pack.credits}</span> credits
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 12, color: "#64748B" }}>Custom volume · Priority support</div>
-                  )}
+                  ))}
+                  <a
+                    href={`mailto:official@thebotcompany.in?subject=Buy Credits - Basic Pack&body=${encodeURIComponent(mailB)}`}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      marginTop: 18, padding: "11px 0", borderRadius: 999,
+                      border: "2px solid var(--text)", background: "transparent",
+                      color: "var(--text)", textDecoration: "none", fontSize: 13, fontWeight: 800,
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "var(--text)"; e.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text)"; }}
+                  >
+                    Buy {cr} Credits →
+                  </a>
                 </div>
               );
-            })}
-          </div>
+            })()}
 
-          {/* Custom credits row */}
-          <div style={{ padding: "0 24px 20px" }}>
-            <div
-              onClick={() => setSelectedPack("custom")}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "12px 16px", borderRadius: 10, cursor: "pointer",
-                border: `2px solid ${selectedPack === "custom" ? "#8B5CF6" : "#E2E8F0"}`,
-                background: selectedPack === "custom" ? "#F5F3FF" : "#F8FAFC",
-                transition: "all .15s",
-              }}
-            >
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1E293B", whiteSpace: "nowrap" }}>
-                Custom Amount
-              </div>
-              <input
-                type="number"
-                min={1}
-                value={customInput}
-                onChange={e => { setCustomInput(e.target.value); setSelectedPack("custom"); }}
-                onBlur={() => setCustomInput(String(Math.max(1, parseInt(customInput, 10) || 1)))}
-                onClick={e => e.stopPropagation()}
-                style={{
-                  flex: 1, background: "transparent", border: "none", outline: "none",
-                  fontSize: 15, fontWeight: 800, color: "#8B5CF6", textAlign: "right", minWidth: 0,
-                }}
-                placeholder="500"
-              />
-              <span style={{ fontSize: 13, color: "#64748B", whiteSpace: "nowrap" }}>
-                credits = ₹{customCredits}
-              </span>
-            </div>
-          </div>
-
-          {/* Generation breakdown */}
-          {activeCredits !== null && (
-            <div style={{ padding: "16px 24px 20px", borderTop: "1.5px solid #E2E8F0" }}>
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: "#94A3B8",
-                textTransform: "uppercase", letterSpacing: "0.7px", marginBottom: 12,
-              }}>
-                Generation Breakdown · {activeCredits} credits
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
-                {MODEL_ROWS.map(m => (
-                  <div key={m.label} style={{
-                    textAlign: "center", padding: "16px 10px",
-                    background: "#F8FAFC", borderRadius: 10,
-                    border: "1.5px solid #E2E8F0",
+            {/* Pack 2 — Growth (Most Popular) */}
+            {(() => {
+              const cr = 1000;
+              const mailB = `Hi, I'd like to purchase the Growth Pack (${cr} credits) for ₹1,299. My registered email is [your email]. Please send payment details.`;
+              return (
+                <div style={{
+                  background: "linear-gradient(135deg, #EDE9FE 0%, #DDD6FE 100%)",
+                  border: "2.5px solid #8B5CF6",
+                  borderRadius: 20, padding: "24px 24px 20px", position: "relative",
+                  boxShadow: "0 4px 24px rgba(139,92,246,0.18)", display: "flex", flexDirection: "column",
+                }}>
+                  {/* Most popular badge */}
+                  <div style={{
+                    position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)",
+                    background: "#F59E0B", color: "#fff", fontSize: 10, fontWeight: 900,
+                    letterSpacing: "0.12em", textTransform: "uppercase", padding: "5px 14px",
+                    borderRadius: 999, whiteSpace: "nowrap",
                   }}>
-                    <div style={{
-                      fontFamily: "'Outfit', sans-serif", fontWeight: 900,
-                      fontSize: 30, color: m.color, lineHeight: 1,
-                    }}>
-                      {Math.floor(activeCredits / m.cr)}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#1E293B", fontWeight: 700, marginTop: 5 }}>
-                      {m.label}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#94A3B8", marginTop: 3 }}>
-                      {"note" in m ? `${m.unit}s (${m.note})` : `${m.unit}s`} · {m.cr} cr/{m.unit}
-                    </div>
+                    Most Popular
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Checkout bar */}
-          <div style={{
-            padding: "18px 24px",
-            background: "#F8FAFC",
-            borderTop: "1.5px solid #E2E8F0",
-          }}>
-            {selectedPack === "enterprise" ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: "#1E293B" }}>Need a large volume plan?</div>
-                  <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>Custom pricing · Priority support · SLA</div>
-                </div>
-                <a
-                  href="mailto:official@thebotcompany.in?subject=Enterprise Credits - Botzudio"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "10px 22px", borderRadius: 9999,
-                    background: "#0369A1", color: "#fff",
-                    fontSize: 13, fontWeight: 800, textDecoration: "none",
-                    border: "2px solid #1E293B", boxShadow: "3px 3px 0 #1E293B",
-                  }}
-                >
-                  Contact Us →
-                </a>
-              </div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 30, color: "#1E293B" }}>
-                      ₹{activePrice}
-                    </span>
-                    {selectedPack !== "custom" && activePack?.orig && (
-                      <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 14, color: "#94A3B8", textDecoration: "line-through" }}>
-                        ₹{activePack.orig}
-                      </span>
-                    )}
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "var(--accent)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Most Popular</div>
+                  <div style={{ fontFamily: "var(--font-heading)", fontSize: 28, fontWeight: 900, color: "var(--text)", marginBottom: 8 }}>Growth</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
+                    <div style={{ fontFamily: "var(--font-heading)", fontSize: 32, fontWeight: 900, color: "var(--text)" }}>₹1,299</div>
+                    <div style={{ fontSize: 14, color: "var(--muted-color)", textDecoration: "line-through", fontWeight: 600 }}>₹1,499</div>
+                    <div style={{ background: "#F59E0B", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999 }}>Save 13%</div>
                   </div>
-                  <div style={{ fontSize: 12, color: "#64748B", marginTop: 1 }}>
-                    for {activeCredits} credits · Credited within 24h after payment
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+                    <div style={{ background: "#fff", border: "2px solid #DDD6FE", borderRadius: 10, padding: "6px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: "var(--accent)" }}>{cr}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)" }}>credits</div>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--muted-color)", fontWeight: 500, lineHeight: 1.5 }}>one-time<br />never expires</div>
                   </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                  <div style={{ height: 1, background: "rgba(139,92,246,0.2)", marginBottom: 14 }} />
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>What you can generate</div>
+                  {[
+                    { label: "Flash",  val: `~${Math.floor(cr / flashCr)} images`,           note: `${flashCr} cr each` },
+                    { label: "ProMax", val: `~${Math.floor(cr / proMaxCr)} images`,           note: `${proMaxCr} cr each` },
+                    { label: "Plus",   val: `~${Math.floor(cr / plusCr)} sets`,               note: `${plusCr} cr/set` },
+                    { label: "Pro",    val: `${Math.floor(cr / gptMaxCr)}–${Math.floor(cr / gptMinCr)} images`, note: `${gptMinCr}–${gptMaxCr} cr each` },
+                  ].map(r => (
+                    <div key={r.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 0", fontSize: 13 }}>
+                      <span style={{ fontWeight: 700, color: "var(--text)", minWidth: 52 }}>{r.label}</span>
+                      <span style={{ fontWeight: 800, color: "var(--accent)", flex: 1 }}>{r.val}</span>
+                      <span style={{ fontSize: 11, color: "var(--muted-color)", fontWeight: 500 }}>{r.note}</span>
+                    </div>
+                  ))}
                   <a
-                    href={mailLink}
+                    href={`mailto:official@thebotcompany.in?subject=Buy Credits - Growth Pack&body=${encodeURIComponent(mailB)}`}
                     style={{
-                      display: "flex", alignItems: "center", gap: 6,
-                      padding: "11px 24px", borderRadius: 9999,
-                      background: "#8B5CF6", color: "#fff",
-                      fontSize: 13, fontWeight: 800, textDecoration: "none",
-                      border: "2px solid #1E293B", boxShadow: "3px 3px 0 #1E293B",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      marginTop: 18, padding: "11px 0", borderRadius: 999,
+                      border: "none", background: "var(--accent)",
+                      color: "#fff", textDecoration: "none", fontSize: 13, fontWeight: 800,
+                      boxShadow: "0 4px 14px rgba(139,92,246,0.35)", transition: "all 0.15s",
                     }}
+                    onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                    onMouseLeave={e => e.currentTarget.style.transform = "none"}
                   >
-                    Proceed to Pay →
+                    Buy {cr} Credits →
                   </a>
-                  <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "right" }}>
-                    Email sent · UPI link within 24h
-                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}
 
-      {/* Model pricing table */}
+      {/* Buy Credits Panel (Slider & Checkout) */}
+      {!isDeveloper && (
+        <div style={{
+          background: "var(--surface)", border: "2px solid var(--border-strong)",
+          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)",
+          marginBottom: 24, overflow: "hidden"
+        }}>
+          {/* Header of Buy Credits */}
+          <div style={{
+            padding: "18px 24px", borderBottom: "2px solid var(--border-strong)",
+            background: "#F8FAFC", display: "flex", alignItems: "center"
+          }}>
+            <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 16, color: "var(--text)" }}>
+              Buy Credits
+            </div>
+          </div>
+          
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 0 }} className="stgBillingGrid">
+            
+            {/* Left Column: Slider and presets */}
+            <div style={{ padding: "24px 30px", borderRight: "2px solid var(--border-strong)" }} className="stgBillingLeft">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                  Select Credits
+                </span>
+              </div>
+              
+              {/* Selected credits count */}
+              <div style={{ textAlign: "center", padding: "18px 0" }}>
+                <span style={{ fontFamily: "var(--font-heading)", fontSize: 38, fontWeight: 900, color: "var(--text)" }}>
+                  {activeCredits.toLocaleString()}
+                </span>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--muted-color)", marginLeft: 6 }}>
+                  credits
+                </span>
+              </div>
+              
+              {/* Custom Slider Track */}
+              <div style={{ padding: "10px 0 20px" }}>
+                <input
+                  type="range"
+                  min={0}
+                  max={presets.length - 1}
+                  value={presetIndex}
+                  onChange={e => setPresetIndex(parseInt(e.target.value))}
+                  style={{
+                    width: "100%", accentColor: "var(--accent)", height: 8,
+                    borderRadius: 99, cursor: "pointer", background: "var(--border)"
+                  }}
+                />
+                
+                {/* Labels below slider */}
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "var(--muted-color)", marginTop: 8, padding: "0 4px" }}>
+                  <span>199</span>
+                  <span>1K</span>
+                  <span>5K</span>
+                  <span>10K</span>
+                </div>
+              </div>
+              
+              {/* Stats row below slider */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
+                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Price</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 4 }}>₹{activePrice.toLocaleString()}</div>
+                </div>
+                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Per Credit</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--quaternary)", marginTop: 4 }}>₹{presets[presetIndex].rate.toFixed(2)}</div>
+                </div>
+                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>You Save</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--secondary)", marginTop: 4 }}>{presets[presetIndex].discount}%</div>
+                </div>
+              </div>
+              
+              {/* Pills selectors */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                {presets.map((p, idx) => {
+                  const isSel = presetIndex === idx;
+                  return (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() => setPresetIndex(idx)}
+                      style={{
+                        padding: "6px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700,
+                        border: "2px solid var(--border-strong)", cursor: "pointer",
+                        background: isSel ? "var(--accent)" : "var(--surface)",
+                        color: isSel ? "#fff" : "var(--text)",
+                        boxShadow: isSel ? "var(--shadow-pop-press)" : "none",
+                        transition: "all 0.15s ease"
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Right Column: Checkout panel */}
+            <div style={{ padding: "28px 24px", background: "#F8FAFC", display: "flex", flexDirection: "column" }} className="stgBillingRight">
+              
+              {/* Large summary price */}
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <div style={{ fontFamily: "var(--font-heading)", fontSize: 36, fontWeight: 900, color: "var(--text)", lineHeight: 1.1 }}>
+                  ₹{activePrice.toLocaleString()}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted-color)", fontWeight: 600, marginTop: 4 }}>
+                  ₹{presets[presetIndex].rate.toFixed(2)} per credit
+                </div>
+              </div>
+              
+              <div style={{ height: 1, background: "var(--border)", margin: "0 0 16px" }} />
+              
+              {/* Summary item table */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, marginBottom: 24, flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted-color)", fontWeight: 500 }}>
+                  <span>{activeCredits.toLocaleString()} credits</span>
+                  <span>₹{activePrice.toLocaleString()}</span>
+                </div>
+                
+                <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
+                
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text)", fontWeight: 800, fontSize: 14 }}>
+                  <span>Total</span>
+                  <span>₹{activePrice.toLocaleString()}</span>
+                </div>
+              </div>
+              
+              {/* Pay Button */}
+              <a
+                href={mailLink}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  width: "100%", padding: "12px 16px", borderRadius: 999,
+                  background: "var(--quaternary)", color: "#fff", textDecoration: "none",
+                  fontSize: 14, fontWeight: 800, border: "2px solid var(--border-strong)",
+                  boxShadow: "var(--shadow-pop)", transition: "all 0.2s"
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+                onMouseLeave={e => e.currentTarget.style.transform = "none"}
+              >
+                Proceed to Payment
+              </a>
+              
+              <div style={{ fontSize: 11, color: "var(--muted-color)", textAlign: "center", marginTop: 10, fontWeight: 500 }}>
+                Credit updates in 24h via UPI link
+              </div>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {/* Model Pricing Table */}
       <SectionCard title="Credits Per Generation">
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
@@ -626,7 +697,7 @@ function CreditsSection() {
         </div>
       </SectionCard>
 
-      {/* Redeem coupon */}
+      {/* Redeem promo code */}
       <SectionCard title="Redeem Coupon">
         <div className="stgCouponRow">
           <input
@@ -661,32 +732,47 @@ function CreditsSection() {
             {couponMsg.ok ? "✓ " : "✗ "}{couponMsg.text}
           </div>
         )}
-        <div style={{ marginTop: 8, fontSize: 12, color: "#94A3B8" }}>
-          Each account can redeem one promo code. Affiliate codes are accepted here.
-        </div>
       </SectionCard>
 
-      {/* Transaction history */}
-      <SectionCard title="Transaction History">
+      {/* Invoices (Invoice / Transaction History) */}
+      <SectionCard title="Invoices">
+        <div style={{ fontSize: 12, color: "var(--muted-color)", marginBottom: 12 }}>
+          View and download your receipt and transaction invoices.
+        </div>
         {txLoading ? (
           <div className="stgEmpty">Loading transactions…</div>
         ) : transactions.length === 0 ? (
           <div className="stgEmpty">No transactions yet.</div>
         ) : (
           <div className="stgTxTable">
-            <div className="stgTxHead">
-              <span>Date</span><span>Description</span><span>Amount</span><span>Balance</span>
+            <div className="stgTxHead" style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 90px 90px 80px", padding: "10px 14px" }}>
+              <span>Invoice ID</span><span>Date</span><span>Description</span><span>Amount</span><span>Balance</span><span>Status</span>
             </div>
-            {transactions.map(tx => (
-              <div key={tx.id} className="stgTxRow">
-                <span className="stgTxDate">{fmtDate(tx.createdAt)}</span>
-                <span className="stgTxDesc">{tx.description || (tx.type === "image_gen" ? "Image generated" : "Top-up")}</span>
-                <span className={`stgTxAmt ${tx.amountInr < 0 ? "stgTxDebit" : "stgTxCredit"}`}>
-                  {tx.amountInr < 0 ? "−" : "+"}₹{Math.abs(tx.amountInr).toFixed(2)}
-                </span>
-                <span className="stgTxBal">₹{tx.balanceAfter.toFixed(2)}</span>
-              </div>
-            ))}
+            {transactions.map(tx => {
+              const isCredit = tx.amountInr >= 0;
+              const invId = `INV-${tx.id.slice(0, 8).toUpperCase()}`;
+              return (
+                <div key={tx.id} className="stgTxRow" style={{ display: "grid", gridTemplateColumns: "110px 90px 1fr 90px 90px 80px", alignItems: "center", padding: "12px 14px" }}>
+                  <span style={{ fontWeight: 700, color: "var(--text)" }}>{invId}</span>
+                  <span className="stgTxDate">{fmtDate(tx.createdAt)}</span>
+                  <span className="stgTxDesc">{tx.description || (tx.type === "image_gen" ? "AI Image Generation" : "Credit Top-up")}</span>
+                  <span className={`stgTxAmt ${!isCredit ? "stgTxDebit" : "stgTxCredit"}`}>
+                    {!isCredit ? "−" : "+"}₹{Math.abs(tx.amountInr).toFixed(2)}
+                  </span>
+                  <span className="stgTxBal">₹{tx.balanceAfter.toFixed(2)}</span>
+                  <span>
+                    <span style={{
+                      display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
+                      background: isCredit ? "#F0FDF4" : "#F3F4F6",
+                      color: isCredit ? "#16A34A" : "var(--muted-color)",
+                      border: `1.5px solid ${isCredit ? "#BBF7D0" : "var(--border)"}`
+                    }}>
+                      {isCredit ? "Paid" : "Success"}
+                    </span>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </SectionCard>
@@ -765,6 +851,18 @@ function GenerationSection({ settings, update }: {
           <Toggle checked={settings.experimentalUI} onChange={v => update("experimentalUI", v)} />
         </SettingRow>
       </SectionCard>
+
+      <SectionCard title="Advanced Settings">
+        <SettingRow label="Compress Uploads Before Send" desc="Reduce image size before uploading to improve speed">
+          <Toggle checked={settings.compressUploads} onChange={v => update("compressUploads", v)} />
+        </SettingRow>
+        <SettingRow label="Use Optimised Loading" desc="Lazy-load assets and images for faster navigation">
+          <Toggle checked={settings.optimizedLoading} onChange={v => update("optimizedLoading", v)} />
+        </SettingRow>
+        <SettingRow label="Low Bandwidth Mode" desc="Reduce preview quality and defer non-essential requests">
+          <Toggle checked={settings.lowBandwidth} onChange={v => update("lowBandwidth", v)} />
+        </SettingRow>
+      </SectionCard>
     </div>
   );
 }
@@ -821,34 +919,7 @@ function AppearanceSection({ settings, update }: {
   );
 }
 
-// ─── Section: Notifications ───────────────────────────────────────────────────
 
-function NotificationsSection({ settings, update }: {
-  settings: UserSettings; update: (k: keyof UserSettings, v: unknown) => void;
-}) {
-  const rows: { key: keyof UserSettings; label: string; desc: string }[] = [
-    { key:"notifGenComplete", label:"Generation Completed", desc:"Notify when an image finishes generating" },
-    { key:"notifCreditLow",   label:"Credit Low Alert",    desc:"Warn when your balance is running low" },
-    { key:"notifPayment",     label:"Payment Successful",  desc:"Confirm when credits are added to your account" },
-    { key:"notifUpdates",     label:"Product Updates",     desc:"News about platform changes and improvements" },
-    { key:"notifFeatures",    label:"New Features",        desc:"Be the first to know about new capabilities" },
-  ];
-  return (
-    <div className="stgSectionContent">
-      <div className="stgSectionHeader">
-        <div className="stgSectionTitle">Notifications</div>
-        <div className="stgSectionDesc">Choose what you want to be notified about</div>
-      </div>
-      <SectionCard>
-        {rows.map(r => (
-          <SettingRow key={r.key} label={r.label} desc={r.desc}>
-            <Toggle checked={settings[r.key] as boolean} onChange={v => update(r.key, v)} />
-          </SettingRow>
-        ))}
-      </SectionCard>
-    </div>
-  );
-}
 
 // ─── Section: Saved Assets ────────────────────────────────────────────────────
 
@@ -914,19 +985,10 @@ function SecuritySection({ settings, update }: {
           <SecondaryBtn label="Send Reset Email" onClick={() =>
             window.open("mailto:official@thebotcompany.in?subject=Password Reset", "_blank")} />
         </SettingRow>
-        <SettingRow label="Two-Factor Authentication" desc="Extra protection for your account — coming soon">
-          <span className="stgComingSoon">Coming Soon</span>
-        </SettingRow>
-        <SettingRow label="Active Sessions" desc="View and revoke other logged-in devices — coming soon">
-          <span className="stgComingSoon">Coming Soon</span>
-        </SettingRow>
       </SectionCard>
       <SectionCard title="Privacy">
         <SettingRow label="Private Generations" desc="Hide your generated images from admin previews">
           <Toggle checked={settings.privateGenerations} onChange={v => update("privateGenerations", v)} />
-        </SettingRow>
-        <SettingRow label="Hide Profile" desc="Don't show your profile to other users">
-          <Toggle checked={settings.hideProfile} onChange={v => update("hideProfile", v)} />
         </SettingRow>
         <SettingRow label="Delete Generation History" desc="Wipe your API call logs and history" danger>
           <DangerBtn label="Delete History" onClick={() => {
@@ -940,54 +1002,58 @@ function SecuritySection({ settings, update }: {
   );
 }
 
-// ─── Section: Performance ─────────────────────────────────────────────────────
 
-function PerformanceSection({ settings, update }: {
-  settings: UserSettings; update: (k: keyof UserSettings, v: unknown) => void;
-}) {
-  return (
-    <div className="stgSectionContent">
-      <div className="stgSectionHeader">
-        <div className="stgSectionTitle">Performance</div>
-        <div className="stgSectionDesc">Optimise the app for your connection and device</div>
-      </div>
-      <SectionCard>
-        <SettingRow label="Compress Uploads Before Send" desc="Reduce image size before uploading to improve speed">
-          <Toggle checked={settings.compressUploads} onChange={v => update("compressUploads", v)} />
-        </SettingRow>
-        <SettingRow label="Use Optimised Loading" desc="Lazy-load assets and images for faster navigation">
-          <Toggle checked={settings.optimizedLoading} onChange={v => update("optimizedLoading", v)} />
-        </SettingRow>
-        <SettingRow label="Low Bandwidth Mode" desc="Reduce preview quality and defer non-essential requests">
-          <Toggle checked={settings.lowBandwidth} onChange={v => update("lowBandwidth", v)} />
-        </SettingRow>
-      </SectionCard>
-    </div>
-  );
+
+// ─── useCountUp hook for Settings Page ──────────────────────────────────────
+// Only depends on [active] so target changes after animation starts don't restart it.
+function useSettingsCountUp(target: number, active: boolean, duration = 500) {
+  const [val, setVal] = useState(0);
+  const targetRef = useRef(target);
+  targetRef.current = target;
+  useEffect(() => {
+    if (!active) return;
+    const end = targetRef.current;
+    if (end === 0) { setVal(0); return; }
+    let raf: number;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(ease * end));
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else setVal(end);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [active]); // target excluded: captured via ref to prevent re-animation on data updates
+  return val;
 }
 
-// ─── Section: Advanced ────────────────────────────────────────────────────────
-
-function AdvancedSection({ settings, update }: {
-  settings: UserSettings; update: (k: keyof UserSettings, v: unknown) => void;
+// ─── UsageStatCard — defined outside UsageSection to keep a stable component type ─
+function UsageStatCard({ Icon, label, value, suffix = "", color, animate }: {
+  Icon: React.ElementType; label: string; value: number;
+  suffix?: string; color: string; animate: boolean;
 }) {
+  const count = useSettingsCountUp(value, animate);
   return (
-    <div className="stgSectionContent">
-      <div className="stgSectionHeader">
-        <div className="stgSectionTitle">Advanced</div>
-        <div className="stgSectionDesc">Power-user features and experimental options</div>
+    <div className="stgUsageCard" style={{
+      background: "var(--surface)", border: "2px solid var(--border-strong)",
+      borderRadius: "var(--radius-md)", borderTop: `6px solid ${color}`,
+      display: "flex", alignItems: "center", gap: 16, padding: "20px 24px",
+      boxShadow: "var(--shadow-card)", transition: "all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)"
+    }}>
+      <div style={{
+        width: 44, height: 44, borderRadius: "50%", background: `${color}14`, color,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+      }}>
+        <Icon size={20} strokeWidth={2} />
       </div>
-      <SectionCard>
-        <SettingRow label="Show Generation Prompts" desc="Display the AI prompt used for each generation">
-          <Toggle checked={settings.showPrompts} onChange={v => update("showPrompts", v)} />
-        </SettingRow>
-        <SettingRow label="Enable Beta Features" desc="Get access to features that are still being tested">
-          <Toggle checked={settings.betaFeatures} onChange={v => update("betaFeatures", v)} />
-        </SettingRow>
-        <SettingRow label="Experimental UI" desc="Try out interface changes before they go live">
-          <Toggle checked={settings.experimentalUI} onChange={v => update("experimentalUI", v)} />
-        </SettingRow>
-      </SectionCard>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="stgUsageValue" style={{ margin: 0, fontSize: 24, fontWeight: 800, color: "var(--text)", fontFamily: "var(--font-heading)", lineHeight: 1.1 }}>
+          {count.toLocaleString()}{suffix}
+        </div>
+        <div style={{ fontSize: 13, color: "var(--muted-color)", fontWeight: 600, marginTop: 4 }}>{label}</div>
+      </div>
     </div>
   );
 }
@@ -998,6 +1064,8 @@ function UsageSection() {
   const { balance, costPerImageInr } = useCredits();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [animate, setAnimate] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
 
   useEffect(() => {
     apiGet<any>("/api/usage")
@@ -1006,39 +1074,426 @@ function UsageSection() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (!loading) {
+      const t = setTimeout(() => setAnimate(true), 50);
+      return () => clearTimeout(t);
+    }
+  }, [loading]);
+
   function fmtBytes(b: number) {
     if (!b) return "0 B";
     const u = ["B","KB","MB","GB"]; const i = Math.floor(Math.log(b)/Math.log(1024));
     return (b/Math.pow(1024,i)).toFixed(i>0?1:0)+" "+u[i];
   }
 
-  const cards = loading ? [] : [
-    { label: "Images Generated",  value: data?.images ?? 0,               color: "#8B5CF6" },
-    { label: "Mood Boards",       value: data?.storyboards ?? 0,          color: "#3B82F6" },
-    { label: "Credits Spent",     value: `${Math.floor((data?.images ?? 0) * costPerImageInr)} cr`, color: "#EF4444" },
-    { label: "Storage Used",      value: fmtBytes(data?.storageBytes ?? 0), color: "#10B981" },
-    { label: "Current Balance",   value: `${Math.floor(balance)} credits`,  color: "#F59E0B" },
-    { label: "API Calls",         value: data?.apiActivity?.totalApiCalls ?? 0, color: "#EC4899" },
+  function downloadFile(content: string, filename: string, contentType: string) {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportJSON() {
+    const report = {
+      timestamp: new Date().toISOString(),
+      user: data?.user?.email || "unknown",
+      metrics: {
+        imagesGenerated: data?.images ?? 0,
+        moodBoards: data?.storyboards ?? 0,
+        creditsSpent: Math.floor((data?.images ?? 0) * costPerImageInr),
+        storageBytes: data?.storageBytes ?? 0,
+        currentBalance: balance,
+        totalApiCalls: data?.apiActivity?.totalApiCalls ?? 0,
+        avgLatencyMs: data?.apiActivity?.avgLatencyMs ?? 0,
+      },
+      dailyImageCounts: data?.dailyImageCounts ?? {},
+      apiLogs: data?.apiActivity?.logs ?? []
+    };
+    downloadFile(JSON.stringify(report, null, 2), "botzudio-usage-report.json", "application/json");
+    setExportDropdownOpen(false);
+  }
+
+  function exportCSV() {
+    let csv = "ID,Type,Model,Prompt Tokens,Output Tokens,Total Tokens,Latency (ms),Status,Error,Created At\n";
+    if (data?.apiActivity?.logs) {
+      for (const log of data.apiActivity.logs) {
+        const safeError = log.errorMessage ? log.errorMessage.replace(/"/g, '""') : "";
+        csv += `"${log.id}","${log.type}","${log.model}",${log.promptTokens},${log.outputTokens},${log.totalTokens},${log.latencyMs},"${log.status}","${safeError}","${log.createdAt}"\n`;
+      }
+    }
+    downloadFile(csv, "botzudio-api-activity.csv", "text/csv");
+    setExportDropdownOpen(false);
+  }
+
+  // Last-7-days bar data
+  const days: { short: string; full: string; count: number }[] = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d   = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const key = d.toISOString().slice(0, 10);
+    days.push({
+      short: d.toLocaleDateString("en-US", { weekday: "short" }),
+      full:  d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+      count: data?.dailyImageCounts?.[key] ?? 0,
+    });
+  }
+  const totalWeek = days.reduce((s, d) => s + d.count, 0);
+
+  const MODEL_GROUPS = [
+    { key: "flash",   label: "Flash",    color: "#8B5CF6", match: (m: string) => m.includes("flash") },
+    { key: "pro",     label: "Pro",      color: "#3B82F6", match: (m: string) => m.includes("pro") && !m.includes("kontext") },
+    { key: "flux",    label: "Flux Pro", color: "#F59E0B", match: (m: string) => m.includes("flux") || m.includes("kontext") },
+    { key: "gpt",     label: "GPT",      color: "#10B981", match: (m: string) => m.includes("gpt") || m.includes("openai") },
+    { key: "other",   label: "Other",    color: "#94A3B8", match: () => true },
   ];
+
+  function classifyModel(model: string): typeof MODEL_GROUPS[0] {
+    const m = (model || "").toLowerCase();
+    return MODEL_GROUPS.find(g => g.match(m)) ?? MODEL_GROUPS[MODEL_GROUPS.length - 1]!;
+  }
+
+  const activity = data?.apiActivity ?? { totalApiCalls: 0, totalTokens: 0, avgLatencyMs: 0, logs: [] };
+  const modelCounts: Record<string, number> = {};
+  for (const log of activity.logs ?? []) {
+    const group = classifyModel(log.model);
+    modelCounts[group.key] = (modelCounts[group.key] ?? 0) + 1;
+  }
+  const pieSlices = MODEL_GROUPS
+    .map(g => ({ label: g.label, value: modelCounts[g.key] ?? 0, color: g.color }))
+    .filter(s => s.value > 0);
+
+  const storageVal = data?.storageBytes ?? 0;
+  const storageMB = parseFloat((storageVal / (1024 * 1024)).toFixed(1));
 
   return (
     <div className="stgSectionContent">
-      <div className="stgSectionHeader">
-        <div className="stgSectionTitle">Usage</div>
-        <div className="stgSectionDesc">Your activity and consumption stats</div>
-      </div>
-      {loading ? (
-        <div className="stgEmpty">Loading usage data…</div>
-      ) : (
-        <div className="stgUsageGrid">
-          {cards.map(c => (
-            <div key={c.label} className="stgUsageCard" style={{ borderTopColor: c.color }}>
-              <div className="stgUsageValue">{c.value}</div>
-              <div className="stgUsageLabel">{c.label}</div>
-            </div>
-          ))}
+      <div className="stgSectionHeader" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div>
+          <div className="stgSectionTitle">Usage & Analytics</div>
+          <div className="stgSectionDesc">Your activity and consumption stats</div>
         </div>
+        
+        {/* Export Data Dropdown Trigger */}
+        {!loading && (
+          <div style={{ position: "relative", display: "inline-block" }}>
+            <button
+              type="button"
+              className="stgSecondaryBtn"
+              onClick={() => setExportDropdownOpen(v => !v)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 999, height: 38, border: "2px solid var(--border-strong)", fontSize: 13, fontWeight: 700 }}
+            >
+              <Download size={14} />
+              <span>Export Data</span>
+              <span style={{ fontSize: 8 }}>▼</span>
+            </button>
+            
+            {exportDropdownOpen && (
+              <>
+                <div 
+                  style={{ position: "fixed", inset: 0, zIndex: 100 }} 
+                  onClick={() => setExportDropdownOpen(false)} 
+                />
+                <div style={{
+                  position: "absolute", right: 0, top: "calc(100% + 6px)",
+                  background: "#fff", border: "2px solid var(--border-strong)",
+                  borderRadius: 12, boxShadow: "0 8px 30px rgba(0,0,0,0.18)",
+                  padding: 6, zIndex: 101, minWidth: 160, display: "flex", flexDirection: "column", gap: 2,
+                  animation: "menuFadeIn 0.12s ease"
+                }}>
+                  <button
+                    type="button"
+                    onClick={exportJSON}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8, width: "100%",
+                      padding: "9px 12px", border: "none", borderRadius: 8,
+                      background: "transparent", color: "var(--text)", fontSize: 13,
+                      fontWeight: 600, fontFamily: "inherit", cursor: "pointer", textAlign: "left"
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#F3F4F6"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    📄 Export JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportCSV}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8, width: "100%",
+                      padding: "9px 12px", border: "none", borderRadius: 8,
+                      background: "transparent", color: "var(--text)", fontSize: 13,
+                      fontWeight: 600, fontFamily: "inherit", cursor: "pointer", textAlign: "left"
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = "#F3F4F6"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                  >
+                    📊 Export CSV
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Stat card skeletons */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+            {[...Array(5)].map((_, i) => (
+              <div key={i} style={{ background: "#F3F0FB", border: "none", borderRadius: "var(--radius-md)", borderTop: "6px solid #DDD6FE", padding: "20px 24px", display: "flex", alignItems: "center", gap: 16 }}>
+                <div className="dbSk" style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0 }} />
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div className="dbSk" style={{ height: 26, width: "60%", borderRadius: 6 }} />
+                  <div className="dbSk" style={{ height: 13, width: "80%", borderRadius: 4 }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Chart skeletons */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+            {[...Array(2)].map((_, i) => (
+              <div key={i} style={{ background: "#F3F0FB", border: "none", borderRadius: "var(--radius-md)", padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div className="dbSk" style={{ height: 18, width: "50%", borderRadius: 6 }} />
+                  <div className="dbSk" style={{ height: 13, width: "35%", borderRadius: 4 }} />
+                </div>
+                <div className="dbSkBarChart" style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160 }}>
+                  {[70, 45, 85, 30, 60, 90, 50].map((h, j) => (
+                    <div key={j} className="dbSk" style={{ flex: 1, height: `${h}%`, borderRadius: "4px 4px 0 0" }} />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Grid Cards */}
+          <div className="stgUsageGrid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 24 }}>
+            <UsageStatCard animate={animate} Icon={Sparkles}   label="Images Generated" value={data?.images ?? 0} color="#8B5CF6" />
+            <UsageStatCard animate={animate} Icon={Bookmark}   label="Mood Boards"      value={data?.storyboards ?? 0} color="#3B82F6" />
+            <UsageStatCard animate={animate} Icon={Coins}      label="Credits Spent"    value={Math.floor((data?.images ?? 0) * costPerImageInr)} suffix=" cr" color="#EF4444" />
+            <UsageStatCard animate={animate} Icon={HardDrive}  label="Storage Used"     value={storageMB} suffix=" MB" color="#10B981" />
+            <UsageStatCard animate={animate} Icon={CreditCard} label="Current Balance"  value={Math.floor(balance)} suffix=" credits" color="#F59E0B" />
+          </div>
+
+          {/* Visualizations row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16, marginBottom: 16 }}>
+            
+            {/* SVG Bar Chart for Generation Activity */}
+            <div className="stgCard" style={{ padding: 20 }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text)" }}>Image Generation Activity</div>
+                <div style={{ fontSize: 12, color: "var(--muted-color)", marginTop: 2 }}>Last 7 days · {totalWeek} total images</div>
+              </div>
+              <div style={{ height: 160, width: "100%" }}>
+                <UsageBarChart days={days} animate={animate} />
+              </div>
+            </div>
+
+            {/* Donut Chart for Model Distribution */}
+            <div className="stgCard" style={{ padding: 20 }}>
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text)" }}>Models Used</div>
+                <div style={{ fontSize: 12, color: "var(--muted-color)", marginTop: 2 }}>Based on API call history</div>
+              </div>
+              <UsageDonutChart slices={pieSlices} animate={animate} />
+            </div>
+
+          </div>
+        </>
       )}
+    </div>
+  );
+}
+
+// ─── SVG Bar Chart for Usage Section ───────────────────────────────────────
+function UsageBarChart({ days, animate }: {
+  days: { short: string; full: string; count: number }[];
+  animate: boolean;
+}) {
+  const W = 420, H = 160, padL = 32, padR = 8, padT = 16, padB = 24;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+  const maxCount = Math.max(1, ...days.map(d => d.count));
+  const barW = Math.floor(chartW / days.length * 0.55);
+  const gap  = chartW / days.length;
+  const gridLines = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "100%", overflow: "visible" }}>
+      <defs>
+        <linearGradient id="usageBarGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#C4B5FD" />
+          <stop offset="100%" stopColor="#8B5CF6" />
+        </linearGradient>
+      </defs>
+
+      {/* Grid lines + Y labels */}
+      {gridLines.map(frac => {
+        const y = padT + chartH * (1 - frac);
+        const val = Math.round(maxCount * frac);
+        return (
+          <g key={frac}>
+            <line x1={padL} y1={y} x2={W - padR} y2={y}
+              stroke={frac === 0 ? "#CBD5E1" : "#E2E8F0"}
+              strokeWidth={frac === 0 ? 1.5 : 1}
+              strokeDasharray={frac === 0 ? "none" : "3 3"}
+            />
+            {frac > 0 && (
+              <text x={padL - 5} y={y + 4} textAnchor="end"
+                fontSize={9} fill="#94A3B8" fontFamily="inherit" fontWeight={600}>
+                {val}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {/* Bars */}
+      {days.map((d, i) => {
+        const cx    = padL + gap * i + gap / 2;
+        const bx    = cx - barW / 2;
+        const pct   = maxCount > 0 ? d.count / maxCount : 0;
+        const bh    = animate ? Math.max(pct * chartH, d.count > 0 ? 4 : 0) : 0;
+        const by    = padT + chartH - bh;
+        const rFull = 5;
+
+        return (
+          <g key={i}>
+            <rect
+              x={bx} y={by} width={barW} height={bh}
+              rx={bh >= rFull * 2 ? rFull : bh / 2}
+              fill="url(#usageBarGrad)"
+              style={{
+                transition: `y 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms, height 0.7s cubic-bezier(0.22,1,0.36,1) ${i * 60}ms`,
+              }}
+            >
+              <title>{d.full}: {d.count} images</title>
+            </rect>
+
+            {/* Count label above bar */}
+            {d.count > 0 && animate && (
+              <text
+                x={cx} y={by - 4}
+                textAnchor="middle" fontSize={9} fontWeight={800}
+                fill="#8B5CF6" fontFamily="inherit"
+                style={{ transition: `opacity 0.4s ease ${i * 60 + 400}ms` }}
+              >
+                {d.count}
+              </text>
+            )}
+
+            {/* Day label */}
+            <text x={cx} y={H - 4} textAnchor="middle"
+              fontSize={10} fontWeight={700} fill="#94A3B8"
+              fontFamily="inherit" style={{ textTransform: "uppercase" }}>
+              {d.short}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── SVG Donut Chart for Usage Section ─────────────────────────────────────
+function UsageDonutChart({ slices, animate }: {
+  slices: { label: string; value: number; color: string }[];
+  animate: boolean;
+}) {
+  const cx = 80, cy = 80, r = 58, rInner = 36;
+  const total = slices.reduce((s, sl) => s + sl.value, 0);
+  if (total === 0) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 160, color: "#94A3B8", fontSize: 12 }}>
+        No model data yet
+      </div>
+    );
+  }
+
+  const sorted = [...slices].sort((a, b) => b.value - a.value);
+  const startAngle = -90;
+
+  function polarToXY(deg: number, radius: number) {
+    const rad = (deg * Math.PI) / 180;
+    return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) };
+  }
+
+  function arcPath(startDeg: number, endDeg: number): string {
+    const s = polarToXY(startDeg, r);
+    const e = polarToXY(endDeg, r);
+    const si = polarToXY(startDeg, rInner);
+    const ei = polarToXY(endDeg, rInner);
+    const large = endDeg - startDeg > 180 ? 1 : 0;
+    return [
+      `M ${s.x} ${s.y}`,
+      `A ${r} ${r} 0 ${large} 1 ${e.x} ${e.y}`,
+      `L ${ei.x} ${ei.y}`,
+      `A ${rInner} ${rInner} 0 ${large} 0 ${si.x} ${si.y}`,
+      "Z",
+    ].join(" ");
+  }
+
+  let angle = startAngle;
+  const arcs = sorted.map(sl => {
+    const sweep = (sl.value / total) * 360;
+    const start = angle;
+    const end   = angle + sweep;
+    angle = end;
+    return { ...sl, start, end, sweep };
+  });
+
+  const biggest = sorted[0];
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <svg viewBox="0 0 160 160" style={{ width: 130, height: 130, flexShrink: 0 }}>
+        {arcs.map((arc, i) => (
+          <path
+            key={arc.label}
+            d={arcPath(arc.start, arc.end)}
+            fill={arc.color}
+            stroke="#fff"
+            strokeWidth={2}
+            style={{
+              opacity: animate ? 1 : 0,
+              transition: `opacity 0.5s ease ${i * 80}ms`,
+            }}
+          >
+            <title>{arc.label}: {arc.value} ({((arc.value / total) * 100).toFixed(1)}%)</title>
+          </path>
+        ))}
+
+        {biggest && (
+          <>
+            <text x={cx} y={cy - 4} textAnchor="middle" fontSize={18} fontWeight={900} fill="#1E293B" fontFamily="inherit">
+              {biggest.value}
+            </text>
+            <text x={cx} y={cy + 10} textAnchor="middle" fontSize={8} fontWeight={800} fill="#8B5CF6" fontFamily="inherit" style={{ textTransform: "uppercase" }}>
+              {biggest.label}
+            </text>
+          </>
+        )}
+      </svg>
+
+      {/* Legend */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
+        {arcs.map(arc => (
+          <div key={arc.label} style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+            <div style={{ width: 8, height: 8, borderRadius: 2, background: arc.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11.5, fontWeight: 700, color: "#1E293B", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arc.label}</span>
+            <span style={{ fontSize: 11, color: "#64748B", fontWeight: 600 }}>{arc.value}</span>
+            <span style={{ fontSize: 10, color: "#94A3B8", fontWeight: 600, minWidth: 28, textAlign: "right" }}>
+              {((arc.value / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1088,14 +1543,25 @@ function SupportSection() {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const { balance, isDeveloper } = useCredits();
+  const session = getSession();
   const navigate = useNavigate();
   const location = useLocation();
   const rawSection = (location.state as { section?: string } | null)?.section;
-  const validSections: SectionKey[] = ["profile","credits","generation","notifications","assets","security","performance","usage","support"];
-  const initialSection: SectionKey = (validSections.includes(rawSection as SectionKey) ? rawSection : "profile") as SectionKey;
+  
+  const validSections: SectionKey[] = ["profile","credits","generation","assets","security","usage","support"];
+  
+  // Map consolidated routes for backward compatibility
+  let mappedSection: SectionKey = rawSection as SectionKey;
+  if (rawSection === "notifications") mappedSection = "profile";
+  if (rawSection === "performance") mappedSection = "generation";
+  
+  const initialSection: SectionKey = (validSections.includes(mappedSection) ? mappedSection : "profile") as SectionKey;
+  
   const [activeSection, setActiveSection] = useState<SectionKey>(initialSection);
   const [settings, setSettings] = useState<UserSettings>(loadSettings);
   const [transitioning, setTransitioning] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   function update(key: keyof UserSettings, value: unknown) {
@@ -1111,11 +1577,14 @@ export default function SettingsPage() {
   }, [activeSection]);
 
   function goBackToApp() {
+    localStorage.setItem("esg_active_tab_v1", "generate");
     setTransitioning(true);
     setTimeout(() => navigate("/app"), 1000);
   }
 
   const SIDEBAR_W = 220;
+
+
 
   if (transitioning) {
     return (
@@ -1159,114 +1628,196 @@ export default function SettingsPage() {
   const activeLabel = SECTIONS.find(s => s.key === activeSection)?.label ?? "Settings";
 
   return (
-    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex", flexDirection: "column" }}>
+    <div className="stgRootPage" style={{ height: "100vh", overflow: "hidden", background: "var(--bg)", display: "flex" }}>
 
-      {/* ── Header ────────────────────────────────────────────────────── */}
-      <header style={{ height: 60, flexShrink: 0, display: "flex" }}>
-        {/* Purple brand — identical to main app nav */}
-        <div className="stgHeaderBrandCol" style={{
-          width: SIDEBAR_W, flexShrink: 0,
-          background: "var(--accent)",
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-          borderBottom: "2px solid rgba(255,255,255,0.2)",
-          display: "flex", alignItems: "center",
-          padding: "0 16px", gap: 10,
-        }}>
+      {/* ── Purple app sidebar (Full Height, real app nav) ────────────────── */}
+      <aside className="stgAppSidebar" style={{
+        width: SIDEBAR_W, flexShrink: 0,
+        background: "var(--accent)",
+        backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
+        backgroundSize: "18px 18px",
+        display: "flex", flexDirection: "column",
+        borderRight: "2px solid rgba(255,255,255,0.15)",
+        height: "100vh",
+      }}>
+        {/* Top Brand Area in Sidebar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 18px 16px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
           <div style={{
-            width: 34, height: 34, borderRadius: 8, background: "#fff",
+            width: 32, height: 32, borderRadius: 8, background: "#fff",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontFamily: "'Outfit', sans-serif", fontWeight: 900,
-            fontSize: 13, color: "var(--accent)", flexShrink: 0,
+            fontSize: 12, color: "var(--accent)", flexShrink: 0,
+            border: "1.5px solid rgba(0,0,0,0.1)",
           }}>BZ</div>
-          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 17, color: "#fff", letterSpacing: "-0.3px" }}>
+          <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 18, color: "#fff", letterSpacing: "-0.3px" }}>
             Botzudio
           </span>
         </div>
 
-        {/* Breadcrumb bar — left: path, right: back button */}
-        <div style={{
-          flex: 1, background: "var(--bg)", borderBottom: "2px solid var(--border-strong)",
-          display: "flex", alignItems: "center", padding: "0 20px", gap: 8,
-        }}>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.2px" }}>Settings</span>
-          <span style={{ color: "var(--muted-color)", fontSize: 14, userSelect: "none" }}>›</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
-          <button type="button" className="stgBackBtn" onClick={goBackToApp} style={{ marginLeft: "auto" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M19 12H5M12 5l-7 7 7 7"/>
-            </svg>
-            Back to App
-          </button>
-        </div>
-      </header>
+        {/* Navigation Menu — exact copy of main app navbar */}
+        <nav className="sidebarNav" role="tablist" aria-label="Main sections" style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+          {APP_NAV.map(({ tab, label, Icon }) => (
+            <button
+              key={tab}
+              type="button"
+              className="navButton"
+              onClick={() => {
+                if (tab === "docs") { navigate("/app/documentation"); return; }
+                localStorage.setItem("esg_active_tab_v1", tab);
+                navigate("/app");
+              }}
+            >
+              <Icon size={16} className="navButtonIcon" />
+              {label}
+            </button>
+          ))}
+        </nav>
 
-      {/* ── Body ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-
-        {/* Purple app sidebar — real app nav, navigates back to app tabs */}
-        <aside className="stgAppSidebar" style={{
-          width: SIDEBAR_W, flexShrink: 0,
-          background: "var(--accent)",
-          backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.15) 1px, transparent 1px)",
-          backgroundSize: "18px 18px",
-          display: "flex", flexDirection: "column",
-          borderRight: "2px solid rgba(255,255,255,0.15)",
-        }}>
-          <nav className="sidebarNav" style={{ padding: "10px 10px", flex: 1 }}>
-            {APP_NAV.map(({ tab, label, Icon }) => (
+        {/* Bottom Sidebar Widgets (EmailKit style) */}
+        <div className="sidebarFooter">
+          {/* Credits tracker pill */}
+          <div className="creditsPillCard">
+            <div>
+              <div className="creditsPillLabel">Credits</div>
+              <div className="creditsPillValue">
+                {isDeveloper ? "Unlimited" : Math.floor(balance)}
+              </div>
+            </div>
+            {!isDeveloper && (
               <button
-                key={tab}
                 type="button"
-                className="navButton"
+                className="creditsPillAddBtn"
                 onClick={() => {
-                  if (tab === "docs") { navigate("/app/documentation"); return; }
-                  if (tab === "credits") { navigate("/app/settings", { state: { section: "credits" } }); setActiveSection("credits"); return; }
-                  localStorage.setItem("esg_active_tab_v1", tab);
-                  navigate("/app");
+                  setActiveSection("credits");
+                  contentRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                 }}
+                title="Buy Credits"
               >
-                <Icon size={15} className="navButtonIcon" strokeWidth={2} />
-                <span>{label}</span>
+                +
               </button>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Content column */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
-
-          {/* ── Horizontal tab bar ─────────────────────────────────────── */}
-          <div className="stgTabBar">
-            {SECTIONS.map(s => {
-              const active = activeSection === s.key;
-              return (
-                <button
-                  key={s.key}
-                  type="button"
-                  className={`stgTab${active ? " stgTabActive" : ""}`}
-                  onClick={() => setActiveSection(s.key)}
-                >
-                  <s.Icon size={13} strokeWidth={2} style={{ flexShrink: 0 }} />
-                  {s.label}
-                </button>
-              );
-            })}
+            )}
           </div>
 
-          {/* ── Section content ────────────────────────────────────────── */}
-          <div className="stgContent" ref={contentRef}>
-            <div className="stgContentInner">
-              {activeSection === "profile"       && <ProfileSection       settings={settings} update={update} />}
-              {activeSection === "credits"       && <CreditsSection />}
-              {activeSection === "generation"    && <GenerationSection    settings={settings} update={update} />}
-              {activeSection === "notifications" && <NotificationsSection settings={settings} update={update} />}
-              {activeSection === "assets"        && <AssetsSection        settings={settings} update={update} />}
-              {activeSection === "security"      && <SecuritySection      settings={settings} update={update} />}
-              {activeSection === "performance"   && <PerformanceSection   settings={settings} update={update} />}
-              {activeSection === "usage"         && <UsageSection />}
-              {activeSection === "support"       && <SupportSection />}
+          {/* User footer row */}
+          <div className="userFooterRow">
+            <div className="userFooterAvatar">
+              {(session?.name || session?.email || "U")[0].toUpperCase()}
             </div>
+            <div className="userFooterDetails">
+              <div className="userFooterName">{session?.name || "No name set"}</div>
+              <div className="userFooterEmail">{session?.email}</div>
+            </div>
+            <button type="button" className="userFooterLogout" onClick={logout} title="Sign Out">
+              <LogOut size={15} strokeWidth={2.2} />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ── Mobile Hamburger Header ────────────────────────────────────── */}
+      <header className="mobileHeader">
+        <button
+          type="button"
+          className="mobileHamburgerBtn"
+          onClick={() => setMobileNavOpen(true)}
+          aria-label="Open navigation"
+        >
+          <Menu size={22} />
+        </button>
+        <div className="mobileHeaderBrand">
+          <div className="mobileHeaderLogo">BZ</div>
+          <span className="mobileHeaderTitle">Botzudio</span>
+        </div>
+        <div style={{ width: 34 }} />
+      </header>
+
+      {/* ── Mobile Drawer Overlay ───────────────────────────────────────── */}
+      {mobileNavOpen && (
+        <div className="mobileDrawerOverlay" onClick={() => setMobileNavOpen(false)} />
+      )}
+
+      {/* ── Mobile Drawer ──────────────────────────────────────────────── */}
+      <div className={`mobileDrawer${mobileNavOpen ? " mobileDrawerOpen" : ""}`} aria-hidden={!mobileNavOpen}>
+        <div className="mobileDrawerHeader">
+          <div className="mobileHeaderBrand">
+            <div className="mobileHeaderLogo">BZ</div>
+            <span className="mobileHeaderTitle">Botzudio</span>
+          </div>
+          <button
+            type="button"
+            className="mobileDrawerClose"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Close navigation"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="sidebarNav" role="tablist" aria-label="Main sections" style={{ padding: "16px 12px", flex: 1, overflowY: "auto" }}>
+          {APP_NAV.map(({ tab, label, Icon }) => (
+            <button
+              key={tab}
+              type="button"
+              className="navButton"
+              onClick={() => {
+                if (tab === "docs") { navigate("/app/documentation"); return; }
+                localStorage.setItem("esg_active_tab_v1", tab);
+                navigate("/app");
+                setMobileNavOpen(false);
+              }}
+            >
+              <Icon size={16} className="navButtonIcon" />
+              {label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* ── Main Content Area ────────────────────────────────────────── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
+
+        {/* ── Content Header (Breadcrumbs + Title) ─────────────────── */}
+        <div className="stgContentHeader">
+          <div className="stgBreadcrumbs">
+            <span className="stgBreadcrumbLink" style={{ cursor: "pointer" }} onClick={() => { localStorage.setItem("esg_active_tab_v1", "generate"); navigate("/app"); }}>App</span>
+            <span className="stgBreadcrumbSep">›</span>
+            <span className="stgBreadcrumbActive">Settings</span>
+            <span className="stgBreadcrumbSep">›</span>
+            <span className="stgBreadcrumbActive" style={{ fontWeight: 700, color: "var(--accent)" }}>{activeLabel}</span>
+          </div>
+          
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: 12 }}>
+            <h1 className="stgHeaderTitle">{activeLabel}</h1>
+          </div>
+        </div>
+
+        {/* ── Horizontal Navigation Tabs (Flat Underline) ───────────── */}
+        <div className="stgHorizontalTabs">
+          {SECTIONS.map(s => {
+            const active = activeSection === s.key;
+            return (
+              <button
+                key={s.key}
+                type="button"
+                className={`stgTabItem${active ? " stgTabItemActive" : ""}`}
+                onClick={() => setActiveSection(s.key)}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Scrolling Section content ─────────────────────────────── */}
+        <div className="stgContent" ref={contentRef}>
+          <div className="stgContentInner">
+            {activeSection === "profile"    && <ProfileSection    settings={settings} update={update} />}
+            {activeSection === "credits"    && <CreditsSection />}
+            {activeSection === "generation" && <GenerationSection settings={settings} update={update} />}
+            {activeSection === "assets"     && <AssetsSection     settings={settings} update={update} />}
+            {activeSection === "security"   && <SecuritySection   settings={settings} update={update} />}
+            {activeSection === "usage"      && <UsageSection />}
+            {activeSection === "support"    && <SupportSection />}
           </div>
         </div>
       </div>

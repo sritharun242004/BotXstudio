@@ -45,7 +45,10 @@
 
 .fx-bgs {
   position: absolute;
-  inset: 0;
+  top: 64px; /* clear fixed navbar */
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--fx-stage-bg);
   z-index: 1;
 }
@@ -124,7 +127,7 @@
   letter-spacing: 0em;
   line-height: 1;
   margin: calc(var(--fx-row-gap) / 2) 0;
-  opacity: 0.35;
+  opacity: 0;
   transition: opacity 0.3s ease, transform 0.3s ease;
   position: relative;
   font-size: clamp(0.8rem, 1.8vw, 1.4rem);
@@ -279,11 +282,29 @@
   .fx-left,
   .fx-right {
     justify-items: center;
-    height: 30vh;
+    height: auto;
   }
 
   .fx-track {
     transform: none !important;
+  }
+
+  /* Only show active item on tablet — prevents number/image collisions */
+  .fx-left-item:not(.active),
+  .fx-right-item:not(.active) {
+    display: none !important;
+  }
+
+  .fx-left-item.active,
+  .fx-right-item.active {
+    opacity: 1 !important;
+    transform: none !important;
+    padding: 0 !important;
+  }
+
+  .fx-left-item.active::before,
+  .fx-right-item.active::after {
+    display: none;
   }
 
   .fx-header {

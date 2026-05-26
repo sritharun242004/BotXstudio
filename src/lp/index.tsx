@@ -84,14 +84,7 @@ const HOW_IT_WORKS_SECTIONS = [
     id: "download-all",
     background: `${PROCESS}out3.png`,
     leftLabel: (
-      <div style={{ display: "flex", gap: 8 }}>
-        {[
-          { src: `${PROCESS}out2.png`, alt: "Back" },
-          { src: `${PROCESS}out3.png`, alt: "Detail" },
-        ].map(({ src, alt }) => (
-          <img key={alt} src={src} alt={alt} style={{ width: 88, height: 118, objectFit: "cover" as const, borderRadius: 10 }} />
-        ))}
-      </div>
+      <img src={`${PROCESS}out3.png`} alt="Detail" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
     ),
     title: "Download All",
     rightLabel: (
@@ -363,7 +356,7 @@ export function LandingPageTheme() {
           gridPaddingX={3}
           colors={{
             text: "#1E293B",
-            overlay: "linear-gradient(to right, rgba(255,253,245,0.92) 0%, rgba(255,253,245,0.55) 22%, rgba(255,253,245,0.12) 42%, rgba(255,253,245,0.12) 58%, rgba(255,253,245,0.55) 78%, rgba(255,253,245,0.92) 100%), linear-gradient(to bottom, rgba(255,253,245,0.65) 0%, rgba(255,253,245,0.05) 20%, rgba(255,253,245,0.05) 80%, rgba(255,253,245,0.65) 100%)",
+            overlay: "transparent",
             pageBg: "#FFFDF5",
             stageBg: "transparent",
           }}
@@ -388,26 +381,27 @@ export function LandingPageTheme() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20 }} className="lp-gallery-g">
+          <div className="lp-gallery-g">
             {GALLERY.map((img, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, scale: 0.92 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                style={{ position: "relative", borderRadius: 16, border: "2px solid #1E293B", background: img.bg, aspectRatio: i < 3 ? "3/4" : "1/1", boxShadow: "4px 4px 0 #1E293B", overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s", cursor: "default" }}
-                className="lp-gallery-item"
-              >
-                <img
-                  src={img.src}
-                  alt={img.label}
-                  style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                />
-                <div style={{ position: "absolute", bottom: 14, left: 14, background: "#fff", padding: "4px 12px", borderRadius: 8, border: "2px solid #1E293B", fontSize: 13, fontWeight: 700, boxShadow: "2px 2px 0 #1E293B" }}>
-                  {img.label}
-                </div>
-              </motion.div>
+              <div key={i} className={`lp-gallery-wrap lp-gallery-wrap-${i}`}>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  style={{ position: "relative", borderRadius: 16, border: "2px solid #1E293B", background: img.bg, aspectRatio: "3/4", boxShadow: "4px 4px 0 #1E293B", overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s", cursor: "default" }}
+                  className="lp-gallery-item"
+                >
+                  <img
+                    src={img.src}
+                    alt={img.label}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  />
+                  <div style={{ position: "absolute", bottom: 14, left: 14, background: "#fff", padding: "4px 12px", borderRadius: 8, border: "2px solid #1E293B", fontSize: 13, fontWeight: 700, boxShadow: "2px 2px 0 #1E293B" }}>
+                    {img.label}
+                  </div>
+                </motion.div>
+              </div>
             ))}
           </div>
         </div>
@@ -564,11 +558,7 @@ export function LandingPageTheme() {
               <p style={{ fontSize: 11, fontWeight: 700, color: "#64748B", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Pack 1</p>
               <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 6 }}>Basic</h3>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹299</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: "#94A3B8", textDecoration: "line-through", lineHeight: 1 }}>₹499</span>
-                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, color: "#059669", background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 4, padding: "1px 6px", lineHeight: 1.4 }}>Save 40%</span>
-                </div>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹499</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: "#F1F5F9", borderRadius: 8, padding: "5px 14px" }}>
@@ -603,10 +593,10 @@ export function LandingPageTheme() {
               <p style={{ fontSize: 11, fontWeight: 700, color: "#8B5CF6", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Most Popular</p>
               <h3 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 24, marginBottom: 6 }}>Growth</h3>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹999</span>
+                <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 40, letterSpacing: "-1.5px", lineHeight: 1 }}>₹1,299</span>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 700, fontSize: 15, color: "#C4B5FD", textDecoration: "line-through", lineHeight: 1 }}>₹1,499</span>
-                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, color: "#7C3AED", background: "#EDE9FE", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", lineHeight: 1.4 }}>Save 33%</span>
+                  <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: 11, color: "#7C3AED", background: "#EDE9FE", border: "1px solid #C4B5FD", borderRadius: 4, padding: "1px 6px", lineHeight: 1.4 }}>Save 13%</span>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>

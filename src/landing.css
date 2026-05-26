@@ -37,12 +37,9 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  /* width driven by class; all other visual props driven by Framer Motion */
-  width: 100%;
-  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.lp-nav-scrolled {
   width: calc(100% - 64px);
+  max-width: 880px;
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .lp-nav-brand {
   display: flex;
@@ -1042,7 +1039,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
 .lp-hero-grid { grid-template-columns: 1fr 1fr !important; gap: 64px !important; }
 .lp-problem-grid { grid-template-columns: repeat(3, 1fr) !important; }
 .lp-steps-grid { grid-template-columns: repeat(4, 1fr) !important; }
-.lp-gallery-g { grid-template-columns: repeat(3, 1fr) !important; }
+.lp-gallery-g { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .lp-impact-grid { grid-template-columns: repeat(3, 1fr) !important; }
 .lp-persona-g { grid-template-columns: repeat(2, 1fr) !important; }
 .lp-pricing-g { grid-template-columns: repeat(3, 1fr) !important; }
@@ -1062,10 +1059,45 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-pricing-g { grid-template-columns: repeat(2, 1fr) !important; max-width: 100%; }
 }
 @media (max-width: 600px) {
-  .lp-gallery-g { grid-template-columns: 1fr !important; }
   .lp-steps-grid { grid-template-columns: 1fr !important; }
   .lp-persona-g { grid-template-columns: 1fr !important; }
   .lp-pricing-g { grid-template-columns: 1fr !important; max-width: 440px; margin: 0 auto; }
+
+  /* ── Sticky stacking gallery cards ── */
+  .lp-gallery-g {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    grid-template-columns: unset !important;
+  }
+  /* Each wrapper is the sticky anchor — different top creates peeking stack */
+  .lp-gallery-wrap {
+    position: sticky;
+  }
+  .lp-gallery-wrap-0 { top: 72px;  z-index: 10; margin-bottom: 52vh; }
+  .lp-gallery-wrap-1 { top: 90px;  z-index: 20; margin-bottom: 52vh; }
+  .lp-gallery-wrap-2 { top: 108px; z-index: 30; margin-bottom: 32px; }
+
+  /* Tilt each card differently — alternating to feel like a real card deck */
+  .lp-gallery-wrap-0 .lp-gallery-item { transform: rotate(2.5deg);  }
+  .lp-gallery-wrap-1 .lp-gallery-item { transform: rotate(-1.8deg); }
+  .lp-gallery-wrap-2 .lp-gallery-item { transform: rotate(2deg);    }
+
+  /* Smooth entry + tilt transition */
+  .lp-gallery-wrap .lp-gallery-item {
+    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow 0.55s cubic-bezier(0.22, 1, 0.36, 1) !important;
+    will-change: transform;
+    /* Keep card full-width so the image stays large */
+    width: 100%;
+  }
+  /* Kill hover lift on mobile — sticky tilted cards shouldn't jump */
+  .lp-gallery-item:hover {
+    transform: rotate(2.5deg) !important; /* keep first card's tilt on hover */
+    box-shadow: 4px 4px 0 #1E293B !important;
+  }
+  .lp-gallery-wrap-1 .lp-gallery-item:hover { transform: rotate(-1.8deg) !important; }
+  .lp-gallery-wrap-2 .lp-gallery-item:hover { transform: rotate(2deg) !important; }
 }
 
 @media (max-width: 900px) {
@@ -1078,7 +1110,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-showcase-inner { grid-template-columns: 1fr; }
   .lp-showcase-visual { display: none; }
   .lp-footer-top { grid-template-columns: 1fr 1fr; gap: 32px; }
-  .lp-nav-scrolled { width: calc(100% - 32px); }
+  .lp-nav { width: calc(100% - 32px); max-width: 100%; }
   .lp-section { padding: 64px 24px; }
   .lp-stats-bar { flex-wrap: wrap; }
   .lp-stats-item { flex: 1 1 50%; border-right: none; border-bottom: 2px solid var(--border); }
@@ -1097,7 +1129,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-steps, .lp-steps-4, .lp-steps-5 { grid-template-columns: 1fr; }
   .lp-footer-top { grid-template-columns: 1fr; }
   .lp-nav-links { display: none; }
-  .lp-nav-scrolled { width: calc(100% - 24px); }
+  .lp-nav { width: calc(100% - 24px); max-width: 100%; }
   .lp-gallery-grid { grid-template-columns: 1fr; }
   .lp-persona-grid { grid-template-columns: 1fr; }
   .lp-stats-item { flex: 1 1 100%; border-right: none !important; }
@@ -1927,7 +1959,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
     top: 0;
     left: 0;
     right: 0;
-    padding: 40px 40px 0;
+    padding: 84px 40px 0; /* Clear the 70px height of the floating navbar */
     justify-content: space-between;
     align-items: flex-start;
     pointer-events: none;
@@ -1989,7 +2021,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   section { padding-top: 44px !important; padding-bottom: 44px !important; }
 
   /* Scale images down for narrower phones, keep safe padding */
-  .lp-mobile-top-images { padding: 36px 30px 0; }
+  .lp-mobile-top-images { padding: 80px 30px 0; }
   .lp-mobile-top-images img { width: 110px; height: 146px; }
 
   .lp-mobile-bottom-images { padding: 0 30px 36px; }

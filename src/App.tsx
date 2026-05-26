@@ -3,18 +3,18 @@ import { useNavigate } from "react-router-dom";
 import { getSession, logout, type Session } from "./lib/auth";
 import { ADMIN_EMAIL } from "./lib/adminAuth";
 import { useCredits } from "./context/CreditsContext";
-import DashboardTab from "./components/DashboardTab";
-import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt, Menu, X } from "lucide-react";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt, Menu, X, Coins } from "lucide-react";
 
-import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
 import FieldLabel from "./components/FieldLabel";
+import Toast, { type ToastItem } from "./components/Toast";
+import DashboardTab from "./components/DashboardTab";
+import DeleteStoryboardModal from "./components/DeleteStoryboardModal";
 import ImageModal from "./components/ImageModal";
 import StoryboardLibrary from "./components/StoryboardLibrary";
 import StoryboardEditorHeader from "./components/StoryboardEditorHeader";
 import StoryboardFormCards from "./components/StoryboardFormCards";
 import StoryboardResultsPane from "./components/StoryboardResultsPane";
 import PrintsTab from "./components/PrintsTab";
-import Toast, { type ToastItem } from "./components/Toast";
 import SavedImagesPane from "./components/SavedImagesPane";
 import AssetsTab from "./components/AssetsTab";
 import UsageTab from "./components/UsageTab";
@@ -568,7 +568,7 @@ function storyboardSubtitle(sb: StoryboardRecord): string {
 export default function App() {
   // ── Credits ────────────────────────────────────────────────────────────────
   const navigate = useNavigate();
-  const { freeImagesRemaining, refreshBalance } = useCredits();
+  const { freeImagesRemaining, refreshBalance, balance, isDeveloper } = useCredits();
   const [showRechargeModal, setShowRechargeModal] = useState(false);
 
   // ── Session ────────────────────────────────────────────────────────────────
@@ -602,8 +602,8 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored === "prints" || stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon"
-      ? stored : "prints";
+    return stored && stored !== "prints" && (stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon")
+      ? stored : "generate";
   });
 
   // Tab-switch shimmer
@@ -2359,7 +2359,7 @@ export default function App() {
 
         <aside className="sidebar">
           {/* Brand */}
-          <div className="sidebarBrand">
+          <div className="sidebarBrand" style={{ cursor: "pointer" }} onClick={() => navigate("/")}>
             <div style={{
               width: 34, height: 34, borderRadius: 8,
               background: "#fff", flexShrink: 0,
@@ -2373,7 +2373,6 @@ export default function App() {
           {/* Nav */}
           <nav className="sidebarNav" role="tablist" aria-label="Main sections">
             {([
-              { tab: "prints",     label: "Add Prints",      Icon: Palette         },
               { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
               { tab: "tryon",      label: "Try On",           Icon: Shirt           },
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
@@ -2394,29 +2393,36 @@ export default function App() {
             <button
               type="button"
               className="navButton"
-              onClick={() => navigate("/app/settings", { state: { section: "credits" } })}
-            >
-              <BarChart2 size={16} className="navButtonIcon" />
-              Credits
-            </button>
-            <button
-              type="button"
-              className="navButton"
               onClick={() => navigate("/app/documentation")}
             >
               <BookOpen size={16} className="navButtonIcon" />
               Documents
             </button>
-            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
-              <Box size={16} className="navButtonIcon" />
-              Multi-Angle
-              <span className="navButtonComingSoonBadge">Coming Soon</span>
-            </button>
           </nav>
 
-          {/* User row */}
+          {/* Footer: Credits + User row */}
+          <div className="sidebarFooter">
+            <div className="creditsPillCard">
+              <div>
+                <div className="creditsPillLabel">Credits</div>
+                <div className="creditsPillValue">
+                  {isDeveloper ? "Unlimited" : Math.floor(balance)}
+                </div>
+              </div>
+              {!isDeveloper && (
+                <button
+                  type="button"
+                  className="creditsPillAddBtn"
+                  onClick={() => navigate("/app/settings", { state: { section: "credits" } })}
+                  title="Buy Credits"
+                >
+                  +
+                </button>
+              )}
+            </div>
+
           {session && (
-            <div className="sidebarUser" ref={userMenuRef}>
+            <div className="sidebarUser" ref={userMenuRef} style={{ padding: 0, border: "none", marginTop: 0 }}>
               {userMenuOpen && (
                 <div className="sidebarUserMenu">
                   <button type="button" className="sidebarMenuOption" onClick={() => { navigate("/app/settings"); setUserMenuOpen(false); }}>
@@ -2460,6 +2466,7 @@ export default function App() {
               </div>
             </div>
           )}
+          </div>
         </aside>
 
         <main className="mainContent">
@@ -2470,17 +2477,121 @@ export default function App() {
               aria-hidden="true"
             >
               <div className="tabShimmerInner">
-                <div className="stgTransSk tabSkTitle" />
-                <div className="tabSkCards">
-                  <div className="stgTransSk tabSkCard" />
-                  <div className="stgTransSk tabSkCard" />
-                </div>
-                <div className="stgTransSk tabSkWide" />
-                <div className="tabSkSmall">
-                  <div className="stgTransSk tabSkSmallBlock" />
-                  <div className="stgTransSk tabSkSmallBlock" />
-                  <div className="stgTransSk tabSkSmallBlock" />
-                </div>
+                {/* Tab title */}
+                <div className="stgTransSk" style={{ height: 28, width: 200, borderRadius: 8 }} />
+
+                {/* Generate Images */}
+                {activeTab === "generate" && <>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                    <div className="stgTransSk" style={{ height: 22, width: 140, borderRadius: 6 }} />
+                    <div className="stgTransSk" style={{ height: 36, width: 150, borderRadius: 999 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[80,90,70,85].map((w,i) => <div key={i} className="stgTransSk" style={{ height: 30, width: w, borderRadius: 999 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14 }}>
+                    {[...Array(6)].map((_,i) => <div key={i} className="stgTransSk" style={{ height: 120, borderRadius: 14 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {[60,80,60,80].map((h,i) => <div key={i} className="stgTransSk" style={{ height: h, borderRadius: 10 }} />)}
+                    </div>
+                    <div className="stgTransSk" style={{ height: 380, borderRadius: 14 }} />
+                  </div>
+                </>}
+
+                {/* Try On */}
+                {activeTab === "tryon" && <>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[100,100,90].map((w,i) => <div key={i} className="stgTransSk" style={{ height: 32, width: w, borderRadius: 999 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 28 }}>
+                    {[1,2,3].map(i => (
+                      <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div className="stgTransSk" style={{ height: 13, width: "60%", borderRadius: 4 }} />
+                        <div className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 12 }} />
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <div className="stgTransSk" style={{ height: 44, width: 180, borderRadius: 999 }} />
+                  </div>
+                </>}
+
+                {/* Saved Images */}
+                {activeTab === "saved" && <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div className="stgTransSk" style={{ height: 22, width: 160, borderRadius: 6 }} />
+                    <div className="stgTransSk" style={{ height: 22, width: 40, borderRadius: 999 }} />
+                    <div style={{ marginLeft: "auto" }}><div className="stgTransSk" style={{ height: 34, width: 90, borderRadius: 20 }} /></div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[55,70,60,80].map((w,i) => <div key={i} className="stgTransSk" style={{ height: 30, width: w, borderRadius: 999 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 12 }}>
+                    {[...Array(12)].map((_,i) => <div key={i} className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 10 }} />)}
+                  </div>
+                </>}
+
+                {/* Uploaded Assets */}
+                {activeTab === "assets" && <>
+                  <div className="stgTransSk" style={{ height: 52, borderRadius: 10 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div className="stgTransSk" style={{ height: 280, borderRadius: 14 }} />
+                    <div className="stgTransSk" style={{ height: 280, borderRadius: 14 }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {[80,90,70,75].map((w,i) => <div key={i} className="stgTransSk" style={{ height: 32, width: w, borderRadius: 8 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(110px,1fr))", gap: 10 }}>
+                    {[...Array(8)].map((_,i) => <div key={i} className="stgTransSk" style={{ aspectRatio: "1", borderRadius: 8 }} />)}
+                  </div>
+                </>}
+
+                {/* Dashboard */}
+                {activeTab === "dashboard" && <>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 14 }}>
+                    {[1,2,3,4].map(i => <div key={i} className="stgTransSk" style={{ height: 100, borderRadius: 14 }} />)}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                    <div className="stgTransSk" style={{ height: 220, borderRadius: 14 }} />
+                    <div className="stgTransSk" style={{ height: 220, borderRadius: 14 }} />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    {[1,2,3].map(i => <div key={i} className="stgTransSk" style={{ height: 80, borderRadius: 12 }} />)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[...Array(5)].map((_,i) => <div key={i} className="stgTransSk" style={{ height: 42, borderRadius: 8 }} />)}
+                  </div>
+                </>}
+
+                {/* Usage */}
+                {activeTab === "usage" && <>
+                  <div className="stgTransSk" style={{ height: 140, borderRadius: 16 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+                    {[1,2,3].map(i => <div key={i} className="stgTransSk" style={{ height: 80, borderRadius: 12 }} />)}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[...Array(5)].map((_,i) => <div key={i} className="stgTransSk" style={{ height: 44, borderRadius: 8 }} />)}
+                  </div>
+                </>}
+
+                {/* Prints */}
+                {activeTab === "prints" && <>
+                  <div className="stgTransSk" style={{ height: 48, borderRadius: 10 }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div className="stgTransSk" style={{ height: 18, width: "50%", borderRadius: 5 }} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 10 }} />
+                        <div className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 10 }} />
+                      </div>
+                      <div className="stgTransSk" style={{ height: 80, borderRadius: 10 }} />
+                      <div className="stgTransSk" style={{ height: 44, borderRadius: 10 }} />
+                    </div>
+                    <div className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 14 }} />
+                  </div>
+                </>}
               </div>
             </div>
           )}
@@ -2601,6 +2712,7 @@ export default function App() {
                           onResultImagePointerLeave={onResultImagePointerLeave}
                           onOpenImage={openImageModal}
                           onRetry={retryMainImage}
+                          onSubmit={onGenerateLook}
                         />
                       </div>
                     </div>
@@ -2682,7 +2794,6 @@ export default function App() {
           {/* Nav — identical structure to desktop sidebar */}
           <nav className="sidebarNav" role="tablist" aria-label="Main sections">
             {([
-              { tab: "prints",     label: "Add Prints",      Icon: Palette         },
               { tab: "generate",   label: "Generate Images",  Icon: Sparkles        },
               { tab: "tryon",      label: "Try On",           Icon: Shirt           },
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
@@ -2700,14 +2811,7 @@ export default function App() {
                 {label}
               </button>
             ))}
-            <button
-              type="button"
-              className="navButton"
-              onClick={() => { navigate("/app/settings", { state: { section: "credits" } }); setMobileNavOpen(false); }}
-            >
-              <BarChart2 size={16} className="navButtonIcon" />
-              Credits
-            </button>
+
             <button
               type="button"
               className="navButton"
@@ -2716,24 +2820,11 @@ export default function App() {
               <BookOpen size={16} className="navButtonIcon" />
               Documents
             </button>
-            <button type="button" className="navButton navButtonComingSoon" disabled aria-disabled="true">
-              <Box size={16} className="navButtonIcon" />
-              Multi-Angle
-              <span className="navButtonComingSoonBadge">Coming Soon</span>
-            </button>
           </nav>
 
           {/* Direct action buttons — no popup, always tappable */}
           <div className="mobileDrawerDivider" />
           <nav className="sidebarNav" style={{ flex: "none", paddingTop: 4, paddingBottom: 4 }}>
-            <button
-              type="button"
-              className="navButton"
-              onClick={() => { navigate("/app/settings"); setMobileNavOpen(false); }}
-            >
-              <Settings size={16} className="navButtonIcon" />
-              Settings
-            </button>
             <button
               type="button"
               className="navButton"
