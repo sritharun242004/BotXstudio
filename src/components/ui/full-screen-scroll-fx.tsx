@@ -87,7 +87,6 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       debug = false,
       durations = { change: 0.7, snap: 800 },
       reduceMotion,
-      smoothScroll = false,
       bgTransition = "fade",
       parallaxAmount = 4,
       currentIndex,
@@ -229,20 +228,7 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
         end: "bottom bottom",
         pin: fixed,
         pinSpacing: true,
-        snap: {
-          snapTo: 1 / total,
-          duration: { min: 0.25, max: 0.55 },
-          delay: 0.05,
-          ease: "power2.inOut",
-        },
-        onUpdate: (self) => {
-          if (motionOff || isSnappingRef.current) return;
-          const prog = self.progress;
-          const target = Math.min(total - 1, Math.floor(prog * total + 0.01));
-          if (target !== lastIndexRef.current && !isAnimatingRef.current) {
-            const next = lastIndexRef.current + (target > lastIndexRef.current ? 1 : -1);
-            goTo(next, false);
-          }
+        onUpdate: () => {
           if (progressFillRef.current) {
             const p = (lastIndexRef.current / (total - 1 || 1)) * 100;
             progressFillRef.current.style.width = `${p}%`;
@@ -256,6 +242,39 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
         requestAnimationFrame(() => goTo(initialIndex, false));
       }
 
+      // One-scroll-one-page wheel interceptor
+      // Timestamp cooldown prevents trackpad from firing multiple advances per gesture
+      const COOLDOWN_MS = 1000;
+      const MIN_DELTA   = 20; // ignore tiny trackpad drift
+      let lastAdvance   = 0;
+
+      const handleWheel = (e: WheelEvent) => {
+        if (!stRef.current) return;
+        const prog = stRef.current.progress;
+        if (prog <= 0 || prog >= 1) return; // outside pinned range — let page scroll
+
+        const dir  = e.deltaY > 0 ? 1 : -1;
+        const next = lastIndexRef.current + dir;
+
+        // At boundaries: release control so the page can scroll through
+        if (next < 0 || next >= total) return;
+
+        // Always preventDefault inside the section to stop the page from drifting
+        e.preventDefault();
+
+        // Ignore tiny trackpad nudges
+        if (Math.abs(e.deltaY) < MIN_DELTA) return;
+
+        // Hard timestamp cooldown — one advance per COOLDOWN_MS regardless of refs
+        const now = Date.now();
+        if (now - lastAdvance < COOLDOWN_MS) return;
+
+        lastAdvance = now;
+        goTo(next, true);
+      };
+
+      window.addEventListener("wheel", handleWheel, { passive: false });
+
       const ro = new ResizeObserver(() => {
         computePositions();
         measureAndCenterLists(lastIndexRef.current, false);
@@ -264,6 +283,7 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       ro.observe(fs);
 
       return () => {
+        window.removeEventListener("wheel", handleWheel);
         ro.disconnect();
         st.kill();
         stRef.current = null;
@@ -448,7 +468,7 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
           <div
             className="fx-fixed-section"
             ref={fixedSectionRef}
-            style={{ height: `${Math.max(1, total + 1) * 100}vh` }}
+            style={{ height: `${Math.max(2, total) * 100}vh` }}
           >
             <div className="fx-fixed" ref={fixedRef}>
               {/* Backgrounds */}
