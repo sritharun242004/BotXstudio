@@ -283,7 +283,7 @@ interface CreditPack {
 
 const CREDIT_PACKS: CreditPack[] = [
   { key: "basic",      label: "Basic",      credits: 300,  price: 499,  orig: null, badge: "",         accent: "#8B5CF6" },
-  { key: "growth",     label: "Growth",     credits: 1000, price: 1299, orig: 1499, badge: "Popular",  accent: "#7C3AED" },
+  { key: "growth",     label: "Growth",     credits: 1000, price: 1299, orig: 1663, badge: "Popular",  accent: "#7C3AED" },
   { key: "enterprise", label: "Enterprise", credits: null, price: null, orig: null, badge: "Custom",   accent: "#0369A1" },
 ];
 
@@ -462,8 +462,8 @@ function CreditsSection() {
                   <div style={{ fontFamily: "var(--font-heading)", fontSize: 28, fontWeight: 900, color: "var(--text)", marginBottom: 8 }}>Growth</div>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 10 }}>
                     <div style={{ fontFamily: "var(--font-heading)", fontSize: 32, fontWeight: 900, color: "var(--text)" }}>₹1,299</div>
-                    <div style={{ fontSize: 14, color: "var(--muted-color)", textDecoration: "line-through", fontWeight: 600 }}>₹1,499</div>
-                    <div style={{ background: "#F59E0B", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999 }}>Save 13%</div>
+                    <div style={{ fontSize: 14, color: "var(--muted-color)", textDecoration: "line-through", fontWeight: 600 }}>₹1,663</div>
+                    <div style={{ background: "#F59E0B", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 8px", borderRadius: 999 }}>Save 22%</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
                     <div style={{ background: "#fff", border: "2px solid #DDD6FE", borderRadius: 10, padding: "6px 12px", textAlign: "center" }}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { Nav } from "../lp/Nav";
 
 export default function ReferralPage() {
   const { code } = useParams<{ code: string }>();
@@ -23,6 +24,8 @@ export default function ReferralPage() {
   }, [code]);
 
   return (
+    <>
+    <Nav />
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "#0F172A", fontFamily: "Plus Jakarta Sans, system-ui, sans-serif", color: "#fff" }}>
       <div style={{ textAlign: "center", padding: "40px 24px" }}>
         <div style={{ width: 64, height: 64, borderRadius: "50%", background: "rgba(139,92,246,0.2)", border: "2px solid rgba(139,92,246,0.4)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px", fontSize: 26 }}>
@@ -40,5 +43,6 @@ export default function ReferralPage() {
       </div>
       <style>{`@keyframes refDot{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}`}</style>
     </div>
+    </>
   );
 }

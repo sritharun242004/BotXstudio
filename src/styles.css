@@ -7560,10 +7560,13 @@ input[type="file"]::file-selector-button:hover {
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Ensure settings page on mobile gets padding-top for the fixed mobile header */
+/* Settings & Docs pages: stack header above content on mobile */
 @media (max-width: 768px) {
   .stgRootPage {
-    padding-top: 56px !important;
+    flex-direction: column !important;
+    padding-top: 0 !important;
+    height: 100svh !important;
+    overflow: hidden !important;
   }
 }
 
@@ -7764,5 +7767,101 @@ input[type="file"]::file-selector-button:hover {
 @keyframes docSlideIn {
   from { transform: translateX(-100%); }
   to { transform: translateX(0); }
+}
+
+/* ─── Settings & Docs mobile optimisation ──────────────────────── */
+@media (max-width: 768px) {
+
+  /* Mobile header inside stg pages — full width row */
+  .stgRootPage > .mobileHeader {
+    width: 100%;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  /* Main content wrapper takes remaining height */
+  .stgRootPage > div[style] {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  /* Content header — compact padding */
+  .stgContentHeader {
+    padding: 14px 16px 8px !important;
+  }
+
+  /* Breadcrumbs — smaller text, wrap */
+  .stgBreadcrumbs {
+    font-size: 11.5px !important;
+    gap: 4px !important;
+    margin-bottom: 10px !important;
+    flex-wrap: wrap;
+  }
+
+  /* Page title — smaller */
+  .stgHeaderTitle {
+    font-size: 22px !important;
+    letter-spacing: -0.3px !important;
+    margin-bottom: 0 !important;
+  }
+
+  /* Horizontal tabs — less padding, scrollable */
+  .stgHorizontalTabs {
+    padding: 0 16px !important;
+    gap: 6px !important;
+  }
+
+  /* Section content — less padding */
+  .stgSectionContent {
+    padding: 20px 16px !important;
+  }
+  .stgContentInner {
+    padding: 16px 14px 32px !important;
+  }
+
+  /* Billing: collapse grid to single column */
+  .stgBillingGrid {
+    grid-template-columns: 1fr !important;
+  }
+  .stgBillingLeft {
+    border-right: none !important;
+    border-bottom: 2px solid var(--border-strong);
+    padding: 20px 16px !important;
+  }
+  .stgBillingRight {
+    padding: 20px 16px !important;
+  }
+
+  /* Credit packages: single column */
+  .stgPackGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Doc content: full width, reasonable line length */
+  .docContent {
+    max-width: 100% !important;
+  }
+
+  /* Doc section cards: single column */
+  .docTabGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .docAssetGrid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+  .docSettingsTable {
+    gap: 8px !important;
+  }
+  .docSettingsRow {
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+
+  /* Misc stg cards — full width */
+  .stgCard { padding: 16px !important; }
+  .stgGrid2Col { grid-template-columns: 1fr !important; }
 }
 

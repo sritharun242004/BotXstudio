@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Nav } from "../lp/Nav";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import {
   CognitoUser,
@@ -334,6 +335,7 @@ export default function LoginPage() {
 
   return (
     <>
+      <Nav />
       <style>{`
         @keyframes spin {
           from { transform: rotate(0deg); }

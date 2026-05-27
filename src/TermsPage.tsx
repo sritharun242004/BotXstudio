@@ -1,22 +1,12 @@
 import { Link } from "react-router-dom";
+import { Nav } from "./lp/Nav";
 
 const BASE = import.meta.env.BASE_URL;
 
 export default function TermsPage() {
   return (
     <>
-      {/* ── Nav ── */}
-      <nav className="lp-nav">
-        <Link to="/" className="lp-nav-brand">
-          <div className="lp-nav-bz">BZ</div>
-          <span className="lp-nav-name">Botzudio</span>
-        </Link>
-        <div className="lp-nav-links">
-          <Link to="/" className="lp-nav-link">Home</Link>
-          <Link to="/login" className="lp-nav-link">Sign In</Link>
-          <Link to="/login" className="lp-nav-cta">Try Free →</Link>
-        </div>
-      </nav>
+      <Nav />
 
       {/* ── Content ── */}
       <div className="lp-legal-page">

@@ -89,7 +89,7 @@ export function Pricing() {
     {
       tag: "Pack 1",
       name: "Basic",
-      price: "₹299",
+      price: "₹499",
       sub: "one-time · never expires",
       credits: 60,
       note: "~12 Flash images",
@@ -102,7 +102,7 @@ export function Pricing() {
     {
       tag: "Most Popular",
       name: "Growth",
-      price: "₹999",
+      price: "₹1,299",
       sub: "one-time · never expires",
       credits: 250,
       note: "~50 Flash images",
