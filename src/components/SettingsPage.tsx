@@ -298,12 +298,12 @@ function CreditsSection() {
   const [txLoading, setTxLoading] = useState(true);
 
   const presets = [
-    { credits: 199,   price: 199,  rate: 1.0, discount: 0,  label: "199" },
-    { credits: 500,   price: 499,  rate: 1.0, discount: 0,  label: "500" },
-    { credits: 1000,  price: 999,  rate: 1.0, discount: 0,  label: "1K" },
-    { credits: 2000,  price: 1799, rate: 0.9, discount: 10, label: "2K" },
-    { credits: 5000,  price: 4499, rate: 0.9, discount: 10, label: "5K" },
-    { credits: 10000, price: 7999, rate: 0.8, discount: 20, label: "10K" },
+    { credits: 300,   price: 499,   rate: 1.66, discount: 0, label: "300" },
+    { credits: 500,   price: 832,   rate: 1.66, discount: 0, label: "500" },
+    { credits: 1000,  price: 1663,  rate: 1.66, discount: 0, label: "1K" },
+    { credits: 2000,  price: 3326,  rate: 1.66, discount: 0, label: "2K" },
+    { credits: 5000,  price: 8315,  rate: 1.66, discount: 0, label: "5K" },
+    { credits: 10000, price: 16630, rate: 1.66, discount: 0, label: "10K" },
   ];
   const [presetIndex, setPresetIndex] = useState(2); // default 1K
 
@@ -560,7 +560,7 @@ function CreditsSection() {
                 
                 {/* Labels below slider */}
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "var(--muted-color)", marginTop: 8, padding: "0 4px" }}>
-                  <span>199</span>
+                  <span>300</span>
                   <span>1K</span>
                   <span>5K</span>
                   <span>10K</span>
