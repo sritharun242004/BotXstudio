@@ -155,6 +155,14 @@ createRoot(document.getElementById("root")!).render(
           {/* Admin-only routes — redirect to admin.botzudio.com if accessed via main. */}
           <Route path="/admin/login"   element={<AdminOnlyHost><AdminLogin /></AdminOnlyHost>} />
           <Route path="/admin"         element={<AdminOnlyHost><ProtectedAdmin /></AdminOnlyHost>} />
+
+          {/* Catch-all: an unknown path (e.g. a stale bookmark like the
+              pre-rebrand /ecommerce-scene-generator URL) used to render
+              blank because no route matched. Send the user somewhere sensible
+              depending on which host they're on. */}
+          <Route path="*" element={
+            <Navigate to={isAdminHost() ? "/admin" : "/"} replace />
+          } />
         </Routes>
       </Suspense>
     </BrowserRouter>
