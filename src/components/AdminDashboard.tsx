@@ -245,7 +245,8 @@ function CreditsPage() {
           </div>
         </div>
 
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as any }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 520 }}>
           <thead>
             <tr>
               <th style={thStyle}>Model</th>
@@ -297,6 +298,7 @@ function CreditsPage() {
             })}
           </tbody>
         </table>
+        </div>
         <div style={{ marginTop: 14, padding: "10px 4px", color: "#64748b", fontSize: 12 }}>
           Hybrid Editorial (Gemini Flash primary + 2 × FLUX angles) = 5 + 5 + 5 = 15 credits total.
           Changes saved here will be reflected immediately in billing for all users.
@@ -444,11 +446,13 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [page, setPage] = useState<NavItem>("users");
   const [affView, setAffView] = useState<AffView>({ mode: "list" });
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const session = getAdminSession();
 
   function handleAffNavChange(next: NavItem) {
     if (next !== "affiliates") setAffView({ mode: "list" });
     setPage(next);
+    setSidebarOpen(false); // close drawer on mobile after navigation
   }
 
   useEffect(() => {
@@ -462,10 +466,18 @@ export default function AdminDashboard() {
     navigate("/admin/login", { replace: true });
   }
 
+  const currentLabel = NAV.find(n => n.key === page)?.label ?? "Admin";
+
   return (
     <div className="adRoot">
+      {/* Tap-to-close backdrop (mobile only) */}
+      <div
+        className={`adSidebarBackdrop${sidebarOpen ? " adSidebarOpen" : ""}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
       {/* Sidebar */}
-      <aside className="adSidebar">
+      <aside className={`adSidebar${sidebarOpen ? " adSidebarOpen" : ""}`}>
         <div className="adSidebarBrand">
           <div className="adSidebarLogo"><img src={`${BASE}/logo.png`} alt="Logo" /></div>
           <div>
@@ -502,6 +514,23 @@ export default function AdminDashboard() {
 
       {/* Main */}
       <main className="adMain">
+        {/* Mobile topbar — hidden on desktop via CSS */}
+        <div className="adMobileTopbar">
+          <button
+            className="adMobileMenuBtn"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open navigation menu"
+          >
+            <span className="adMobileMenuLine" />
+            <span className="adMobileMenuLine" />
+            <span className="adMobileMenuLine" />
+          </button>
+          <span className="adMobileTopbarTitle">{currentLabel}</span>
+          <div className="adMobileTopbarLogo">
+            <img src={`${BASE}/logo.png`} alt="Botzudio" />
+          </div>
+        </div>
+
         {page === "users"     && <UsersPage />}
         {page === "affiliates" && affView.mode === "list" && (
           <AffiliatesPage

@@ -7,6 +7,7 @@ import { Floating, FloatingElement } from "./parallax-floating";
 import { TextRotate } from "./text-rotate";
 import { FullScreenScrollFX } from "../components/ui/full-screen-scroll-fx";
 import { CinematicFooter } from "../components/ui/motion-footer";
+import { CardsParallax, type CardItem } from "../components/ui/scroll-cards";
 
 // ── Custom-credit slider (used in the Pricing section) ────────────────────────
 function PricingSlider() {
@@ -235,6 +236,30 @@ const GALLERY = [
   { label: "Close-up Detail", bg: "#FEF3C7", src: "/landing page/detial.png" },
 ];
 
+const GALLERY_CARDS: CardItem[] = [
+  {
+    title: "Front View",
+    description: "Studio-quality front-facing catalog shot — ready for any marketplace",
+    src: "/landing page/front.jpg",
+    color: "#EDE9FE",
+    textColor: "#fff",
+  },
+  {
+    title: "Back View",
+    description: "Full rear angle — every stitch and detail captured perfectly",
+    src: "/landing page/back.png",
+    color: "#D1FAE5",
+    textColor: "#fff",
+  },
+  {
+    title: "Close-up Detail",
+    description: "Fabric texture, buttons, and finishing — all in one shot",
+    src: "/landing page/detial.png",
+    color: "#FEF3C7",
+    textColor: "#fff",
+  },
+];
+
 
 const FAQS = [
   { q: "Do I need good photography skills?", a: "No. A phone photo of the garment on a hanger or flat on a table is enough." },
@@ -262,7 +287,6 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "upload-garment",
     background: `${PROCESS}garment1.png`,
-    renderBackground: () => null,
     leftLabel: (
       <img src={`${PROCESS}garment1.png`} alt="Garment" style={{ width: 150, height: 200, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
@@ -277,7 +301,6 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "add-references",
     background: `${PROCESS}modelpose1.png`,
-    renderBackground: () => null,
     leftLabel: (
       <img src={`${PROCESS}modelpose1.png`} alt="Model pose reference" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
@@ -292,7 +315,6 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "ai-generates",
     background: `${PROCESS}out1.png`,
-    renderBackground: () => null,
     leftLabel: (
       <img src={`${PROCESS}out1.png`} alt="AI output" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
@@ -307,7 +329,6 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "download-all",
     background: `${PROCESS}out3.png`,
-    renderBackground: () => null,
     leftLabel: (
       <img src={`${PROCESS}out3.png`} alt="Detail" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
@@ -590,45 +611,65 @@ export function LandingPageTheme() {
       </section>
 
       {/* ── Output Gallery ────────────────────────────────────── */}
-      <section className="lp-gallery-section" style={{ background: "#fff", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", padding: "80px 0" }}>
-        <div className="lp-wrap">
-          <div className="lp-gallery-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 48, gap: 24, flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", marginBottom: 12 }}>
-                Every angle. Every variant. Every time.
-              </h2>
-              <p style={{ fontSize: 17, color: "#64748B", maxWidth: 520 }}>
-                One garment upload produces a full set — front, side, back, and detail — ready for any platform.
-              </p>
-            </div>
-            <div style={{ background: "#FBBF24", padding: "8px 18px", borderRadius: 10, border: "2px solid #1E293B", fontWeight: 700, boxShadow: "2px 2px 0 #1E293B", transform: "rotate(2deg)", whiteSpace: "nowrap" }}>
-              All included ✨
-            </div>
-          </div>
+      <section className="lp-gallery-section" style={{ background: "#fff", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B" }}>
+        <style>{`
+          .lp-gallery-desktop-block { display: block; }
+          .lp-gallery-mobile-cards  { display: none;  }
+          @media (max-width: 768px) {
+            .lp-gallery-desktop-block { display: none;  }
+            .lp-gallery-mobile-cards  { display: block; }
+          }
+        `}</style>
 
-          <div className="lp-gallery-g">
-            {GALLERY.map((img, i) => (
-              <div key={i} className={`lp-gallery-wrap lp-gallery-wrap-${i}`}>
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  style={{ position: "relative", borderRadius: 16, border: "2px solid #1E293B", background: img.bg, aspectRatio: "3/4", boxShadow: "4px 4px 0 #1E293B", overflow: "hidden", transition: "transform 0.2s, box-shadow 0.2s", cursor: "default" }}
-                  className="lp-gallery-item"
-                >
-                  <img
-                    src={img.src}
-                    alt={img.label}
-                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                  />
-                  <div style={{ position: "absolute", bottom: 14, left: 14, background: "#fff", padding: "4px 12px", borderRadius: 8, border: "2px solid #1E293B", fontSize: 13, fontWeight: 700, boxShadow: "2px 2px 0 #1E293B" }}>
-                    {img.label}
-                  </div>
-                </motion.div>
+        {/* ── Desktop: original 3-column grid ── */}
+        <div className="lp-gallery-desktop-block">
+          <div className="lp-wrap" style={{ paddingTop: 80, paddingBottom: 80 }}>
+            <div className="lp-gallery-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 48, gap: 24, flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", marginBottom: 12 }}>
+                  Every angle. Every variant. Every time.
+                </h2>
+                <p style={{ fontSize: 17, color: "#64748B", maxWidth: 520 }}>
+                  One garment upload produces a full set — front, back, and detail — ready for any platform.
+                </p>
               </div>
-            ))}
+              <div style={{ background: "#FBBF24", padding: "8px 18px", borderRadius: 10, border: "2px solid #1E293B", fontWeight: 700, boxShadow: "2px 2px 0 #1E293B", transform: "rotate(2deg)", whiteSpace: "nowrap" }}>
+                All included ✨
+              </div>
+            </div>
+            <div className="lp-gallery-g">
+              {GALLERY.map((img, i) => (
+                <div key={i} className={`lp-gallery-wrap lp-gallery-wrap-${i}`}>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    whileInView={{ opacity: 1, scale: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.08 }}
+                    style={{ position: "relative", borderRadius: 16, border: "2px solid #1E293B", background: img.bg, aspectRatio: "3/4", boxShadow: "4px 4px 0 #1E293B", overflow: "hidden", cursor: "default" }}
+                    className="lp-gallery-item"
+                  >
+                    <img src={img.src} alt={img.label} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <div style={{ position: "absolute", bottom: 14, left: 14, background: "#fff", padding: "4px 12px", borderRadius: 8, border: "2px solid #1E293B", fontSize: 13, fontWeight: 700, boxShadow: "2px 2px 0 #1E293B" }}>
+                      {img.label}
+                    </div>
+                  </motion.div>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
+
+        {/* ── Mobile: stacking scroll cards ── */}
+        <div className="lp-gallery-mobile-cards">
+          <div style={{ padding: "48px 20px 24px" }}>
+            <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(22px, 7vw, 32px)", letterSpacing: "-0.8px", marginBottom: 10 }}>
+              Every angle. Every variant. Every time.
+            </h2>
+            <p style={{ fontSize: 15, color: "#64748B" }}>
+              Front, back &amp; detail — one upload, full set.
+            </p>
+          </div>
+          <CardsParallax items={GALLERY_CARDS} />
         </div>
       </section>
 

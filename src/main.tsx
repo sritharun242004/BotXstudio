@@ -132,6 +132,7 @@ function ProtectedDocs() {
   );
 }
 
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter basename="/">
