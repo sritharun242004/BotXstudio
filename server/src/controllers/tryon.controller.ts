@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import * as tryOnService from "../services/flux/tryon.service.js";
 import type { TryOnInput } from "../validators/tryon.validators.js";
 import { env } from "../config/env.js";
+import { reserveCredits, refundCredits, getCurrentBalance } from "../services/credits.service.js";
 
 const prisma = new PrismaClient();
 
@@ -14,24 +15,27 @@ export async function tryOn(req: Request, res: Response, next: NextFunction) {
   const input = req.body as TryOnInput;
   const startMs = Date.now();
 
-  try {
-    let isDeveloper = false;
+  let reservedCost = 0;
+  let isDeveloper = false;
 
+  try {
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { creditsBalance: true, email: true },
+        select: { email: true },
       });
 
       const userEmail = (user?.email || "").toLowerCase();
       isDeveloper = Boolean(env.DEVELOPER_EMAIL && userEmail === env.DEVELOPER_EMAIL.toLowerCase());
 
       if (!isDeveloper) {
-        const balance = user ? Number(user.creditsBalance) : 0;
-        if (balance < CREDIT_COST) {
+        const ok = await reserveCredits(userId, CREDIT_COST);
+        if (!ok) {
+          const balance = await getCurrentBalance(userId);
           res.status(402).json({ error: "Insufficient credits", balance, required: CREDIT_COST });
           return;
         }
+        reservedCost = CREDIT_COST;
       }
     }
 
@@ -44,15 +48,10 @@ export async function tryOn(req: Request, res: Response, next: NextFunction) {
     const latencyMs = Date.now() - startMs;
 
     if (userId && !isDeveloper) {
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
-      const currentBalance = user ? Number(user.creditsBalance) : 0;
-      const newBalance = Math.max(0, currentBalance - CREDIT_COST);
+      // Credits already deducted by reserveCredits() above.
+      const newBalance = await getCurrentBalance(userId);
 
       await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data: { creditsBalance: new Prisma.Decimal(newBalance) },
-        }),
         prisma.creditTransaction.create({
           data: {
             userId,
@@ -65,7 +64,7 @@ export async function tryOn(req: Request, res: Response, next: NextFunction) {
         prisma.apiLog.create({
           data: { userId, type: "image", model: MODEL_KEY, latencyMs, status: "success" },
         }),
-      ]).catch((err) => console.error("[Credits] TryOn: failed to deduct:", err));
+      ]).catch((err) => console.error("[Credits] TryOn: failed to record transaction:", err));
 
       return res.json({ ...result, latencyMs, balanceAfter: newBalance });
     }
@@ -79,6 +78,9 @@ export async function tryOn(req: Request, res: Response, next: NextFunction) {
     res.json({ ...result, latencyMs });
   } catch (err: any) {
     const latencyMs = Date.now() - startMs;
+    if (userId && reservedCost > 0) {
+      await refundCredits(userId, reservedCost);
+    }
     if (userId) {
       prisma.apiLog.create({
         data: {

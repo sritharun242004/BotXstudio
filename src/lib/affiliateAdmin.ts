@@ -1,19 +1,7 @@
-const ADMIN_SECRET = "bsx-admin-2026";
+import { apiGet, apiPost, apiPut, apiDelete } from "./api";
 
-async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const resp = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-secret": ADMIN_SECRET,
-      ...(options.headers as Record<string, string> || {}),
-    },
-  });
-  const text = await resp.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!resp.ok) throw new Error(data?.error || `Request failed (${resp.status})`);
-  return data as T;
-}
+// Admin endpoints are gated server-side by Cognito JWT + ADMIN_EMAILS allowlist.
+// The frontend uses the same Bearer-auth helpers as any other authed call.
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,7 +101,7 @@ export interface CreateAffiliateInput {
 // ─── API calls ────────────────────────────────────────────────────────────────
 
 export async function affiliateAdminGetOverview(): Promise<OverviewResult> {
-  return adminFetch<OverviewResult>("/api/affiliates/admin/overview");
+  return apiGet<OverviewResult>("/api/affiliates/admin/overview");
 }
 
 export async function affiliateAdminList(params?: {
@@ -127,51 +115,42 @@ export async function affiliateAdminList(params?: {
   if (params?.status) qs.set("status", params.status);
   if (params?.limit)  qs.set("limit",  String(params.limit));
   if (params?.offset) qs.set("offset", String(params.offset));
-  return adminFetch<AffiliateListResult>(`/api/affiliates/admin?${qs}`);
+  return apiGet<AffiliateListResult>(`/api/affiliates/admin?${qs}`);
 }
 
 export async function affiliateAdminGet(id: string): Promise<Affiliate> {
-  return adminFetch<Affiliate>(`/api/affiliates/admin/${id}`);
+  return apiGet<Affiliate>(`/api/affiliates/admin/${id}`);
 }
 
 export async function affiliateAdminCreate(input: CreateAffiliateInput): Promise<Affiliate> {
-  return adminFetch<Affiliate>("/api/affiliates/admin", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return apiPost<Affiliate>("/api/affiliates/admin", input);
 }
 
 export async function affiliateAdminUpdate(id: string, input: Partial<CreateAffiliateInput> & { status?: string }): Promise<Affiliate> {
-  return adminFetch<Affiliate>(`/api/affiliates/admin/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(input),
-  });
+  return apiPut<Affiliate>(`/api/affiliates/admin/${id}`, input);
 }
 
 export async function affiliateAdminDelete(id: string): Promise<void> {
-  await adminFetch<void>(`/api/affiliates/admin/${id}`, { method: "DELETE" });
+  await apiDelete<void>(`/api/affiliates/admin/${id}`);
 }
 
 export async function affiliateAdminSuspend(id: string): Promise<Affiliate> {
-  return adminFetch<Affiliate>(`/api/affiliates/admin/${id}/suspend`, { method: "POST" });
+  return apiPost<Affiliate>(`/api/affiliates/admin/${id}/suspend`);
 }
 
 export async function affiliateAdminGetActivity(id: string): Promise<AffiliateClick[]> {
-  return adminFetch<AffiliateClick[]>(`/api/affiliates/admin/${id}/activity`);
+  return apiGet<AffiliateClick[]>(`/api/affiliates/admin/${id}/activity`);
 }
 
 export async function affiliateAdminGetUsers(id: string): Promise<AffiliateUser[]> {
-  return adminFetch<AffiliateUser[]>(`/api/affiliates/admin/${id}/users`);
+  return apiGet<AffiliateUser[]>(`/api/affiliates/admin/${id}/users`);
 }
 
 export async function affiliateAdminGetProfileUploadUrl(
   id: string,
   contentType: string
 ): Promise<{ uploadUrl: string; publicUrl: string; key: string }> {
-  return adminFetch(`/api/affiliates/admin/${id}/profile-upload-url`, {
-    method: "POST",
-    body: JSON.stringify({ contentType }),
-  });
+  return apiPost(`/api/affiliates/admin/${id}/profile-upload-url`, { contentType });
 }
 
 // ─── Upload image to S3 via presigned URL ─────────────────────────────────────

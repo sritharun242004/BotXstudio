@@ -24,14 +24,14 @@ creditsRoutes.get("/balance", authenticate, getBalance);
 creditsRoutes.get("/transactions", authenticate, getTransactions);
 creditsRoutes.post("/self-topup", authenticate, selfTopUp);
 
-// ─── Admin routes (require x-admin-secret header) ────────────────────────────
-creditsRoutes.get("/admin/config", adminAuth, adminGetConfig);
-creditsRoutes.put("/admin/config", adminAuth, adminUpdateConfig);
-creditsRoutes.get("/admin/users", adminAuth, adminGetUsers);
-creditsRoutes.post("/admin/users/:id/topup", adminAuth, adminTopUpUser);
-creditsRoutes.delete("/admin/users/:id", adminAuth, adminDeleteUser);
-creditsRoutes.get("/admin/model-pricing", adminAuth, adminGetModelPricing);
-creditsRoutes.put("/admin/model-pricing", adminAuth, adminUpdateModelPricing);
+// ─── Admin routes (require Cognito JWT + email in ADMIN_EMAILS allowlist) ────
+creditsRoutes.get("/admin/config", authenticate, adminAuth, adminGetConfig);
+creditsRoutes.put("/admin/config", authenticate, adminAuth, adminUpdateConfig);
+creditsRoutes.get("/admin/users", authenticate, adminAuth, adminGetUsers);
+creditsRoutes.post("/admin/users/:id/topup", authenticate, adminAuth, adminTopUpUser);
+creditsRoutes.delete("/admin/users/:id", authenticate, adminAuth, adminDeleteUser);
+creditsRoutes.get("/admin/model-pricing", authenticate, adminAuth, adminGetModelPricing);
+creditsRoutes.put("/admin/model-pricing", authenticate, adminAuth, adminUpdateModelPricing);
 
 // ─── Public model pricing (no auth — used by frontend for display) ─────────
 creditsRoutes.get("/model-pricing", getModelPricing);

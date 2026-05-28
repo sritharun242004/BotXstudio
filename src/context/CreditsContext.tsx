@@ -61,14 +61,42 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     return result;
   }, [refreshBalance]);
 
+  // Track the current user id so we refetch (and reset) whenever it changes.
+  // Without this, stale credit data from a previous user could persist after
+  // SPA-internal user transitions (e.g. completeProfile after SSO needs-email).
+  const [activeUserId, setActiveUserId] = useState<string | null>(() => getSession()?.id ?? null);
+
+  // Re-derive the active user id when the session in localStorage changes
+  // (cross-tab logout, or completeProfile within this tab).
   useEffect(() => {
-    // Fetch live model pricing (no auth required)
+    function syncUser() {
+      const next = getSession()?.id ?? null;
+      setActiveUserId((prev) => (prev === next ? prev : next));
+    }
+    window.addEventListener("storage", syncUser);
+    window.addEventListener("focus", syncUser);
+    return () => {
+      window.removeEventListener("storage", syncUser);
+      window.removeEventListener("focus", syncUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Fetch live model pricing (no auth required) — independent of user.
     fetchModelPricing()
       .then(setModelPricing)
       .catch(() => {}); // fall back to hardcoded defaults
 
-    const session = getSession();
-    if (!session) return;
+    if (!activeUserId) {
+      // No (or no longer a) session: reset credit-state so the previous
+      // user's balance / isDeveloper flag never leaks into another user.
+      setBalance(0);
+      setFreeImagesUsed(0);
+      setFreeImagesRemaining(0);
+      setCreditsSpent(0);
+      setIsDeveloper(false);
+      return;
+    }
 
     setLoading(true);
     Promise.all([fetchCreditConfig(), fetchCreditBalance()])
@@ -82,7 +110,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [activeUserId]);
 
   return (
     <CreditsContext.Provider value={{ balance, costPerImageInr, freeImagesUsed, freeImagesRemaining, creditsSpent, isDeveloper, modelPricing, loading, refreshBalance, selfTopUp }}>

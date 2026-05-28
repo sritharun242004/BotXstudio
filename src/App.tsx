@@ -1064,14 +1064,27 @@ export default function App() {
     try {
       const records = await listSavedImages();
       const token = getAccessToken();
-      const views: SavedImageView[] = records.map((record) => {
+      // For records whose local blob has been purged, fetch the bytes via the
+      // proxy endpoint using the Authorization header (NOT a ?token= query
+      // string — that leaked the access token into browser history, Performance
+      // API, referrer, and Nginx logs). We then expose the bytes as a blob:
+      // URL so the <img> tag has no credentials in its src.
+      const views: SavedImageView[] = await Promise.all(records.map(async (record) => {
         if (record.blob.size > 0) {
           return toSavedImageView(record);
         }
-        // Use same-origin backend proxy URL with token (avoids S3 CORS issues)
-        const qs = token ? `?token=${encodeURIComponent(token)}` : "";
-        return { ...record, url: `/api/images/${record.id}/raw${qs}` };
-      });
+        if (!token) return { ...record, url: "" };
+        try {
+          const resp = await fetch(`/api/images/${record.id}/raw`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!resp.ok) return { ...record, url: "" };
+          const blob = await resp.blob();
+          return { ...record, url: URL.createObjectURL(blob) };
+        } catch {
+          return { ...record, url: "" };
+        }
+      }));
       setSavedImages((prev) => {
         for (const img of prev) {
           if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);

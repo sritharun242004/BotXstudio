@@ -1,9 +1,7 @@
 import { z } from "zod";
+import { imageDataSchema } from "./_shared.js";
 
-const inlineImageSchema = z.object({
-  mimeType: z.string().min(1),
-  data:     z.string().min(1), // base64
-});
+const inlineImageSchema = imageDataSchema;
 
 export const generateGptImageSchema = z.object({
   promptText: z.string().min(1, "Prompt is required"),

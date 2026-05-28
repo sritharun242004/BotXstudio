@@ -3,6 +3,7 @@ import { PrismaClient, Prisma } from "@prisma/client";
 import * as qwenService from "../services/flux/qwen-angles.service.js";
 import type { GenerateQwenAnglesInput } from "../validators/qwen-angles.validators.js";
 import { env } from "../config/env.js";
+import { reserveCredits, refundCredits, getCurrentBalance } from "../services/credits.service.js";
 
 const prisma = new PrismaClient();
 const MODEL  = "fal-ai/qwen-image-edit-2511-multiple-angles";
@@ -17,24 +18,28 @@ export async function angles(req: Request, res: Response, next: NextFunction) {
   const input   = req.body as GenerateQwenAnglesInput;
   const startMs = Date.now();
 
-  try {
-    let isDeveloper = false;
+  let reservedCost = 0;
+  let isDeveloper = false;
+  const costPerImage = await getCostPerImage();
 
+  try {
     if (userId) {
-      const [user, costPerImage] = await Promise.all([
-        prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true, email: true } }),
-        getCostPerImage(),
-      ]);
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
 
       const userEmail = (user?.email || "").toLowerCase();
       isDeveloper = Boolean(env.DEVELOPER_EMAIL && userEmail === env.DEVELOPER_EMAIL.toLowerCase());
 
       if (!isDeveloper) {
-        const balance = user ? Number(user.creditsBalance) : 0;
-        if (balance < costPerImage) {
+        const ok = await reserveCredits(userId, costPerImage);
+        if (!ok) {
+          const balance = await getCurrentBalance(userId);
           res.status(402).json({ error: "Insufficient credits", balance, required: costPerImage });
           return;
         }
+        reservedCost = costPerImage;
       }
     }
 
@@ -59,16 +64,10 @@ export async function angles(req: Request, res: Response, next: NextFunction) {
         return res.json({ ...result, latencyMs, balanceAfter: null });
       }
 
-      const costPerImage = await getCostPerImage();
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
-      const currentBalance = user ? Number(user.creditsBalance) : 0;
-      const newBalance     = Math.max(0, currentBalance - costPerImage);
+      // Credits already deducted by reserveCredits() above.
+      const newBalance = await getCurrentBalance(userId);
 
       await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data:  { creditsBalance: new Prisma.Decimal(newBalance) },
-        }),
         prisma.creditTransaction.create({
           data: {
             userId,
@@ -81,7 +80,7 @@ export async function angles(req: Request, res: Response, next: NextFunction) {
         prisma.apiLog.create({
           data: { userId, type: "image", model: MODEL, promptTokens: 0, outputTokens: 0, totalTokens: 0, latencyMs, status: "success" },
         }),
-      ]).catch((err) => console.error("[Credits] QwenAngles: failed to deduct:", err));
+      ]).catch((err) => console.error("[Credits] QwenAngles: failed to record transaction:", err));
 
       return res.json({ ...result, latencyMs, balanceAfter: newBalance });
     }
@@ -89,6 +88,10 @@ export async function angles(req: Request, res: Response, next: NextFunction) {
     res.json({ ...result, latencyMs });
   } catch (err: any) {
     const latencyMs = Date.now() - startMs;
+
+    if (userId && reservedCost > 0) {
+      await refundCredits(userId, reservedCost);
+    }
 
     if (userId) {
       prisma.apiLog.create({

@@ -157,8 +157,17 @@ export async function selfTopUp(req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
-    const currentBalance = user ? Number(user.creditsBalance) : 0;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { creditsBalance: true, email: true },
+    });
+
+    if (!user || !DEVELOPER_EMAILS.has((user.email || "").toLowerCase())) {
+      res.status(403).json({ error: "Self-refill is not available. Contact admin to top up your balance." });
+      return;
+    }
+
+    const currentBalance = Number(user.creditsBalance);
 
     if (currentBalance > 0) {
       res.status(400).json({ error: "Balance is not zero. Refill is only available when your credits are depleted." });
@@ -193,6 +202,9 @@ export async function adminTopUpUser(req: Request, res: Response, next: NextFunc
   try {
     const id = req.params.id as string;
     const { amountInr, description } = req.body as { amountInr: number; description?: string };
+    // adminEmail is guaranteed present by the new adminAuth middleware
+    // (authenticate → adminAuth check req.user.email in ADMIN_EMAILS).
+    const adminEmail = req.user?.email || "unknown-admin";
 
     if (typeof amountInr !== "number" || amountInr === 0) {
       res.status(400).json({ error: "amountInr must be a non-zero number" });
@@ -208,6 +220,11 @@ export async function adminTopUpUser(req: Request, res: Response, next: NextFunc
     const currentBalance = Number(user.creditsBalance);
     const newBalance = Math.max(0, currentBalance + amountInr);
 
+    const action = amountInr > 0 ? "top-up" : "deduction";
+    const auditDescription = description
+      ? `${description} (by ${adminEmail})`
+      : `Admin credit ${action} by ${adminEmail}`;
+
     const [updatedUser] = await prisma.$transaction([
       prisma.user.update({
         where: { id },
@@ -219,7 +236,7 @@ export async function adminTopUpUser(req: Request, res: Response, next: NextFunc
           userId: id,
           amountInr: new Prisma.Decimal(amountInr),
           type: "admin_top_up",
-          description: description ?? (amountInr > 0 ? "Admin credit top-up" : "Admin credit deduction"),
+          description: auditDescription,
           balanceAfter: new Prisma.Decimal(newBalance),
         },
       }),
@@ -294,6 +311,10 @@ export async function adminUpdateModelPricing(req: Request, res: Response, next:
 export async function getModelPricing(_req: Request, res: Response, next: NextFunction) {
   try {
     const pricing = await getAllModelPricing();
+    // Pricing changes are rare (admin-driven). Allow 60 s of browser/CDN
+    // caching to soak up the per-mount fetch the frontend does on every
+    // CreditsProvider load.
+    res.set("Cache-Control", "public, max-age=60");
     res.json(pricing);
   } catch (err) {
     next(err);

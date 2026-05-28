@@ -1,9 +1,7 @@
 import { z } from "zod";
+import { imageDataSchema } from "./_shared.js";
 
-const inlineImageSchema = z.object({
-  mimeType: z.string().min(1),
-  data:     z.string().min(1), // base64
-});
+const inlineImageSchema = imageDataSchema;
 
 export const generateQwenAnglesSchema = z.object({
   /** The rendered primary image (Gemini Flash output) as base64 */

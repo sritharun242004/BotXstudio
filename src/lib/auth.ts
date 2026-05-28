@@ -82,21 +82,20 @@ function decodeJwtPayload(token: string): Record<string, any> {
 
 // ─── Exchange auth code for tokens ───────────────────────────────────────────
 
+// Code exchange and refresh both go through our server, which holds the
+// refresh token in an HttpOnly cookie (not localStorage). Only the access
+// and id tokens come back to the client, so XSS can no longer exfiltrate a
+// long-lived refresh credential.
 export async function handleCallback(code: string): Promise<Session> {
   const codeVerifier = localStorage.getItem("pkce_code_verifier");
   localStorage.removeItem("pkce_code_verifier");
   if (!codeVerifier) throw new Error("Missing PKCE code verifier");
 
-  const resp = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+  const resp = await fetch("/api/auth/cognito/exchange", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: CLIENT_ID,
-      code,
-      redirect_uri: REDIRECT_URI,
-      code_verifier: codeVerifier,
-    }),
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ code, codeVerifier, redirectUri: REDIRECT_URI }),
   });
 
   if (!resp.ok) {
@@ -104,26 +103,25 @@ export async function handleCallback(code: string): Promise<Session> {
     throw new Error(`Token exchange failed: ${err}`);
   }
 
-  const tokens = await resp.json();
-  setAccessToken(tokens.access_token);
+  const tokens = await resp.json() as { accessToken: string; idToken: string; expiresIn: number };
+  setAccessToken(tokens.accessToken);
   localStorage.setItem(TOKENS_KEY, JSON.stringify({
-    accessToken: tokens.access_token,
-    idToken: tokens.id_token,
-    refreshToken: tokens.refresh_token,
-    expiresAt: Date.now() + tokens.expires_in * 1000,
+    accessToken: tokens.accessToken,
+    idToken: tokens.idToken,
+    expiresAt: Date.now() + tokens.expiresIn * 1000,
   }));
 
   // Decode the ID token to get email/name (access token doesn't include them)
-  const idPayload = decodeJwtPayload(tokens.id_token);
+  const idPayload = decodeJwtPayload(tokens.idToken);
   let email = idPayload.email || "";
   let name = idPayload.name || "";
 
   // Fallback: for federated users (Google), ID token may lack email —
   // call the Cognito userInfo endpoint which always returns it
-  if (!email && tokens.access_token) {
+  if (!email && tokens.accessToken) {
     try {
       const uiResp = await fetch(`${COGNITO_DOMAIN}/oauth2/userInfo`, {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
       });
       if (uiResp.ok) {
         const userInfo = await uiResp.json();
@@ -156,38 +154,31 @@ export async function completeProfile(email: string, name?: string): Promise<Ses
   return data.user;
 }
 
-// ─── Token refresh via Cognito ───────────────────────────────────────────────
+// ─── Token refresh via server proxy ──────────────────────────────────────────
 
+// Calls /api/auth/cognito/refresh, which reads the HttpOnly refresh cookie
+// server-side and returns fresh access + id tokens. No refresh token ever
+// touches JS or localStorage in the post-migration flow.
 export async function refreshCognitoToken(): Promise<string | null> {
   try {
-    const raw = localStorage.getItem(TOKENS_KEY);
-    if (!raw) return null;
-
-    const stored = JSON.parse(raw);
-    if (!stored.refreshToken) return null;
-
-    const resp = await fetch(`${COGNITO_DOMAIN}/oauth2/token`, {
+    const resp = await fetch("/api/auth/cognito/refresh", {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "refresh_token",
-        client_id: CLIENT_ID,
-        refresh_token: stored.refreshToken,
-      }),
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
     });
-
     if (!resp.ok) return null;
 
-    const tokens = await resp.json();
-    setAccessToken(tokens.access_token);
+    const tokens = await resp.json() as { accessToken: string; idToken: string; expiresIn: number };
+    setAccessToken(tokens.accessToken);
+    const existingRaw = localStorage.getItem(TOKENS_KEY);
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
     localStorage.setItem(TOKENS_KEY, JSON.stringify({
-      ...stored,
-      accessToken: tokens.access_token,
-      idToken: tokens.id_token,
-      expiresAt: Date.now() + tokens.expires_in * 1000,
+      ...existing,
+      accessToken: tokens.accessToken,
+      idToken: tokens.idToken,
+      expiresAt: Date.now() + tokens.expiresIn * 1000,
     }));
-
-    return tokens.access_token;
+    return tokens.accessToken;
   } catch {
     return null;
   }
@@ -268,6 +259,15 @@ export async function restoreSession(): Promise<Session | null> {
 }
 
 export function logout(): void {
+  // Best-effort clear of the server-set HttpOnly refresh cookie. We don't
+  // await this — even if the request fails (offline, server down) we still
+  // continue with the local-session wipe and the Cognito hosted-UI logout,
+  // both of which work without server contact.
+  try {
+    fetch("/api/auth/cognito/logout", { method: "POST", credentials: "include" })
+      .catch(() => { /* ignore */ });
+  } catch { /* ignore */ }
+
   clearLocalSession();
   const logoutUrl =
     `${COGNITO_DOMAIN}/logout?` +
@@ -279,5 +279,29 @@ export function logout(): void {
 function clearLocalSession() {
   localStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(TOKENS_KEY);
+  // Wipe per-user cached data (both legacy unprefixed keys and namespaced
+  // variants) so the next user signing in on this browser sees a clean slate.
+  const USER_DATA_PREFIXES = [
+    "esg_storyboards_v1",
+    "esg_active_storyboard_id_v1",
+    "bsx_user_settings",
+    // Admin team / templates: previously persisted after admin logout.
+    "bsx_admin_v1",
+    "bsx_admin_team_v1",
+    "bsx_admin_templates",
+  ];
+  for (const k of Object.keys(localStorage)) {
+    if (USER_DATA_PREFIXES.some((p) => k === p || k.startsWith(`${p}::`))) {
+      localStorage.removeItem(k);
+    }
+  }
+  // Garment-cutout IndexedDB cache — was leaking across users on shared
+  // browsers. Inlined here (not imported from garment-cache.ts) to avoid a
+  // circular dependency; keep the DB name in sync with src/lib/garment-cache.ts.
+  try {
+    indexedDB.deleteDatabase("botx_garment_cache_v1");
+  } catch {
+    /* best effort */
+  }
   setAccessToken(null);
 }

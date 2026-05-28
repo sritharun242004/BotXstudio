@@ -4,6 +4,7 @@
 // with the same garment photos — the most expensive single step in the pipeline.
 
 import type { GeminiInlineImage } from "./gemini";
+import { getSession } from "./auth";
 
 const DB_NAME = "botx_garment_cache_v1";
 const STORE = "garment_refs";
@@ -31,9 +32,15 @@ function openDb(): Promise<IDBDatabase> {
   });
 }
 
-/** SHA-256 fingerprint of all garment images (mimeType + raw bytes). */
+/**
+ * SHA-256 fingerprint of all garment images (mimeType + raw bytes), namespaced
+ * by the current user. The user id is folded into the digest so two users on
+ * the same browser cannot retrieve each other's cached cutouts — the same
+ * garment uploaded by user A and user B produces different hashes.
+ */
 export async function hashImages(images: GeminiInlineImage[]): Promise<string> {
-  const parts: Uint8Array[] = [];
+  const userId = getSession()?.id || "anon";
+  const parts: Uint8Array[] = [new TextEncoder().encode(`user:${userId}|`)];
   for (const img of images) {
     const prefix = new TextEncoder().encode(img.mimeType + ":");
     parts.push(prefix, img.data);
@@ -46,6 +53,23 @@ export async function hashImages(images: GeminiInlineImage[]): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+/**
+ * Deletes the entire garment-cache IndexedDB. Call from logout so a shared
+ * browser does not leave the previous user's cutouts behind.
+ */
+export async function clearGarmentCache(): Promise<void> {
+  try {
+    await new Promise<void>((resolve) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => resolve();
+      req.onblocked = () => resolve();
+    });
+  } catch {
+    // best effort
+  }
 }
 
 /** Look up a cached garment reference. Returns null on cache miss or any error. */

@@ -55,14 +55,23 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 const SETTINGS_KEY = "bsx_user_settings";
 
+function settingsStorageKey(): string | null {
+  const userId = getSession()?.id;
+  return userId ? `${SETTINGS_KEY}::${userId}` : null;
+}
+
 function loadSettings(): UserSettings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const key = settingsStorageKey();
+    if (!key) return DEFAULT_SETTINGS;
+    const raw = localStorage.getItem(key);
     return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : DEFAULT_SETTINGS;
   } catch { return DEFAULT_SETTINGS; }
 }
 function saveSettings(s: UserSettings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  const key = settingsStorageKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(s));
 }
 
 // ─── Nav sections ─────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { normalizeHexColor, nowIso, randomId } from "./utils";
 import { apiGet, apiPost, apiPatch, apiDelete } from "./api";
+import { getSession } from "./auth";
 
 // Garment types sourced from PrintsTab (Male + Female combined, unique)
 export const GARMENT_TYPES = [
@@ -17,6 +18,11 @@ export const GARMENT_TYPES = [
 
 export const STORYBOARDS_STORAGE_KEY = "esg_storyboards_v1";
 export const ACTIVE_STORYBOARD_ID_KEY = "esg_active_storyboard_id_v1";
+
+function userScopedKey(baseKey: string): string | null {
+  const userId = getSession()?.id;
+  return userId ? `${baseKey}::${userId}` : null;
+}
 
 const OCCASION_PRESET_VALUES = {
   everyday:
@@ -405,7 +411,9 @@ export function createStoryboardRecord(opts?: {
 }
 
 export function loadStoryboardsFromLocalStorage(): StoryboardRecord[] {
-  const raw = localStorage.getItem(STORYBOARDS_STORAGE_KEY);
+  const key = userScopedKey(STORYBOARDS_STORAGE_KEY);
+  if (!key) return [];
+  const raw = localStorage.getItem(key);
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -417,16 +425,22 @@ export function loadStoryboardsFromLocalStorage(): StoryboardRecord[] {
 }
 
 export function saveStoryboardsToLocalStorage(storyboards: StoryboardRecord[]): void {
-  localStorage.setItem(STORYBOARDS_STORAGE_KEY, JSON.stringify(storyboards));
+  const key = userScopedKey(STORYBOARDS_STORAGE_KEY);
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify(storyboards));
 }
 
 export function loadActiveStoryboardIdFromLocalStorage(): string | null {
-  const id = localStorage.getItem(ACTIVE_STORYBOARD_ID_KEY);
+  const key = userScopedKey(ACTIVE_STORYBOARD_ID_KEY);
+  if (!key) return null;
+  const id = localStorage.getItem(key);
   return (id || "").trim() || null;
 }
 
 export function saveActiveStoryboardIdToLocalStorage(id: string): void {
-  localStorage.setItem(ACTIVE_STORYBOARD_ID_KEY, (id || "").trim());
+  const key = userScopedKey(ACTIVE_STORYBOARD_ID_KEY);
+  if (!key) return;
+  localStorage.setItem(key, (id || "").trim());
 }
 
 // ─── API-backed storyboard operations ────────────────────────────────────────

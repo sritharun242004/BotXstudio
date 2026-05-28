@@ -1,5 +1,17 @@
 import { z } from "zod";
 
+// Preview URL must be either an https://... URL or a data:image/...;base64
+// payload (the frontend stores small generated previews this way). Reject
+// javascript:, data:text/html, file:, etc. to remove a stored-XSS vector if
+// previewUrl is ever rendered into href / background-image / similar sinks.
+const previewUrlSchema = z
+  .string()
+  .max(2_000_000) // accommodate small base64 thumbnails
+  .refine(
+    (s) => s === "" || /^https:\/\//i.test(s) || /^data:image\/(png|jpeg|webp|gif);base64,/i.test(s),
+    { message: "previewUrl must be https or a base64 image data URL" },
+  );
+
 const configFields = {
   occasionPreset: z.string().optional(),
   occasionDetails: z.string().optional(),
@@ -28,14 +40,14 @@ const configFields = {
 export const createStoryboardSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   garmentType: z.string().max(100).optional(),
-  previewUrl: z.string().optional(),
+  previewUrl: previewUrlSchema.optional(),
   ...configFields,
 });
 
 export const updateStoryboardSchema = z.object({
   title: z.string().min(1).max(200).optional(),
   garmentType: z.string().max(100).optional(),
-  previewUrl: z.string().nullable().optional(),
+  previewUrl: previewUrlSchema.nullable().optional(),
   ...configFields,
 });
 

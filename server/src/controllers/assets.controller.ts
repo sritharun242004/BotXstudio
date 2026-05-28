@@ -32,9 +32,21 @@ export async function requestUploadUrl(req: Request, res: Response, next: NextFu
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
     const input = req.body as RegisterAssetInput;
+    const userId = req.user!.userId;
+
+    // The client must register only keys under their own namespace. Without
+    // this check a user could register an Asset row pointing at any other
+    // user's S3 object — then list() would hand back a working presigned
+    // download URL for it. The prefix matches the one we hand out in
+    // requestUploadUrl() above.
+    const expectedPrefix = `users/${userId}/`;
+    if (!input.s3Key.startsWith(expectedPrefix)) {
+      throw new ForbiddenError("s3Key is outside your namespace");
+    }
+
     const asset = await prisma.asset.create({
       data: {
-        userId: req.user!.userId,
+        userId,
         kind: input.kind,
         title: input.title,
         mimeType: input.mimeType,

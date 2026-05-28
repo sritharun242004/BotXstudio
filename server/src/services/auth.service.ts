@@ -26,15 +26,24 @@ export async function findOrCreateUser(cognitoSub: string, email: string, name: 
     return { id: user.id, email: user.email, name: user.name };
   }
 
-  // Try to find by email (existing user who hasn't linked Cognito yet)
-  user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-  if (user) {
-    // Link the Cognito sub to the existing user
-    user = await prisma.user.update({
-      where: { id: user.id },
+  // Existing user with this email but a DIFFERENT cognitoSub?
+  // Previously we silently overwrote cognitoSub, which made the existing
+  // account claimable by any Cognito identity that can present a token with
+  // that email (e.g. an SSO IdP that does not enforce email verification).
+  // Refuse to auto-link — the user must reconcile manually.
+  const existingByEmail = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existingByEmail) {
+    if (existingByEmail.cognitoSub && existingByEmail.cognitoSub !== cognitoSub) {
+      throw new UnauthorizedError(
+        "This email is already linked to a different sign-in method. Please sign in the way you originally signed up, or contact support.",
+      );
+    }
+    // No cognitoSub yet — first link for a legacy/imported user is safe.
+    const linked = await prisma.user.update({
+      where: { id: existingByEmail.id },
       data: { cognitoSub },
     });
-    return { id: user.id, email: user.email, name: user.name };
+    return { id: linked.id, email: linked.email, name: linked.name };
   }
 
   // Create new user — starts with zero credits

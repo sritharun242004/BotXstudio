@@ -1,6 +1,4 @@
-import { apiGet, apiPost } from "./api";
-
-const ADMIN_SECRET = "bsx-admin-2026";
+import { apiGet, apiPost, apiPut, apiDelete } from "./api";
 
 // ─── User API ─────────────────────────────────────────────────────────────────
 
@@ -42,21 +40,8 @@ export async function selfTopUpCredits(): Promise<{ balance: number; message: st
 }
 
 // ─── Admin API ────────────────────────────────────────────────────────────────
-
-async function adminFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const resp = await fetch(path, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-secret": ADMIN_SECRET,
-      ...(options.headers as Record<string, string> || {}),
-    },
-  });
-  const text = await resp.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!resp.ok) throw new Error(data?.error || `Request failed (${resp.status})`);
-  return data as T;
-}
+// Admin endpoints are gated server-side by Cognito JWT + ADMIN_EMAILS allowlist.
+// The frontend uses the same Bearer-auth helpers as any other authed call.
 
 export interface AdminUser {
   id: string;
@@ -69,29 +54,23 @@ export interface AdminUser {
 }
 
 export async function adminFetchConfig(): Promise<CreditConfig> {
-  return adminFetch<CreditConfig>("/api/credits/admin/config");
+  return apiGet<CreditConfig>("/api/credits/admin/config");
 }
 
 export async function adminUpdateConfig(perImageCostInr: number): Promise<CreditConfig> {
-  return adminFetch<CreditConfig>("/api/credits/admin/config", {
-    method: "PUT",
-    body: JSON.stringify({ perImageCostInr }),
-  });
+  return apiPut<CreditConfig>("/api/credits/admin/config", { perImageCostInr });
 }
 
 export async function adminFetchUsers(): Promise<AdminUser[]> {
-  return adminFetch<AdminUser[]>("/api/credits/admin/users");
+  return apiGet<AdminUser[]>("/api/credits/admin/users");
 }
 
 export async function adminTopUpUser(userId: string, amountInr: number, description?: string): Promise<AdminUser> {
-  return adminFetch<AdminUser>(`/api/credits/admin/users/${userId}/topup`, {
-    method: "POST",
-    body: JSON.stringify({ amountInr, description }),
-  });
+  return apiPost<AdminUser>(`/api/credits/admin/users/${userId}/topup`, { amountInr, description });
 }
 
 export async function adminDeleteUser(userId: string): Promise<void> {
-  return adminFetch<void>(`/api/credits/admin/users/${userId}`, { method: "DELETE" });
+  return apiDelete<void>(`/api/credits/admin/users/${userId}`);
 }
 
 export interface ModelPricingRow {
@@ -102,14 +81,11 @@ export interface ModelPricingRow {
 }
 
 export async function adminFetchModelPricing(): Promise<ModelPricingRow[]> {
-  return adminFetch<ModelPricingRow[]>("/api/credits/admin/model-pricing");
+  return apiGet<ModelPricingRow[]>("/api/credits/admin/model-pricing");
 }
 
 export async function adminSaveModelPricing(updates: { modelKey: string; credits: number }[]): Promise<ModelPricingRow[]> {
-  return adminFetch<ModelPricingRow[]>("/api/credits/admin/model-pricing", {
-    method: "PUT",
-    body: JSON.stringify(updates),
-  });
+  return apiPut<ModelPricingRow[]>("/api/credits/admin/model-pricing", updates);
 }
 
 export async function fetchModelPricing(): Promise<Record<string, number>> {

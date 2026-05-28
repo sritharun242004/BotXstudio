@@ -28,7 +28,9 @@ const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().min(1, "AWS_SECRET_ACCESS_KEY is required"),
   S3_BUCKET: z.string().default("botstudiox-uploads"),
 
-  ADMIN_SECRET: z.string().default("bsx-admin-2026"),
+  // Comma-separated list of emails granted admin privileges.
+  // Admin = a regular Cognito-authenticated user whose email is in this list.
+  ADMIN_EMAILS: z.string().default(""),
   APP_URL: z.string().default("http://localhost:5173"),
 });
 
@@ -43,4 +45,8 @@ export const env = parsed.data;
 
 export const DEVELOPER_EMAILS: Set<string> = new Set(
   (env.DEVELOPER_EMAIL || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean)
+);
+
+export const ADMIN_EMAILS: Set<string> = new Set(
+  (env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean)
 );

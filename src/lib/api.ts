@@ -41,6 +41,9 @@ async function apiFetch<T = any>(
   let resp = await fetch(path, {
     ...options,
     headers,
+    // The refresh-token cookie lives at /api/auth/cognito with SameSite=Lax.
+    // include credentials so the cookie travels even in cross-origin dev.
+    credentials: "include",
   });
 
   // Auto-refresh on 401 using Cognito refresh token (mutex-protected)
@@ -51,6 +54,7 @@ async function apiFetch<T = any>(
       resp = await fetch(path, {
         ...options,
         headers,
+        credentials: "include",
       });
     }
   }
@@ -89,6 +93,13 @@ export async function apiPost<T = any>(path: string, payload?: unknown): Promise
 export async function apiPatch<T = any>(path: string, payload?: unknown): Promise<T> {
   return apiFetch<T>(path, {
     method: "PATCH",
+    body: JSON.stringify(payload ?? {}),
+  });
+}
+
+export async function apiPut<T = any>(path: string, payload?: unknown): Promise<T> {
+  return apiFetch<T>(path, {
+    method: "PUT",
     body: JSON.stringify(payload ?? {}),
   });
 }

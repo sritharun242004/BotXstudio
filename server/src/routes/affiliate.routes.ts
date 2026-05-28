@@ -31,22 +31,33 @@ const referralLimiter = rateLimit({
 
 affiliateRoutes.get("/r/:code", referralLimiter, publicTrackReferral);
 
+// Tight limit on /attribute and /redeem: these are once-per-account operations
+// and the only reason to call them rapidly is a race-condition exploit attempt.
+// 5 requests per minute per IP is plenty for legitimate retries.
+const claimLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
 // ─── Authenticated user: attribute self to affiliate ─────────────────────────
-affiliateRoutes.post("/attribute", authenticate, attributeUser);
+affiliateRoutes.post("/attribute", claimLimiter, authenticate, attributeUser);
 
 // ─── Authenticated user: redeem promo/affiliate code ─────────────────────────
-affiliateRoutes.post("/redeem", authenticate, redeemCoupon);
+affiliateRoutes.post("/redeem", claimLimiter, authenticate, redeemCoupon);
 
 // ─── Admin: overview ──────────────────────────────────────────────────────────
-affiliateRoutes.get("/admin/overview", adminAuth, adminGetOverview);
+affiliateRoutes.get("/admin/overview", authenticate, adminAuth, adminGetOverview);
 
 // ─── Admin: CRUD ──────────────────────────────────────────────────────────────
-affiliateRoutes.get("/admin",                       adminAuth, adminListAffiliates);
-affiliateRoutes.post("/admin",                      adminAuth, adminCreateAffiliate);
-affiliateRoutes.get("/admin/:id",                   adminAuth, adminGetAffiliate);
-affiliateRoutes.put("/admin/:id",                   adminAuth, adminUpdateAffiliate);
-affiliateRoutes.delete("/admin/:id",                adminAuth, adminDeleteAffiliate);
-affiliateRoutes.post("/admin/:id/suspend",          adminAuth, adminSuspendAffiliate);
-affiliateRoutes.get("/admin/:id/activity",          adminAuth, adminGetAffiliateActivity);
-affiliateRoutes.get("/admin/:id/users",             adminAuth, adminGetAffiliateUsers);
-affiliateRoutes.post("/admin/:id/profile-upload-url", adminAuth, adminGetProfileUploadUrl);
+affiliateRoutes.get("/admin",                       authenticate, adminAuth, adminListAffiliates);
+affiliateRoutes.post("/admin",                      authenticate, adminAuth, adminCreateAffiliate);
+affiliateRoutes.get("/admin/:id",                   authenticate, adminAuth, adminGetAffiliate);
+affiliateRoutes.put("/admin/:id",                   authenticate, adminAuth, adminUpdateAffiliate);
+affiliateRoutes.delete("/admin/:id",                authenticate, adminAuth, adminDeleteAffiliate);
+affiliateRoutes.post("/admin/:id/suspend",          authenticate, adminAuth, adminSuspendAffiliate);
+affiliateRoutes.get("/admin/:id/activity",          authenticate, adminAuth, adminGetAffiliateActivity);
+affiliateRoutes.get("/admin/:id/users",             authenticate, adminAuth, adminGetAffiliateUsers);
+affiliateRoutes.post("/admin/:id/profile-upload-url", authenticate, adminAuth, adminGetProfileUploadUrl);

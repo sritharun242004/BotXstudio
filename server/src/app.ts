@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -35,6 +36,7 @@ export function createApp() {
   }));
   app.use(cors(corsOptions));
   app.use(express.json({ limit: "25mb" }));
+  app.use(cookieParser());
 
   // Health check
   app.get("/api/health", (_req, res) => {

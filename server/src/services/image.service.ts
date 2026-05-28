@@ -15,11 +15,17 @@ export async function upload(userId: string, input: UploadImageInput) {
 
   const { bucket, size } = await s3Service.uploadBuffer(s3Key, buffer, input.mimeType);
 
-  // Validate storyboardId exists before linking (avoid FK constraint violation)
+  // Validate storyboardId exists AND belongs to the same user before linking.
+  // Without the userId check, a user could attach images to anyone's
+  // storyboard (FK is valid since the row exists) — polluting the other
+  // user's gallery via storyboardId/storyboardTitle columns.
   let validStoryboardId: string | null = null;
   if (input.storyboardId) {
-    const sb = await prisma.storyboard.findUnique({ where: { id: input.storyboardId }, select: { id: true } });
-    if (sb) validStoryboardId = sb.id;
+    const sb = await prisma.storyboard.findUnique({
+      where: { id: input.storyboardId },
+      select: { id: true, userId: true },
+    });
+    if (sb && sb.userId === userId) validStoryboardId = sb.id;
   }
 
   const image = await prisma.image.create({

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { env } from "../config/env.js";
 
 const prisma = new PrismaClient();
@@ -196,6 +196,16 @@ export async function attributeUserToAffiliate(userId: string, affiliateId: stri
   });
   if (!affiliate) return false;
 
+  // Reject self-referral: an affiliate cannot attribute themselves (or anyone
+  // with the affiliate's own email) to claim signup bonus + inflate stats.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  if (user && affiliate.email && user.email.toLowerCase() === affiliate.email.toLowerCase()) {
+    return false;
+  }
+
   const existing = await prisma.userAffiliation.findUnique({
     where: { userId_affiliateId: { userId, affiliateId } },
   });
@@ -239,52 +249,61 @@ export async function redeemAffiliateCode(
   userId: string,
   code: string,
 ): Promise<{ creditsAdded: number; newBalance: number }> {
-  // 1. Find the affiliate by code
+  // 1. Find the affiliate by code (read-only, can happen outside the txn)
   const affiliate = await prisma.affiliate.findUnique({ where: { affiliateCode: code.toUpperCase().trim() } });
   if (!affiliate || affiliate.status !== "active") {
     throw Object.assign(new Error("Invalid or inactive promo code"), { statusCode: 404 });
   }
 
-  // 2. Check promo bonus is configured
   const bonus = affiliate.promoBonusCredits ?? 0;
   if (bonus <= 0) {
     throw Object.assign(new Error("This promo code has no credit reward configured"), { statusCode: 400 });
   }
 
-  // 3. Check promo code hasn't expired
   if (affiliate.promoValidUntil && new Date() > new Date(affiliate.promoValidUntil)) {
     throw Object.assign(new Error("This promo code has expired"), { statusCode: 410 });
   }
 
-  // 4. One promo per account
-  const alreadyRedeemed = await prisma.creditTransaction.findFirst({
-    where: { userId, type: "promo_redemption" },
-  });
-  if (alreadyRedeemed) {
-    throw Object.assign(new Error("You have already redeemed a promo code on this account"), { statusCode: 409 });
-  }
+  // Serializable transaction: the "already-redeemed?" check + balance update
+  // must commit atomically so two concurrent requests cannot both succeed.
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const alreadyRedeemed = await tx.creditTransaction.findFirst({
+        where: { userId, type: "promo_redemption" },
+      });
+      if (alreadyRedeemed) {
+        throw Object.assign(new Error("You have already redeemed a promo code on this account"), { statusCode: 409 });
+      }
 
-  // 5. Apply credits
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
-  if (!user) throw Object.assign(new Error("User not found"), { statusCode: 404 });
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
+      if (!user) throw Object.assign(new Error("User not found"), { statusCode: 404 });
 
-  const newBalance = Number(user.creditsBalance) + bonus;
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      creditsBalance: newBalance,
-      creditTransactions: {
-        create: {
-          amountInr: bonus,
-          type: "promo_redemption",
-          description: `Promo code ${affiliate.affiliateCode} (${affiliate.name}) — ₹${bonus} bonus`,
-          balanceAfter: newBalance,
+      const newBalance = Number(user.creditsBalance) + bonus;
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          creditsBalance: newBalance,
+          creditTransactions: {
+            create: {
+              amountInr: bonus,
+              type: "promo_redemption",
+              description: `Promo code ${affiliate.affiliateCode} (${affiliate.name}) — ₹${bonus} bonus`,
+              balanceAfter: newBalance,
+            },
+          },
         },
-      },
-    },
-  });
+      });
 
-  return { creditsAdded: bonus, newBalance };
+      return { creditsAdded: bonus, newBalance };
+    }, { isolationLevel: "Serializable" });
+  } catch (err: unknown) {
+    // Postgres serialization failure (40001) → tell the client to retry
+    const code = (err as { code?: string } | null)?.code;
+    if (code === "P2034" || code === "40001") {
+      throw Object.assign(new Error("Conflict, please try again"), { statusCode: 409 });
+    }
+    throw err;
+  }
 }
 
 // ─── Commission ───────────────────────────────────────────────────────────────
@@ -296,21 +315,24 @@ export async function recordCommission(userId: string, purchaseAmountInr: number
   });
   if (!affiliation) return;
 
-  const pct = Number(affiliation.affiliate.commissionPercentage);
-  const commission = (purchaseAmountInr * pct) / 100;
+  // Use Decimal end-to-end so fractional commission percentages (e.g. 7.5%)
+  // do not accumulate floating-point drift over many payouts.
+  const pct = affiliation.affiliate.commissionPercentage;
+  const commission = new Prisma.Decimal(purchaseAmountInr).mul(pct).div(100);
+  const purchase = new Prisma.Decimal(purchaseAmountInr);
 
   await Promise.all([
     prisma.userAffiliation.update({
       where: { id: affiliation.id },
       data: {
-        purchaseAmount: { increment: purchaseAmountInr },
+        purchaseAmount: { increment: purchase },
         commissionGenerated: { increment: commission },
       },
     }),
     prisma.affiliate.update({
       where: { id: affiliation.affiliateId },
       data: {
-        totalRevenue: { increment: purchaseAmountInr },
+        totalRevenue: { increment: purchase },
         totalCommission: { increment: commission },
       },
     }),

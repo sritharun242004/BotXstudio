@@ -8,6 +8,7 @@ import {
   FREE_ELIGIBLE_MODELS,
   FREE_IMAGE_QUOTA,
 } from "../services/pricing.service.js";
+import { reserveCredits, refundCredits, getCurrentBalance } from "../services/credits.service.js";
 
 const prisma = new PrismaClient();
 
@@ -70,15 +71,19 @@ export async function image(req: Request, res: Response, next: NextFunction) {
   const model = input.model || "gemini-2.5-flash-image";
   const startMs = Date.now();
 
-  try {
-    let isDeveloper = false;
-    let useFreeQuota = false;
+  // Credits we have already atomically deducted from the user. If the AI call
+  // throws, we refund this in the catch block.
+  let reservedCost = 0;
+  let isDeveloper = false;
+  let useFreeQuota = false;
+  let creditCost = 0;
 
-    // ── Credit check ────────────────────────────────────────────────────────
+  try {
+    // ── Credit reservation (atomic) ──────────────────────────────────────────
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { creditsBalance: true, email: true, freeImagesUsed: true },
+        select: { email: true, freeImagesUsed: true },
       });
 
       const userEmail = (user?.email || "").toLowerCase();
@@ -91,12 +96,16 @@ export async function image(req: Request, res: Response, next: NextFunction) {
         if (isFreeEligible && freeUsed < FREE_IMAGE_QUOTA) {
           useFreeQuota = true;
         } else {
-          const creditCost = await getCreditsForModel(model);
-          const balance = user ? Number(user.creditsBalance) : 0;
-          if (balance < creditCost) {
+          creditCost = await getCreditsForModel(model);
+          // Atomic: deduct iff balance >= cost. Prevents the concurrent-spend
+          // race where N parallel requests all pass a check-then-decrement.
+          const ok = await reserveCredits(userId, creditCost);
+          if (!ok) {
+            const balance = await getCurrentBalance(userId);
             res.status(402).json({ error: "Insufficient credits", balance, required: creditCost });
             return;
           }
+          reservedCost = creditCost;
         }
       }
     }
@@ -148,16 +157,11 @@ export async function image(req: Request, res: Response, next: NextFunction) {
         return res.json({ ...result, latencyMs, balanceAfter: Number(updated.creditsBalance), freeImagesRemaining: freeRemaining });
       }
 
-      const creditCost = await getCreditsForModel(model);
-      const user = await prisma.user.findUnique({ where: { id: userId }, select: { creditsBalance: true } });
-      const currentBalance = user ? Number(user.creditsBalance) : 0;
-      const newBalance = Math.max(0, currentBalance - creditCost);
+      // Credits already deducted by reserveCredits() above; just record the
+      // transaction + API log and return the fresh balance.
+      const newBalance = await getCurrentBalance(userId);
 
       await prisma.$transaction([
-        prisma.user.update({
-          where: { id: userId },
-          data: { creditsBalance: new Prisma.Decimal(newBalance) },
-        }),
         prisma.creditTransaction.create({
           data: {
             userId,
@@ -176,7 +180,7 @@ export async function image(req: Request, res: Response, next: NextFunction) {
             latencyMs, status: "success",
           },
         }),
-      ]).catch((err) => console.error("[Credits] Failed to deduct:", err));
+      ]).catch((err) => console.error("[Credits] Failed to record transaction:", err));
 
       return res.json({ ...result, latencyMs, balanceAfter: newBalance, freeImagesRemaining: 0 });
     }
@@ -184,6 +188,11 @@ export async function image(req: Request, res: Response, next: NextFunction) {
     res.json({ ...result, latencyMs });
   } catch (err: any) {
     const latencyMs = Date.now() - startMs;
+
+    // Refund any reserved credits since the AI call did not complete.
+    if (userId && reservedCost > 0) {
+      await refundCredits(userId, reservedCost);
+    }
 
     if (userId) {
       prisma.apiLog.create({

@@ -10,3 +10,8 @@ authRoutes.use(authLimiter);
 authRoutes.get("/me", authenticate, authController.me);
 authRoutes.post("/me", authenticate, authController.syncMe);
 authRoutes.post("/logout", authController.logout);
+
+// Cognito proxy — refresh token lives in an HttpOnly cookie (not localStorage).
+authRoutes.post("/cognito/exchange", authController.cognitoExchange);
+authRoutes.post("/cognito/refresh", authController.cognitoRefresh);
+authRoutes.post("/cognito/logout", authController.cognitoLogout);
