@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useRef } from "react";
 
 export interface CardItem {
   title: string;
@@ -37,6 +37,8 @@ const CARD_STYLES = `
     border: 2.5px solid #1E293B;
     box-shadow: 6px 6px 0 rgba(30, 41, 59, 0.85);
     background: #f0f0f0;
+    /* Desktop: just apply the rotation variable */
+    transform: rotate(var(--bz-rot, 0deg));
   }
   /* Image fills card at natural portrait proportions, anchored top so garment head stays visible */
   .bz-sc-img {
@@ -101,27 +103,68 @@ const CARD_STYLES = `
     font-weight: 500;
     line-height: 1.5;
   }
+
+  /* ── Mobile-only smooth entrance animation ───────────────────────────────── */
+  @media (max-width: 768px) {
+    .bz-sc-card {
+      opacity: 0;
+      transform: translateY(56px) scale(0.90) rotate(var(--bz-rot, 0deg));
+      transition:
+        opacity  0.70s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.70s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: opacity, transform;
+    }
+    .bz-sc-card--in {
+      opacity: 1;
+      transform: translateY(0px) scale(1) rotate(var(--bz-rot, 0deg));
+    }
+  }
 `;
 
 /* Slight alternating rotations give each card a hand-placed notepad feel */
 const ROTATIONS = ["-2deg", "1.5deg", "-0.8deg", "1deg"];
 
-const Card: FC<CardProps> = ({ title, description, src, i, total }) => (
-  <div className="bz-sc-wrap">
-    <div
-      className="bz-sc-card"
-      style={{ transform: `rotate(${ROTATIONS[i % ROTATIONS.length]})` }}
-    >
-      <img src={src} alt={title} className="bz-sc-img" />
-      <div className="bz-sc-grad" />
-      <div className="bz-sc-counter">{i + 1} / {total}</div>
-      <div className="bz-sc-label">
-        <div className="bz-sc-chip">{title}</div>
-        <div className="bz-sc-desc">{description}</div>
+const Card: FC<CardProps> = ({ title, description, src, i, total }) => {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const rot = ROTATIONS[i % ROTATIONS.length];
+
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+    // Only observe on mobile — desktop keeps its plain sticky look
+    if (window.matchMedia("(min-width: 769px)").matches) return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          card.classList.add("bz-sc-card--in");
+          io.disconnect(); // fire once per card
+        }
+      },
+      { threshold: 0.18 }
+    );
+    io.observe(card);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div className="bz-sc-wrap">
+      <div
+        ref={cardRef}
+        className="bz-sc-card"
+        style={{ "--bz-rot": rot } as React.CSSProperties}
+      >
+        <img src={src} alt={title} className="bz-sc-img" />
+        <div className="bz-sc-grad" />
+        <div className="bz-sc-counter">{i + 1} / {total}</div>
+        <div className="bz-sc-label">
+          <div className="bz-sc-chip">{title}</div>
+          <div className="bz-sc-desc">{description}</div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 interface CardsParallaxProps {
   items: CardItem[];
