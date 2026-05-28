@@ -1063,41 +1063,56 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-persona-g { grid-template-columns: 1fr !important; }
   .lp-pricing-g { grid-template-columns: 1fr !important; max-width: 440px; margin: 0 auto; }
 
-  /* ── Sticky stacking gallery cards ── */
+  /* ── Full-screen scroll-card stacking (mobile only) ── */
   .lp-gallery-g {
     display: flex !important;
     flex-direction: column !important;
     gap: 0 !important;
     grid-template-columns: unset !important;
   }
-  /* Each wrapper is the sticky anchor — different top creates peeking stack */
+
+  /* Each wrapper = one full viewport, sticky at top:0
+     As user scrolls, each card slides up and covers the previous one (higher z-index wins) */
   .lp-gallery-wrap {
     position: sticky;
+    top: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 16px;
+    box-sizing: border-box;
   }
-  .lp-gallery-wrap-0 { top: 72px;  z-index: 10; margin-bottom: 52vh; }
-  .lp-gallery-wrap-1 { top: 90px;  z-index: 20; margin-bottom: 52vh; }
-  .lp-gallery-wrap-2 { top: 108px; z-index: 30; margin-bottom: 32px; }
 
-  /* Tilt each card differently — alternating to feel like a real card deck */
-  .lp-gallery-wrap-0 .lp-gallery-item { transform: rotate(2.5deg);  }
-  .lp-gallery-wrap-1 .lp-gallery-item { transform: rotate(-1.8deg); }
-  .lp-gallery-wrap-2 .lp-gallery-item { transform: rotate(2deg);    }
+  .lp-gallery-wrap-0 { z-index: 10; }
+  .lp-gallery-wrap-1 { z-index: 20; }
+  .lp-gallery-wrap-2 { z-index: 30; }
 
-  /* Smooth entry + tilt transition */
+  /* Card: tall portrait that fills the viewport, no tilt */
   .lp-gallery-wrap .lp-gallery-item {
-    transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-                box-shadow 0.55s cubic-bezier(0.22, 1, 0.36, 1) !important;
-    will-change: transform;
-    /* Keep card full-width so the image stays large */
-    width: 100%;
+    width: 100% !important;
+    height: calc(100vh - 88px) !important;
+    max-width: 400px !important;
+    transform: none !important;
+    transition: none !important;
+    will-change: auto;
   }
-  /* Kill hover lift on mobile — sticky tilted cards shouldn't jump */
-  .lp-gallery-item:hover {
-    transform: rotate(2.5deg) !important; /* keep first card's tilt on hover */
-    box-shadow: 4px 4px 0 #1E293B !important;
-  }
-  .lp-gallery-wrap-1 .lp-gallery-item:hover { transform: rotate(-1.8deg) !important; }
-  .lp-gallery-wrap-2 .lp-gallery-item:hover { transform: rotate(2deg) !important; }
+
+  .lp-gallery-wrap-0 .lp-gallery-item { transform: none !important; }
+  .lp-gallery-wrap-1 .lp-gallery-item { transform: none !important; }
+  .lp-gallery-wrap-2 .lp-gallery-item { transform: none !important; }
+
+  /* No hover effect on mobile */
+  .lp-gallery-item:hover                    { transform: none !important; box-shadow: 4px 4px 0 #1E293B !important; }
+  .lp-gallery-wrap-1 .lp-gallery-item:hover { transform: none !important; }
+  .lp-gallery-wrap-2 .lp-gallery-item:hover { transform: none !important; }
+
+  /* Gallery section: strip padding so cards can fill viewport edge-to-edge */
+  .lp-gallery-section { padding: 40px 0 0 !important; }
+  .lp-gallery-section .lp-wrap { padding: 0 !important; max-width: 100% !important; }
+
+  /* Keep the section header (heading + badge) padded */
+  .lp-gallery-section-header { padding: 0 16px 32px; }
 }
 
 @media (max-width: 900px) {

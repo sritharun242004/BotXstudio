@@ -1,7 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, X, ChevronDown } from "lucide-react";
 
 const NAV_HASH_LINKS = [
   { label: "Why Us",       hash: "#problem"      },
@@ -10,8 +10,20 @@ const NAV_HASH_LINKS = [
 ];
 
 const NAV_PAGE_LINKS = [
-  { label: "Blog",    to: "/blog"    },
-  { label: "Compare", to: "/compare" },
+  { label: "Blog", to: "/blog" },
+];
+
+const COMPARE_LINKS = [
+  { label: "vs Botika",        to: "/compare/vs-botika" },
+  { label: "vs Midjourney",    to: "/compare/vs-midjourney" },
+  { label: "vs DALL-E 3",      to: "/compare/vs-dalle" },
+  { label: "vs Pebblely",      to: "/compare/vs-pebblely" },
+  { label: "vs Pixelcut",      to: "/compare/vs-pixelcut" },
+  { label: "vs Runway ML",     to: "/compare/vs-runway" },
+  { label: "vs Claid.ai",      to: "/compare/vs-claid" },
+  { label: "vs Adobe Firefly", to: "/compare/vs-adobe-firefly" },
+  { label: "vs Zyler",         to: "/compare/vs-zyler" },
+  { label: "vs Vue.ai",        to: "/compare/vs-vue-ai" },
 ];
 
 const EASE = { duration: 0.5, ease: [0.4, 0, 0.2, 1] } as const;
@@ -22,6 +34,7 @@ export function Nav() {
 
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [compareOpen, setCompareOpen] = useState(false);
   const mobileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -148,6 +161,107 @@ export function Nav() {
             {label}
           </Link>
         ))}
+
+        {/* ── Comparisons dropdown ── */}
+        <div
+          style={{ position: "relative" }}
+          onMouseEnter={() => setCompareOpen(true)}
+          onMouseLeave={() => setCompareOpen(false)}
+        >
+          <button
+            style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "6px 12px",
+              borderRadius: 9999,
+              fontSize: 13,
+              fontWeight: 600,
+              color: compareOpen ? "#7C3AED" : "#475569",
+              background: compareOpen ? "rgba(139,92,246,0.08)" : "transparent",
+              border: "none",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              transition: "background .15s, color .15s",
+            }}
+          >
+            Compare <ChevronDown size={11} strokeWidth={2.5} style={{ transition: "transform .2s", transform: compareOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+          </button>
+
+          <AnimatePresence>
+            {compareOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                transition={{ duration: 0.15 }}
+                style={{
+                  position: "absolute",
+                  top: "calc(100% + 8px)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  background: "rgba(255,253,245,0.98)",
+                  border: "1.5px solid rgba(30,41,59,0.1)",
+                  borderRadius: 16,
+                  boxShadow: "0 12px 40px rgba(30,41,59,0.14), 0 0 0 1px rgba(30,41,59,0.04)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  minWidth: 320,
+                  padding: "8px",
+                  zIndex: 200,
+                }}
+              >
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
+                  {COMPARE_LINKS.map(({ label, to }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      onClick={() => setCompareOpen(false)}
+                      style={{
+                        display: "block",
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#475569",
+                        textDecoration: "none",
+                        transition: "background .12s, color .12s",
+                        whiteSpace: "nowrap",
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+                        e.currentTarget.style.color = "#7C3AED";
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = "transparent";
+                        e.currentTarget.style.color = "#475569";
+                      }}
+                    >
+                      {label}
+                    </Link>
+                  ))}
+                </div>
+                <div style={{ borderTop: "1px solid rgba(30,41,59,0.08)", margin: "6px 0" }} />
+                <Link
+                  to="/compare"
+                  onClick={() => setCompareOpen(false)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                    padding: "9px 12px",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#8B5CF6",
+                    textDecoration: "none",
+                    transition: "background .12s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(139,92,246,0.08)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  View all comparisons →
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
       {/* ── Auth (desktop) ────────────────────── */}
@@ -313,6 +427,53 @@ export function Nav() {
                   {label}
                 </Link>
               ))}
+
+              {/* Compare group */}
+              <div style={{ padding: "6px 16px 2px", fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: "#94A3B8" }}>
+                Compare
+              </div>
+              {COMPARE_LINKS.map(({ label, to }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMobileOpen(false)}
+                  style={{
+                    display: "block",
+                    padding: "8px 16px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#475569",
+                    textDecoration: "none",
+                    transition: "background .12s, color .12s",
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = "rgba(139,92,246,0.08)";
+                    e.currentTarget.style.color = "#7C3AED";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "#475569";
+                  }}
+                >
+                  {label}
+                </Link>
+              ))}
+              <Link
+                to="/compare"
+                onClick={() => setMobileOpen(false)}
+                style={{
+                  display: "block",
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: "#8B5CF6",
+                  textDecoration: "none",
+                }}
+              >
+                View all comparisons →
+              </Link>
 
               <div style={{ borderTop: "1px solid rgba(30,41,59,0.08)", margin: "6px 0" }} />
 

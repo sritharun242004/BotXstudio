@@ -4,7 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 const LandingPage    = lazy(() => import("./LandingPage"));
 const BlogPage       = lazy(() => import("./lp/BlogPage"));
-const ComparePage    = lazy(() => import("./lp/ComparePage"));
+const ComparePage       = lazy(() => import("./lp/ComparePage"));
+const CompareDetailPage = lazy(() => import("./lp/CompareDetailPage"));
 const TermsPage      = lazy(() => import("./TermsPage"));
 const LoginPage      = lazy(() => import("./components/LoginPage"));
 const AuthCallbackPage = lazy(() => import("./components/AuthCallbackPage"));
@@ -106,6 +107,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="/"              element={<LandingPage />} />
           <Route path="/blog"          element={<BlogPage />} />
           <Route path="/compare"       element={<ComparePage />} />
+          <Route path="/compare/:slug" element={<CompareDetailPage />} />
           <Route path="/terms"         element={<TermsPage />} />
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />

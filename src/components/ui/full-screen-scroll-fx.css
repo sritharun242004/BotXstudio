@@ -329,7 +329,7 @@
     gap: 0;
   }
 
-  /* Step number + description at the top */
+  /* Step number + description — push down from top edge */
   .fx-right {
     order: 1;
     width: 100%;
@@ -337,6 +337,7 @@
     overflow: visible;
     display: flex;
     justify-content: center;
+    padding-top: 32px;
   }
 
   .fx-right .fx-track {

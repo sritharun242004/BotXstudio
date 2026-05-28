@@ -275,6 +275,31 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
 
       window.addEventListener("wheel", handleWheel, { passive: false });
 
+      // Touch swipe — mobile section advance
+      let touchStartY = 0;
+      const handleTouchStart = (e: TouchEvent) => {
+        touchStartY = e.touches[0]?.clientY ?? 0;
+      };
+      const handleTouchEnd = (e: TouchEvent) => {
+        if (!stRef.current) return;
+        const prog = stRef.current.progress;
+        if (prog <= 0.02 || prog >= 0.98) return;
+
+        const deltaY = touchStartY - (e.changedTouches[0]?.clientY ?? 0);
+        if (Math.abs(deltaY) < 40) return; // ignore taps / tiny swipes
+
+        const dir  = deltaY > 0 ? 1 : -1;
+        const next = lastIndexRef.current + dir;
+        if (next < 0 || next >= total) return;
+
+        const now = Date.now();
+        if (now - lastAdvance < COOLDOWN_MS) return;
+        lastAdvance = now;
+        goTo(next, true);
+      };
+      window.addEventListener("touchstart", handleTouchStart, { passive: true });
+      window.addEventListener("touchend",   handleTouchEnd,   { passive: true });
+
       const ro = new ResizeObserver(() => {
         computePositions();
         measureAndCenterLists(lastIndexRef.current, false);
@@ -283,7 +308,9 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       ro.observe(fs);
 
       return () => {
-        window.removeEventListener("wheel", handleWheel);
+        window.removeEventListener("wheel",       handleWheel);
+        window.removeEventListener("touchstart",  handleTouchStart);
+        window.removeEventListener("touchend",    handleTouchEnd);
         ro.disconnect();
         st.kill();
         stRef.current = null;

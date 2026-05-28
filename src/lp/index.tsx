@@ -8,6 +8,227 @@ import { TextRotate } from "./text-rotate";
 import { FullScreenScrollFX } from "../components/ui/full-screen-scroll-fx";
 import { CinematicFooter } from "../components/ui/motion-footer";
 
+// ── Custom-credit slider (used in the Pricing section) ────────────────────────
+function PricingSlider() {
+  const SLIDER_MIN = 300;
+  const SLIDER_MAX = 10000;
+  const QUICK_PICKS = [
+    { credits: 300, label: "300" },
+    { credits: 500, label: "500" },
+    { credits: 1000, label: "1K" },
+    { credits: 2000, label: "2K" },
+    { credits: 5000, label: "5K" },
+    { credits: 10000, label: "10K" },
+  ];
+  const SCALE_MARKS = [
+    { credits: 300, label: "300" },
+    { credits: 1000, label: "1K" },
+    { credits: 5000, label: "5K" },
+    { credits: 10000, label: "10K" },
+  ];
+  const [credits, setCredits] = useState(1000);
+
+  function computePrice(cr: number) {
+    if (cr >= 10000) return { price: Math.round(cr * 1.33), rate: 1.33, discount: 20 };
+    if (cr >= 5000)  return { price: Math.round(cr * 1.49), rate: 1.49, discount: 10 };
+    return                  { price: Math.round(cr * 1.66), rate: 1.66, discount: 0 };
+  }
+
+  const { price, rate, discount } = computePrice(credits);
+  const sliderFill = ((credits - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+  const mailBody = `Hi, I'd like to purchase ${credits.toLocaleString()} credits for ₹${price.toLocaleString()}. My registered email is [your email]. Please send payment details.`;
+  const mailLink = `mailto:official@thebotcompany.in?subject=Buy Credits - Botzudio&body=${encodeURIComponent(mailBody)}`;
+
+  return (
+    <div style={{
+      marginTop: 48,
+      border: "2px solid #1E293B",
+      borderRadius: 20,
+      boxShadow: "4px 4px 0 #1E293B",
+      background: "#fff",
+      overflow: "hidden",
+    }}>
+      {/* Header */}
+      <div style={{
+        background: "#1E293B",
+        padding: "20px 32px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div>
+          <div style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 18, color: "#fff" }}>
+            Custom Credits
+          </div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", marginTop: 2, fontWeight: 500 }}>
+            Drag to choose exactly how many credits you need
+          </div>
+        </div>
+        {discount > 0 && (
+          <div style={{
+            background: "#FBBF24", color: "#1E293B",
+            fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 12,
+            padding: "5px 14px", borderRadius: 9999,
+            border: "2px solid #fff",
+          }}>
+            {discount}% bulk discount
+          </div>
+        )}
+      </div>
+
+      {/* Body: two-column layout */}
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 280px",
+        gap: 0,
+      }} className="lp-slider-grid">
+
+        {/* Left — calculator */}
+        <div style={{ padding: "32px 32px 28px", borderRight: "1.5px solid #E2E8F0" }}>
+          {/* Big credit count */}
+          <div style={{ marginBottom: 24 }}>
+            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: 48, letterSpacing: "-2px", lineHeight: 1, color: "#1E293B" }}>
+              {credits.toLocaleString()}
+            </span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#94A3B8", marginLeft: 8 }}>credits</span>
+          </div>
+
+          {/* Slider */}
+          <style>{`
+            .bz-lp-range::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; background:#fff; border:2px solid #8B5CF6; border-radius:50%; cursor:pointer; box-shadow:0 2px 8px rgba(139,92,246,0.3); }
+            .bz-lp-range::-moz-range-thumb { width:24px; height:24px; background:#fff; border:2px solid #8B5CF6; border-radius:50%; cursor:pointer; box-shadow:0 2px 8px rgba(139,92,246,0.3); }
+            @media(max-width:640px) { .lp-slider-grid { grid-template-columns:1fr !important; } .lp-slider-right { border-top:1.5px solid #E2E8F0 !important; border-left:none !important; } }
+          `}</style>
+          <input
+            type="range"
+            className="bz-lp-range"
+            min={SLIDER_MIN}
+            max={SLIDER_MAX}
+            step={50}
+            value={credits}
+            onChange={e => setCredits(parseInt(e.target.value))}
+            style={{
+              width: "100%", appearance: "none" as any, WebkitAppearance: "none" as any,
+              height: 10, borderRadius: 99, cursor: "pointer", outline: "none", border: "none",
+              background: `linear-gradient(to right, #8B5CF6 0%, #8B5CF6 ${sliderFill}%, #E2E8F0 ${sliderFill}%, #E2E8F0 100%)`,
+              marginBottom: 8,
+            }}
+          />
+
+          {/* Scale marks */}
+          <div style={{ position: "relative", height: 18, marginBottom: 20 }}>
+            {SCALE_MARKS.map(m => {
+              const pct = (m.credits - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN) * 100;
+              return (
+                <span key={m.label} style={{
+                  position: "absolute", left: `${pct}%`,
+                  transform: pct === 0 ? "none" : pct === 100 ? "translateX(-100%)" : "translateX(-50%)",
+                  fontSize: 11, fontWeight: 700, color: "#94A3B8", whiteSpace: "nowrap",
+                }}>
+                  {m.label}
+                </span>
+              );
+            })}
+          </div>
+
+          {/* Quick-pick pills */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
+            {QUICK_PICKS.map(p => {
+              const sel = credits === p.credits;
+              return (
+                <button key={p.label} type="button" onClick={() => setCredits(p.credits)} style={{
+                  padding: "6px 18px", borderRadius: 9999, fontSize: 12, fontWeight: 700,
+                  border: `2px solid ${sel ? "#1E293B" : "#E2E8F0"}`,
+                  background: sel ? "#1E293B" : "transparent",
+                  color: sel ? "#fff" : "#475569",
+                  cursor: "pointer", transition: "all .15s",
+                }}>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
+            {[
+              { label: "Total Price", value: `₹${price.toLocaleString()}`, color: "#1E293B" },
+              { label: "Per Credit",  value: `₹${rate.toFixed(2)}`,        color: "#8B5CF6" },
+              { label: "You Save",    value: discount > 0 ? `${discount}%` : "—", color: discount > 0 ? "#16A34A" : "#94A3B8" },
+            ].map(s => (
+              <div key={s.label} style={{
+                background: "#F8F7FF", border: "1.5px solid #EDE9FE",
+                borderRadius: 12, padding: "12px 8px", textAlign: "center",
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>{s.label}</div>
+                <div style={{ fontSize: 15, fontWeight: 900, color: s.color }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right — order summary */}
+        <div className="lp-slider-right" style={{ padding: "32px 24px 28px", background: "#FAFAF9", borderLeft: "1.5px solid #E2E8F0", display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            Your Order
+          </div>
+
+          <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: 38, fontWeight: 900, color: "#1E293B", lineHeight: 1, marginBottom: 4 }}>
+            ₹{price.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 12, color: "#94A3B8", fontWeight: 600, marginBottom: 20 }}>
+            ₹{rate.toFixed(2)} per credit · one-time
+          </div>
+
+          <div style={{ height: 1, background: "#E2E8F0", marginBottom: 16 }} />
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, flex: 1 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#64748B", fontWeight: 500 }}>
+              <span>{credits.toLocaleString()} credits</span>
+              <span>₹{price.toLocaleString()}</span>
+            </div>
+            {discount > 0 && (
+              <div style={{ display: "flex", justifyContent: "space-between", color: "#16A34A", fontWeight: 600 }}>
+                <span>Bulk discount</span>
+                <span>−{discount}%</span>
+              </div>
+            )}
+            <div style={{ height: 1, background: "#E2E8F0" }} />
+            <div style={{ display: "flex", justifyContent: "space-between", color: "#1E293B", fontWeight: 800, fontSize: 15 }}>
+              <span>Total</span>
+              <span>₹{price.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <a
+            href={mailLink}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              marginTop: 24, padding: "13px 0", borderRadius: 9999,
+              background: "#8B5CF6", color: "#fff", textDecoration: "none",
+              fontFamily: "'Outfit', sans-serif", fontSize: 14, fontWeight: 800,
+              border: "2px solid #1E293B", boxShadow: "3px 3px 0 #1E293B",
+              transition: "transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .18s ease",
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translate(-1px,-1px)";
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = "5px 5px 0 #1E293B";
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLAnchorElement).style.transform = "translate(0,0)";
+              (e.currentTarget as HTMLAnchorElement).style.boxShadow = "3px 3px 0 #1E293B";
+            }}
+          >
+            Buy {credits.toLocaleString()} Credits →
+          </a>
+          <div style={{ fontSize: 11, color: "#94A3B8", textAlign: "center", marginTop: 10, fontWeight: 500 }}>
+            Credit updates in 24h via UPI link
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 const GALLERY = [
   { label: "Front View", bg: "#EDE9FE", src: "/landing page/front.jpg" },
   { label: "Back View", bg: "#D1FAE5", src: "/landing page/back.png" },
@@ -41,8 +262,9 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "upload-garment",
     background: `${PROCESS}garment1.png`,
+    renderBackground: () => null,
     leftLabel: (
-      <img src={`${PROCESS}garment1.png`} alt="Garment" style={{ width: 150, height: 200, objectFit: "cover" as const, borderRadius: 10 }} />
+      <img src={`${PROCESS}garment1.png`} alt="Garment" style={{ width: 150, height: 200, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
     title: "Upload Garment",
     rightLabel: (
@@ -55,8 +277,9 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "add-references",
     background: `${PROCESS}modelpose1.png`,
+    renderBackground: () => null,
     leftLabel: (
-      <img src={`${PROCESS}modelpose1.png`} alt="Model pose reference" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
+      <img src={`${PROCESS}modelpose1.png`} alt="Model pose reference" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
     title: "Add References",
     rightLabel: (
@@ -69,8 +292,9 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "ai-generates",
     background: `${PROCESS}out1.png`,
+    renderBackground: () => null,
     leftLabel: (
-      <img src={`${PROCESS}out1.png`} alt="AI output" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
+      <img src={`${PROCESS}out1.png`} alt="AI output" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
     title: "AI Creates",
     rightLabel: (
@@ -83,8 +307,9 @@ const HOW_IT_WORKS_SECTIONS = [
   {
     id: "download-all",
     background: `${PROCESS}out3.png`,
+    renderBackground: () => null,
     leftLabel: (
-      <img src={`${PROCESS}out3.png`} alt="Detail" style={{ width: 120, height: 160, objectFit: "cover" as const, borderRadius: 10 }} />
+      <img src={`${PROCESS}out3.png`} alt="Detail" style={{ width: 120, height: 160, objectFit: "contain" as const, borderRadius: 10, mixBlendMode: "multiply" as const }} />
     ),
     title: "Download All",
     rightLabel: (
@@ -365,9 +590,9 @@ export function LandingPageTheme() {
       </section>
 
       {/* ── Output Gallery ────────────────────────────────────── */}
-      <section style={{ background: "#fff", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", padding: "80px 0" }}>
+      <section className="lp-gallery-section" style={{ background: "#fff", borderTop: "2px solid #1E293B", borderBottom: "2px solid #1E293B", padding: "80px 0" }}>
         <div className="lp-wrap">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 48, gap: 24, flexWrap: "wrap" }}>
+          <div className="lp-gallery-section-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 48, gap: 24, flexWrap: "wrap" }}>
             <div>
               <h2 style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 900, fontSize: "clamp(24px, 3.5vw, 40px)", letterSpacing: "-1px", marginBottom: 12 }}>
                 Every angle. Every variant. Every time.
@@ -680,6 +905,9 @@ export function LandingPageTheme() {
             </div>
 
           </div>
+
+          {/* Custom credit slider */}
+          <PricingSlider />
 
           <p style={{ marginTop: 32, fontSize: 14, color: "#94A3B8", textAlign: "center" }}>
             Credits are shared across all features — image generation, prints, and try-on. No subscription. No monthly renewal. Buy once, use anytime.

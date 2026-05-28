@@ -297,15 +297,29 @@ function CreditsSection() {
   const [couponMsg, setCouponMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [txLoading, setTxLoading] = useState(true);
 
-  const presets = [
-    { credits: 300,   price: 499,   rate: 1.66, discount: 0, label: "300" },
-    { credits: 500,   price: 832,   rate: 1.66, discount: 0, label: "500" },
-    { credits: 1000,  price: 1663,  rate: 1.66, discount: 0, label: "1K" },
-    { credits: 2000,  price: 3326,  rate: 1.66, discount: 0, label: "2K" },
-    { credits: 5000,  price: 8315,  rate: 1.66, discount: 0, label: "5K" },
-    { credits: 10000, price: 16630, rate: 1.66, discount: 0, label: "10K" },
+  const SLIDER_MIN = 300;
+  const SLIDER_MAX = 10000;
+  const QUICK_PICKS = [
+    { credits: 300,   label: "300" },
+    { credits: 500,   label: "500" },
+    { credits: 1000,  label: "1K" },
+    { credits: 2000,  label: "2K" },
+    { credits: 5000,  label: "5K" },
+    { credits: 10000, label: "10K" },
   ];
-  const [presetIndex, setPresetIndex] = useState(2); // default 1K
+  const SCALE_MARKS = [
+    { credits: 300,   label: "300" },
+    { credits: 1000,  label: "1K" },
+    { credits: 5000,  label: "5K" },
+    { credits: 10000, label: "10K" },
+  ];
+  const [credits, setCredits] = useState(1000);
+
+  function computePrice(cr: number): { price: number; rate: number; discount: number } {
+    if (cr >= 10000) return { price: Math.round(cr * 1.33), rate: 1.33, discount: 20 };
+    if (cr >= 5000)  return { price: Math.round(cr * 1.49), rate: 1.49, discount: 10 };
+    return                  { price: Math.round(cr * 1.66), rate: 1.66, discount: 0 };
+  }
 
   useEffect(() => {
     fetchCreditTransactions()
@@ -343,9 +357,8 @@ function CreditsSection() {
   const plusCr   = flashCr + fluxCr * 2;
   const proAvgCr = Math.round((gptMinCr + gptMaxCr) / 2);
 
-  const activeCredits = presets[presetIndex].credits;
-  const activePrice = presets[presetIndex].price;
-  const mailBody = `Hi, I'd like to purchase ${activeCredits.toLocaleString()} credits for ₹${activePrice.toLocaleString()}. My registered email is [your email]. Please send payment details.`;
+  const { price: activePrice, rate: activeRate, discount: activeDiscount } = computePrice(credits);
+  const mailBody = `Hi, I'd like to purchase ${credits.toLocaleString()} credits for ₹${activePrice.toLocaleString()}. My registered email is [your email]. Please send payment details.`;
   const mailLink = `mailto:official@thebotcompany.in?subject=Buy Credits - Botzudio&body=${encodeURIComponent(mailBody)}`;
 
   return (
@@ -507,161 +520,159 @@ function CreditsSection() {
         </div>
       )}
 
-      {/* Buy Credits Panel (Slider & Checkout) */}
-      {!isDeveloper && (
-        <div style={{
-          background: "var(--surface)", border: "2px solid var(--border-strong)",
-          borderRadius: "var(--radius-md)", boxShadow: "var(--shadow-card)",
-          marginBottom: 24, overflow: "hidden"
-        }}>
-          {/* Header of Buy Credits */}
-          <div style={{
-            padding: "18px 24px", borderBottom: "2px solid var(--border-strong)",
-            background: "#F8FAFC", display: "flex", alignItems: "center"
-          }}>
-            <div style={{ fontFamily: "var(--font-heading)", fontWeight: 800, fontSize: 16, color: "var(--text)" }}>
-              Buy Credits
-            </div>
-          </div>
-          
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 0 }} className="stgBillingGrid">
-            
-            {/* Left Column: Slider and presets */}
-            <div style={{ padding: "24px 30px", borderRight: "2px solid var(--border-strong)" }} className="stgBillingLeft">
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--text)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                  Select Credits
-                </span>
+      {/* Buy Credits — Loops-style two-card layout */}
+      {!isDeveloper && (() => {
+        const sliderFill = ((credits - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16, marginBottom: 24 }} className="stgBillingGrid">
+
+            {/* ── Left card: calculator ── */}
+            <div style={{
+              border: "1.5px solid var(--border-strong)", borderRadius: 18,
+              padding: "32px 32px 28px", background: "var(--surface)",
+              position: "relative", display: "flex", flexDirection: "column",
+            }} className="stgBillingLeft">
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Custom Credits
               </div>
-              
-              {/* Selected credits count */}
-              <div style={{ textAlign: "center", padding: "18px 0" }}>
-                <span style={{ fontFamily: "var(--font-heading)", fontSize: 38, fontWeight: 900, color: "var(--text)" }}>
-                  {activeCredits.toLocaleString()}
+
+              {/* Large credit count */}
+              <div style={{ marginBottom: 28 }}>
+                <span style={{ fontFamily: "var(--font-heading)", fontSize: 42, fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>
+                  {credits.toLocaleString()}
                 </span>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "var(--muted-color)", marginLeft: 6 }}>
-                  credits
-                </span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: "var(--muted-color)", marginLeft: 8 }}>credits</span>
               </div>
-              
-              {/* Custom Slider Track */}
-              <div style={{ padding: "10px 0 20px" }}>
+
+              {/* Slider with colored fill */}
+              <div style={{ marginBottom: 8 }}>
+                <style>{`
+                  .bz-range::-webkit-slider-thumb { -webkit-appearance:none; width:26px; height:26px; background:#fff; border:2px solid #DDD6FE; border-radius:50%; cursor:pointer; box-shadow:0 1px 6px rgba(139,92,246,0.25); }
+                  .bz-range::-moz-range-thumb { width:24px; height:24px; background:#fff; border:2px solid #DDD6FE; border-radius:50%; cursor:pointer; box-shadow:0 1px 6px rgba(139,92,246,0.25); }
+                `}</style>
                 <input
                   type="range"
-                  min={0}
-                  max={presets.length - 1}
-                  value={presetIndex}
-                  onChange={e => setPresetIndex(parseInt(e.target.value))}
+                  className="bz-range"
+                  min={SLIDER_MIN}
+                  max={SLIDER_MAX}
+                  step={50}
+                  value={credits}
+                  onChange={e => setCredits(parseInt(e.target.value))}
                   style={{
-                    width: "100%", accentColor: "var(--accent)", height: 8,
-                    borderRadius: 99, cursor: "pointer", background: "var(--border)"
+                    width: "100%", appearance: "none" as any, WebkitAppearance: "none" as any,
+                    height: 10, borderRadius: 99, cursor: "pointer", outline: "none", border: "none",
+                    background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${sliderFill}%, #E2E8F0 ${sliderFill}%, #E2E8F0 100%)`,
                   }}
                 />
-                
-                {/* Labels below slider */}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, fontWeight: 700, color: "var(--muted-color)", marginTop: 8, padding: "0 4px" }}>
-                  <span>300</span>
-                  <span>1K</span>
-                  <span>5K</span>
-                  <span>10K</span>
-                </div>
               </div>
-              
-              {/* Stats row below slider */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 24 }}>
-                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Price</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--text)", marginTop: 4 }}>₹{activePrice.toLocaleString()}</div>
-                </div>
-                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Per Credit</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--quaternary)", marginTop: 4 }}>₹{presets[presetIndex].rate.toFixed(2)}</div>
-                </div>
-                <div style={{ background: "#F8FAFC", border: "1.5px solid var(--border)", borderRadius: 10, padding: "10px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px" }}>You Save</div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--secondary)", marginTop: 4 }}>{presets[presetIndex].discount}%</div>
-                </div>
-              </div>
-              
-              {/* Pills selectors */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                {presets.map((p, idx) => {
-                  const isSel = presetIndex === idx;
+
+              {/* Scale marks at correct proportional positions */}
+              <div style={{ position: "relative", height: 18, marginBottom: 24 }}>
+                {SCALE_MARKS.map(m => {
+                  const pct = (m.credits - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN) * 100;
                   return (
-                    <button
-                      key={p.label}
-                      type="button"
-                      onClick={() => setPresetIndex(idx)}
-                      style={{
-                        padding: "6px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700,
-                        border: "2px solid var(--border-strong)", cursor: "pointer",
-                        background: isSel ? "var(--accent)" : "var(--surface)",
-                        color: isSel ? "#fff" : "var(--text)",
-                        boxShadow: isSel ? "var(--shadow-pop-press)" : "none",
-                        transition: "all 0.15s ease"
-                      }}
-                    >
-                      {p.label}
-                    </button>
+                    <span key={m.label} style={{
+                      position: "absolute", left: `${pct}%`,
+                      transform: pct === 0 ? "none" : pct === 100 ? "translateX(-100%)" : "translateX(-50%)",
+                      fontSize: 11, fontWeight: 700, color: "var(--muted-color)", whiteSpace: "nowrap",
+                    }}>{m.label}</span>
                   );
                 })}
               </div>
+
+              {/* Quick-pick pills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 28 }}>
+                {QUICK_PICKS.map(p => {
+                  const isSel = credits === p.credits;
+                  return (
+                    <button key={p.label} type="button" onClick={() => setCredits(p.credits)} style={{
+                      padding: "6px 16px", borderRadius: 99, fontSize: 12, fontWeight: 700,
+                      border: `2px solid ${isSel ? "var(--accent)" : "var(--border-strong)"}`,
+                      cursor: "pointer", transition: "all 0.15s",
+                      background: isSel ? "var(--accent)" : "transparent",
+                      color: isSel ? "#fff" : "var(--text)",
+                    }}>{p.label}</button>
+                  );
+                })}
+              </div>
+
+              {/* Stats row */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: "auto" }}>
+                {[
+                  { label: "Total Price", value: `₹${activePrice.toLocaleString()}`, color: "var(--text)" },
+                  { label: "Per Credit",  value: `₹${activeRate.toFixed(2)}`,        color: "var(--accent)" },
+                  { label: "You Save",    value: `${activeDiscount}%`,               color: activeDiscount > 0 ? "var(--quaternary)" : "var(--muted-color)" },
+                ].map(s => (
+                  <div key={s.label} style={{ background: "#F8F7FF", border: "1.5px solid #EDE9FE", borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>{s.label}</div>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: s.color }}>{s.value}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            
-            {/* Right Column: Checkout panel */}
-            <div style={{ padding: "28px 24px", background: "#F8FAFC", display: "flex", flexDirection: "column" }} className="stgBillingRight">
-              
-              {/* Large summary price */}
-              <div style={{ textAlign: "center", marginBottom: 20 }}>
-                <div style={{ fontFamily: "var(--font-heading)", fontSize: 36, fontWeight: 900, color: "var(--text)", lineHeight: 1.1 }}>
+
+            {/* ── Right card: order summary ── */}
+            <div style={{
+              border: "1.5px solid var(--border-strong)", borderRadius: 18,
+              padding: "32px 24px 28px", background: "#F8F7FF",
+              display: "flex", flexDirection: "column",
+            }} className="stgBillingRight">
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--muted-color)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+                Your Order
+              </div>
+
+              {/* Price */}
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ fontFamily: "var(--font-heading)", fontSize: 38, fontWeight: 900, color: "var(--text)", lineHeight: 1 }}>
                   ₹{activePrice.toLocaleString()}
                 </div>
-                <div style={{ fontSize: 12, color: "var(--muted-color)", fontWeight: 600, marginTop: 4 }}>
-                  ₹{presets[presetIndex].rate.toFixed(2)} per credit
+                <div style={{ fontSize: 12, color: "var(--muted-color)", fontWeight: 600, marginTop: 6 }}>
+                  ₹{activeRate.toFixed(2)} per credit · one-time
                 </div>
               </div>
-              
-              <div style={{ height: 1, background: "var(--border)", margin: "0 0 16px" }} />
-              
-              {/* Summary item table */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, marginBottom: 24, flex: 1 }}>
+
+              <div style={{ height: 1, background: "#DDD6FE", margin: "18px 0" }} />
+
+              {/* Line items */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, flex: 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--muted-color)", fontWeight: 500 }}>
-                  <span>{activeCredits.toLocaleString()} credits</span>
+                  <span>{credits.toLocaleString()} credits</span>
                   <span>₹{activePrice.toLocaleString()}</span>
                 </div>
-                
-                <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-                
-                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text)", fontWeight: 800, fontSize: 14 }}>
+                {activeDiscount > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", color: "var(--quaternary)", fontWeight: 600 }}>
+                    <span>Bulk discount</span>
+                    <span>−{activeDiscount}%</span>
+                  </div>
+                )}
+                <div style={{ height: 1, background: "#DDD6FE", margin: "4px 0" }} />
+                <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text)", fontWeight: 800, fontSize: 15 }}>
                   <span>Total</span>
                   <span>₹{activePrice.toLocaleString()}</span>
                 </div>
               </div>
-              
-              {/* Pay Button */}
-              <a
-                href={mailLink}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  width: "100%", padding: "12px 16px", borderRadius: 999,
-                  background: "var(--quaternary)", color: "#fff", textDecoration: "none",
-                  fontSize: 14, fontWeight: 800, border: "2px solid var(--border-strong)",
-                  boxShadow: "var(--shadow-pop)", transition: "all 0.2s"
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-1px)"}
+
+              {/* CTA */}
+              <a href={mailLink} style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginTop: 24, padding: "13px 0", borderRadius: 999,
+                background: "var(--accent)", color: "#fff", textDecoration: "none",
+                fontSize: 14, fontWeight: 800, boxShadow: "0 4px 16px rgba(139,92,246,0.35)",
+                transition: "all 0.15s",
+              }}
+                onMouseEnter={e => e.currentTarget.style.transform = "translateY(-2px)"}
                 onMouseLeave={e => e.currentTarget.style.transform = "none"}
               >
                 Proceed to Payment
               </a>
-              
               <div style={{ fontSize: 11, color: "var(--muted-color)", textAlign: "center", marginTop: 10, fontWeight: 500 }}>
                 Credit updates in 24h via UPI link
               </div>
             </div>
-            
+
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Model Pricing Table */}
       <SectionCard title="Credits Per Generation">
@@ -692,14 +703,14 @@ function CreditsSection() {
             ))}
           </tbody>
         </table>
-        <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted-color)" }}>
-          Prices are set by admin and update in real time. 1 credit = ₹1 INR.
+        <div style={{ marginTop: 12, fontSize: 12, color: "var(--muted-color)", fontStyle: "italic" }}>
+          * Prices are set by admin and update in real time. 1 credit = ₹1 INR.
         </div>
       </SectionCard>
 
       {/* Redeem promo code */}
       <SectionCard title="Redeem Coupon">
-        <div className="stgCouponRow">
+        <div style={{ position: "relative" }}>
           <input
             className="stgInput"
             placeholder="Enter promo / affiliate code"
@@ -707,13 +718,19 @@ function CreditsSection() {
             onChange={e => { setCoupon(e.target.value.toUpperCase()); setCouponMsg(null); }}
             onKeyDown={e => e.key === "Enter" && handleRedeem()}
             disabled={couponBusy}
-            style={{ flex: 1 }}
+            style={{ width: "100%", paddingRight: 110 }}
           />
           <button
-            className="stgPrimaryBtn"
-            style={{ flexShrink: 0 }}
             onClick={handleRedeem}
             disabled={couponBusy || !coupon.trim()}
+            style={{
+              position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
+              background: coupon.trim() ? "var(--text)" : "var(--border-strong)",
+              color: coupon.trim() ? "#fff" : "var(--muted-color)",
+              border: "none", borderRadius: 8, padding: "8px 18px",
+              fontSize: 13, fontWeight: 700, cursor: coupon.trim() ? "pointer" : "default",
+              transition: "all 0.15s", whiteSpace: "nowrap",
+            }}
           >
             {couponBusy ? "Checking…" : "Redeem"}
           </button>
@@ -736,7 +753,7 @@ function CreditsSection() {
 
       {/* Invoices (Invoice / Transaction History) */}
       <SectionCard title="Invoices">
-        <div style={{ fontSize: 12, color: "var(--muted-color)", marginBottom: 12 }}>
+        <div style={{ fontSize: 12, color: "var(--muted-color)", marginBottom: 16, fontStyle: "italic" }}>
           View and download your receipt and transaction invoices.
         </div>
         {txLoading ? (
