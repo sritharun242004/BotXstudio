@@ -1059,60 +1059,15 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-pricing-g { grid-template-columns: repeat(2, 1fr) !important; max-width: 100%; }
 }
 @media (max-width: 600px) {
-  .lp-steps-grid { grid-template-columns: 1fr !important; }
-  .lp-persona-g { grid-template-columns: 1fr !important; }
+  .lp-steps-grid { grid-template-columns: 1fr 1fr !important; }
+  .lp-persona-g { grid-template-columns: 1fr 1fr !important; }
   .lp-pricing-g { grid-template-columns: 1fr !important; max-width: 440px; margin: 0 auto; }
 
-  /* ── Full-screen scroll-card stacking (mobile only) ── */
-  .lp-gallery-g {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0 !important;
-    grid-template-columns: unset !important;
-  }
-
-  /* Each wrapper = one full viewport, sticky at top:0
-     As user scrolls, each card slides up and covers the previous one (higher z-index wins) */
-  .lp-gallery-wrap {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 16px;
-    box-sizing: border-box;
-  }
-
-  .lp-gallery-wrap-0 { z-index: 10; }
-  .lp-gallery-wrap-1 { z-index: 20; }
-  .lp-gallery-wrap-2 { z-index: 30; }
-
-  /* Card: tall portrait that fills the viewport, no tilt */
-  .lp-gallery-wrap .lp-gallery-item {
-    width: 100% !important;
-    height: calc(100vh - 88px) !important;
-    max-width: 400px !important;
-    transform: none !important;
-    transition: none !important;
-    will-change: auto;
-  }
-
-  .lp-gallery-wrap-0 .lp-gallery-item { transform: none !important; }
-  .lp-gallery-wrap-1 .lp-gallery-item { transform: none !important; }
-  .lp-gallery-wrap-2 .lp-gallery-item { transform: none !important; }
-
-  /* No hover effect on mobile */
-  .lp-gallery-item:hover                    { transform: none !important; box-shadow: 4px 4px 0 #1E293B !important; }
-  .lp-gallery-wrap-1 .lp-gallery-item:hover { transform: none !important; }
-  .lp-gallery-wrap-2 .lp-gallery-item:hover { transform: none !important; }
-
-  /* Gallery section: strip padding so cards can fill viewport edge-to-edge */
-  .lp-gallery-section { padding: 40px 0 0 !important; }
-  .lp-gallery-section .lp-wrap { padding: 0 !important; max-width: 100% !important; }
-
-  /* Keep the section header (heading + badge) padded */
-  .lp-gallery-section-header { padding: 0 16px 32px; }
+  /* Gallery: keep 2-col grid on mobile (matches desktop style) */
+  .lp-gallery-g { grid-template-columns: 1fr 1fr !important; gap: 14px !important; }
+  .lp-gallery-wrap { position: static !important; height: auto !important; padding: 0 !important; }
+  .lp-gallery-wrap .lp-gallery-item { width: 100% !important; height: auto !important; max-width: 100% !important; }
+  .lp-gallery-item:hover { transform: none !important; box-shadow: 4px 4px 0 #1E293B !important; }
 }
 
 @media (max-width: 900px) {
@@ -1140,12 +1095,12 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-model-legend { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 600px) {
-  .lp-features-grid { grid-template-columns: 1fr; }
-  .lp-steps, .lp-steps-4, .lp-steps-5 { grid-template-columns: 1fr; }
+  .lp-features-grid { grid-template-columns: 1fr 1fr; }
+  .lp-steps, .lp-steps-4, .lp-steps-5 { grid-template-columns: 1fr 1fr; }
   .lp-footer-top { grid-template-columns: 1fr; }
   .lp-nav-links { display: none; }
   .lp-nav { width: calc(100% - 24px); max-width: 100%; }
-  .lp-gallery-grid { grid-template-columns: 1fr; }
+  .lp-gallery-grid { grid-template-columns: 1fr 1fr; }
   .lp-persona-grid { grid-template-columns: 1fr; }
   .lp-stats-item { flex: 1 1 100%; border-right: none !important; }
   .lp-stats-item:last-child { border-bottom: none; }
@@ -1981,12 +1936,12 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
     z-index: 1;
   }
   .lp-mobile-top-images img {
-    width: 136px;
-    height: 178px;
+    width: 170px;
+    height: 224px;
     object-fit: cover;
     border-radius: 14px;
     border: 2px solid #1E293B;
-    box-shadow: 5px 5px 0 #1E293B;
+    box-shadow: 6px 6px 0 #1E293B;
   }
   .lp-mobile-top-images img:first-child { transform: rotate(-5deg); }
   .lp-mobile-top-images img:last-child  { transform: rotate(5deg);  }
@@ -2008,16 +1963,16 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
     object-fit: cover;
     border-radius: 14px;
     border: 2px solid #1E293B;
-    box-shadow: 5px 5px 0 #1E293B;
+    box-shadow: 6px 6px 0 #1E293B;
   }
-  .lp-mobile-bottom-images img:first-child  { width: 108px; height: 142px; transform: rotate(-4deg); }
-  .lp-mobile-bottom-images img:nth-child(2) { width: 120px; height: 156px; transform: rotate(0deg);  }
-  .lp-mobile-bottom-images img:last-child   { width: 108px; height: 142px; transform: rotate(4deg);  }
+  .lp-mobile-bottom-images img:first-child  { width: 136px; height: 178px; transform: rotate(-4deg); }
+  .lp-mobile-bottom-images img:nth-child(2) { width: 150px; height: 196px; transform: rotate(0deg);  }
+  .lp-mobile-bottom-images img:last-child   { width: 136px; height: 178px; transform: rotate(4deg);  }
 
   /* Hero center content: clear both image rows comfortably */
   .lp-hero-content {
-    padding-top: 240px !important;
-    padding-bottom: 215px !important;
+    padding-top: 268px !important;
+    padding-bottom: 248px !important;
   }
 
   /* Reduce section padding (overrides inline "padding: 80px 0") */
@@ -2035,19 +1990,19 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   /* Tighter section padding on phones */
   section { padding-top: 44px !important; padding-bottom: 44px !important; }
 
-  /* Scale images down for narrower phones, keep safe padding */
-  .lp-mobile-top-images { padding: 80px 30px 0; }
-  .lp-mobile-top-images img { width: 110px; height: 146px; }
+  /* Scale images for narrower phones */
+  .lp-mobile-top-images { padding: 80px 20px 0; }
+  .lp-mobile-top-images img { width: 140px; height: 184px; }
 
-  .lp-mobile-bottom-images { padding: 0 30px 36px; }
-  .lp-mobile-bottom-images img:first-child  { width: 92px;  height: 122px; }
-  .lp-mobile-bottom-images img:nth-child(2) { width: 102px; height: 134px; }
-  .lp-mobile-bottom-images img:last-child   { width: 92px;  height: 122px; }
+  .lp-mobile-bottom-images { padding: 0 20px 32px; }
+  .lp-mobile-bottom-images img:first-child  { width: 112px; height: 148px; }
+  .lp-mobile-bottom-images img:nth-child(2) { width: 126px; height: 164px; }
+  .lp-mobile-bottom-images img:last-child   { width: 112px; height: 148px; }
 
   /* Adjusted hero content padding for smaller phones */
   .lp-hero-content {
-    padding-top: 200px !important;
-    padding-bottom: 182px !important;
+    padding-top: 228px !important;
+    padding-bottom: 210px !important;
   }
 
   /* Pricing: full width on small screens */

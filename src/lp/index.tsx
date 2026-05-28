@@ -616,10 +616,6 @@ export function LandingPageTheme() {
         <style>{`
           .lp-gallery-desktop-block { display: block; }
           .lp-gallery-mobile-cards  { display: none;  }
-          @media (max-width: 768px) {
-            .lp-gallery-desktop-block { display: none;  }
-            .lp-gallery-mobile-cards  { display: block; }
-          }
         `}</style>
 
         {/* ── Desktop: original 3-column grid ── */}
