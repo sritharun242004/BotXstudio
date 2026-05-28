@@ -9,6 +9,12 @@
     <!-- never leak to third-party hosts via the Referer header.            -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
+    <!-- Speed up image loading: open the S3 TLS connection in parallel
+         with the API call that returns the image URLs. Saves ~150ms on
+         the first image fetch (no DNS + TLS handshake when the URL arrives). -->
+    <link rel="preconnect" href="https://botxstudio.s3.us-east-1.amazonaws.com" crossorigin />
+    <link rel="dns-prefetch" href="https://botxstudio.s3.us-east-1.amazonaws.com" />
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />

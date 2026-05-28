@@ -236,6 +236,8 @@ export default function AssetsTab({
                     src={src}
                     alt={`${activeTabDef.label} ${idx + 1}`}
                     draggable={false}
+                    loading="lazy"
+                    decoding="async"
                     onClick={() => onOpenImage(src, `${activeTabDef.label} ${idx + 1}`)}
                   />
                   <button
@@ -303,7 +305,7 @@ export default function AssetsTab({
                     onClick={() => onOpenImage(image.url, image.title)}
                     aria-label={`Open ${image.title}`}
                   >
-                    <img src={image.url} alt={image.title} draggable={false} />
+                    <img src={image.url} alt={image.title} draggable={false} loading="lazy" decoding="async" />
                   </button>
                   <div className="atLibraryCardOverlay">
                     <button type="button" className="atLibraryOverlayBtn" onClick={() => onOpenImage(image.url, image.title)} title="View">

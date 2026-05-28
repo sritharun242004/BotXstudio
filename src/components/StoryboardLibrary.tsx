@@ -183,11 +183,11 @@ export default function StoryboardLibrary({
                 >
                   <div className="storyboardCardPreview" aria-hidden="true">
                     {rt?.resultDataUrl ? (
-                      <img src={rt.resultDataUrl} alt="" draggable={false} />
+                      <img src={rt.resultDataUrl} alt="" draggable={false} loading="lazy" decoding="async" />
                     ) : savedPreviewByStoryboardId[sb.id] ? (
-                      <img src={savedPreviewByStoryboardId[sb.id]} alt="" draggable={false} />
+                      <img src={savedPreviewByStoryboardId[sb.id]} alt="" draggable={false} loading="lazy" decoding="async" />
                     ) : rt?.garmentDataUrls?.length ? (
-                      <img src={rt.garmentDataUrls[0]} alt="" draggable={false} />
+                      <img src={rt.garmentDataUrls[0]} alt="" draggable={false} loading="lazy" decoding="async" />
                     ) : (
                       <div className="storyboardCardPreviewPlaceholder">No preview yet</div>
                     )}

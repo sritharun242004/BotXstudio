@@ -173,7 +173,7 @@ function GroupCard({ group, formatTimestamp, onOpenImage, onDeleteGroup, isSelec
               }}
               aria-label={`Open ${img.title}`}
             >
-              <img src={img.url} alt={img.title} draggable={false} />
+              <img src={img.url} alt={img.title} draggable={false} loading="lazy" decoding="async" />
               {/* "+N more" overlay on the 4th slot when there are >4 images */}
               {i === 3 && count > 4 && (
                 <span className="atGroupMoreOverlay">+{count - 3}</span>

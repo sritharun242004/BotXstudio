@@ -33,11 +33,21 @@ export async function uploadBuffer(
   return { bucket: env.S3_BUCKET, key, size: body.length };
 }
 
-/** Get a presigned download URL (default 1 hour expiry) */
+/** Get a presigned download URL (default 1 hour expiry).
+ *
+ * ResponseCacheControl makes S3 echo back a Cache-Control header so the
+ * browser memory-caches the image bytes for the URL's lifetime. Without
+ * this, every component re-render that mounts an <img> triggers a fresh
+ * S3 fetch.
+ */
 export async function getPresignedDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
   return getSignedUrl(
     s3,
-    new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key }),
+    new GetObjectCommand({
+      Bucket: env.S3_BUCKET,
+      Key: key,
+      ResponseCacheControl: `private, max-age=${expiresIn}`,
+    }),
     { expiresIn },
   );
 }
