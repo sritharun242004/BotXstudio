@@ -11,7 +11,14 @@ const TOKENS_KEY = "bsx_cognito_tokens";
 
 const COGNITO_DOMAIN = import.meta.env.VITE_COGNITO_DOMAIN;
 const CLIENT_ID = import.meta.env.VITE_COGNITO_CLIENT_ID;
-const REDIRECT_URI = import.meta.env.VITE_COGNITO_REDIRECT_URI;
+
+// Derive redirect_uri from the current origin so the auth flow works on both
+// botzudio.com (main app) and admin.botzudio.com (admin subdomain) — each
+// returns the user to whichever domain they signed in from. Cognito must
+// have BOTH callback URLs in its allowed list.
+function getRedirectUri(): string {
+  return window.location.origin + "/auth/callback";
+}
 
 // ─── PKCE helpers ────────────────────────────────────────────────────────────
 
@@ -48,7 +55,7 @@ export async function redirectToLogin(provider?: "Google" | "Apple", signup?: bo
     `client_id=${CLIENT_ID}` +
     `&response_type=code` +
     `&scope=${scope}` +
-    `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+    `&redirect_uri=${encodeURIComponent(getRedirectUri())}` +
     `&code_challenge=${codeChallenge}` +
     `&code_challenge_method=S256`;
 
@@ -62,7 +69,7 @@ export async function redirectToLogin(provider?: "Google" | "Apple", signup?: bo
       `client_id=${CLIENT_ID}` +
       `&response_type=code` +
       `&scope=${scope}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&redirect_uri=${encodeURIComponent(getRedirectUri())}` +
       `&code_challenge=${codeChallenge}` +
       `&code_challenge_method=S256`;
   }
@@ -95,7 +102,7 @@ export async function handleCallback(code: string): Promise<Session> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ code, codeVerifier, redirectUri: REDIRECT_URI }),
+    body: JSON.stringify({ code, codeVerifier, redirectUri: getRedirectUri() }),
   });
 
   if (!resp.ok) {

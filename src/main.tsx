@@ -1,6 +1,39 @@
-import { StrictMode, useEffect, useState, lazy, Suspense } from "react";
+import { StrictMode, useEffect, useState, lazy, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+// ─── Host boundary ───────────────────────────────────────────────────────────
+// Admin lives on its own subdomain so cookies, sessions, and any future XSS
+// blast radius are isolated. Hostname-based gating below redirects users to
+// the correct host. Localhost / preview builds skip the check.
+const ADMIN_HOSTNAME = "admin.botzudio.com";
+const MAIN_HOSTNAME = "botzudio.com";
+
+function isAdminHost(): boolean {
+  return window.location.hostname === ADMIN_HOSTNAME;
+}
+function isMainHost(): boolean {
+  return window.location.hostname === MAIN_HOSTNAME;
+}
+function shouldEnforceHostBoundary(): boolean {
+  return isAdminHost() || isMainHost();
+}
+
+function AdminOnlyHost({ children }: { children: ReactNode }) {
+  if (shouldEnforceHostBoundary() && !isAdminHost()) {
+    window.location.href = `https://${ADMIN_HOSTNAME}${window.location.pathname}${window.location.search}`;
+    return <PageSpinner />;
+  }
+  return <>{children}</>;
+}
+
+function MainOnlyHost({ children }: { children: ReactNode }) {
+  if (shouldEnforceHostBoundary() && isAdminHost()) {
+    window.location.href = `https://${MAIN_HOSTNAME}${window.location.pathname}${window.location.search}`;
+    return <PageSpinner />;
+  }
+  return <>{children}</>;
+}
 
 const LandingPage    = lazy(() => import("./LandingPage"));
 const BlogPage       = lazy(() => import("./lp/BlogPage"));
@@ -104,19 +137,24 @@ createRoot(document.getElementById("root")!).render(
     <BrowserRouter basename="/">
       <Suspense fallback={<PageSpinner />}>
         <Routes>
-          <Route path="/"              element={<LandingPage />} />
-          <Route path="/blog"          element={<BlogPage />} />
-          <Route path="/compare"       element={<ComparePage />} />
-          <Route path="/compare/:slug" element={<CompareDetailPage />} />
-          <Route path="/terms"         element={<TermsPage />} />
+          {/* Main-only routes — redirect to botzudio.com if accessed via admin. */}
+          <Route path="/"              element={<MainOnlyHost><LandingPage /></MainOnlyHost>} />
+          <Route path="/blog"          element={<MainOnlyHost><BlogPage /></MainOnlyHost>} />
+          <Route path="/compare"       element={<MainOnlyHost><ComparePage /></MainOnlyHost>} />
+          <Route path="/compare/:slug" element={<MainOnlyHost><CompareDetailPage /></MainOnlyHost>} />
+          <Route path="/terms"         element={<MainOnlyHost><TermsPage /></MainOnlyHost>} />
+          <Route path="/app"           element={<MainOnlyHost><ProtectedApp /></MainOnlyHost>} />
+          <Route path="/app/settings"       element={<MainOnlyHost><ProtectedSettings /></MainOnlyHost>} />
+          <Route path="/app/documentation"  element={<MainOnlyHost><ProtectedDocs /></MainOnlyHost>} />
+          <Route path="/r/:code"       element={<MainOnlyHost><ReferralPage /></MainOnlyHost>} />
+
+          {/* Universal: login + callback work on both hosts so each domain has its own session. */}
           <Route path="/login"         element={<LoginPage />} />
           <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          <Route path="/app"           element={<ProtectedApp />} />
-          <Route path="/app/settings"       element={<ProtectedSettings />} />
-          <Route path="/app/documentation"  element={<ProtectedDocs />} />
-          <Route path="/r/:code"       element={<ReferralPage />} />
-          <Route path="/admin/login"   element={<AdminLogin />} />
-          <Route path="/admin"         element={<ProtectedAdmin />} />
+
+          {/* Admin-only routes — redirect to admin.botzudio.com if accessed via main. */}
+          <Route path="/admin/login"   element={<AdminOnlyHost><AdminLogin /></AdminOnlyHost>} />
+          <Route path="/admin"         element={<AdminOnlyHost><ProtectedAdmin /></AdminOnlyHost>} />
         </Routes>
       </Suspense>
     </BrowserRouter>
