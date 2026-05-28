@@ -55,7 +55,9 @@ export async function list(
   if (filters?.kind) where.kind = filters.kind;
   if (filters?.storyboardId) where.storyboardId = filters.storyboardId;
 
-  return prisma.image.findMany({
+  // s3Key is selected so we can sign a download URL per image, but it is
+  // stripped before returning (the bucket/key layout is internal detail).
+  const rows = await prisma.image.findMany({
     where,
     orderBy: { createdAt: "desc" },
     select: {
@@ -68,8 +70,21 @@ export async function list(
       storyboardId: true,
       storyboardTitle: true,
       createdAt: true,
+      s3Key: true,
     },
   });
+
+  // Sign each download URL in parallel. Signing is local HMAC, no network
+  // call, so this scales linearly with image count and stays cheap.
+  // Browsers can then load images straight from S3 instead of being
+  // proxied through the Node process, which was loading entire buffers
+  // into memory per request.
+  return Promise.all(
+    rows.map(async ({ s3Key, ...image }) => ({
+      ...image,
+      downloadUrl: await s3Service.getPresignedDownloadUrl(s3Key),
+    })),
+  );
 }
 
 export async function getById(userId: string, id: string) {

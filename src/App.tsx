@@ -32,7 +32,6 @@ import {
 } from "./lib/presets";
 import { dataUrlToBlob, effectiveMimeType, fileToDataUrl, normalizeHexColor, nowIso, parseTags as parseLocalTags } from "./lib/utils";
 import { deleteSavedImage, batchDeleteImages, listSavedImages, saveImageRecord, type SavedImageRecord } from "./lib/indexeddb";
-import { getAccessToken } from "./lib/api";
 import {
   createStoryboardRecord,
   createStoryboardApi,
@@ -1063,28 +1062,15 @@ export default function App() {
     setSavedImagesLoading(true);
     try {
       const records = await listSavedImages();
-      const token = getAccessToken();
-      // For records whose local blob has been purged, fetch the bytes via the
-      // proxy endpoint using the Authorization header (NOT a ?token= query
-      // string — that leaked the access token into browser history, Performance
-      // API, referrer, and Nginx logs). We then expose the bytes as a blob:
-      // URL so the <img> tag has no credentials in its src.
-      const views: SavedImageView[] = await Promise.all(records.map(async (record) => {
-        if (record.blob.size > 0) {
-          return toSavedImageView(record);
-        }
-        if (!token) return { ...record, url: "" };
-        try {
-          const resp = await fetch(`/api/images/${record.id}/raw`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          if (!resp.ok) return { ...record, url: "" };
-          const blob = await resp.blob();
-          return { ...record, url: URL.createObjectURL(blob) };
-        } catch {
-          return { ...record, url: "" };
-        }
-      }));
+      // For freshly-uploaded records we keep the original blob in memory
+      // (fastest, no network). For records reloaded from the API we use the
+      // presigned S3 download URL the server attached to each row, so the
+      // <img> tag fetches from S3 directly in parallel — no Express proxy,
+      // no full-buffer-in-Node bottleneck.
+      const views: SavedImageView[] = records.map((record) => {
+        if (record.blob.size > 0) return toSavedImageView(record);
+        return { ...record, url: record.downloadUrl ?? "" };
+      });
       setSavedImages((prev) => {
         for (const img of prev) {
           if (img.url && img.url.startsWith("blob:")) URL.revokeObjectURL(img.url);

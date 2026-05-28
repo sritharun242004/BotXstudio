@@ -10,6 +10,10 @@ export type SavedImageRecord = {
   storyboardTitle?: string;
   fileName?: string;
   blob: Blob;
+  // Presigned S3 URL for direct browser fetch. Present on records returned
+  // from listSavedImages(); absent on freshly-uploaded records where we
+  // already have the original blob.
+  downloadUrl?: string;
 };
 
 type SaveInput = Omit<SavedImageRecord, "id" | "createdAt"> & {
@@ -58,6 +62,7 @@ function apiToRecord(img: ApiImage): SavedImageRecord {
     storyboardTitle: img.storyboardTitle || undefined,
     fileName: img.fileName || undefined,
     blob: new Blob(), // placeholder — use downloadUrl for display
+    downloadUrl: img.downloadUrl,
   };
 }
 
