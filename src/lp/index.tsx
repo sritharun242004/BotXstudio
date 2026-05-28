@@ -705,7 +705,7 @@ export function LandingPageTheme() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gridAutoRows: "1fr", gap: 24 }} className="lp-persona-g">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24 }} className="lp-persona-g">
             {[
               {
                 icon: Store, bg: "#ECFDF5", border: "#34D399", shadow: "#34D399",

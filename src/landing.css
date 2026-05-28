@@ -1060,7 +1060,8 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
 }
 @media (max-width: 600px) {
   .lp-steps-grid { grid-template-columns: 1fr 1fr !important; }
-  .lp-persona-g { grid-template-columns: 1fr 1fr !important; }
+  /* 1-col so cards have full width — horizontal flex layout needs ~280px+ to breathe */
+  .lp-persona-g { grid-template-columns: 1fr !important; }
   .lp-pricing-g { grid-template-columns: 1fr !important; max-width: 440px; margin: 0 auto; }
 
   /* Gallery: keep 2-col grid on mobile (matches desktop style) */
@@ -1068,6 +1069,9 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-gallery-wrap { position: static !important; height: auto !important; padding: 0 !important; }
   .lp-gallery-wrap .lp-gallery-item { width: 100% !important; height: auto !important; max-width: 100% !important; }
   .lp-gallery-item:hover { transform: none !important; box-shadow: 4px 4px 0 #1E293B !important; }
+
+  /* Persona cards: reduce padding so icon+text row fits in single column */
+  .lp-persona-g > div { padding: 20px 18px 18px !important; gap: 14px !important; }
 }
 
 @media (max-width: 900px) {
