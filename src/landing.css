@@ -1084,7 +1084,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-showcase-inner { grid-template-columns: 1fr; }
   .lp-showcase-visual { display: none; }
   .lp-footer-top { grid-template-columns: 1fr 1fr !important; gap: 32px !important; }
-  .lp-nav { width: calc(100% - 32px); max-width: 100%; }
+  .lp-nav { width: calc(100% - 48px); max-width: 100%; }
   .lp-section { padding: 64px 24px; }
   .lp-stats-bar { flex-wrap: wrap; }
   .lp-stats-item { flex: 1 1 50%; border-right: none; border-bottom: 2px solid var(--border); }
@@ -1103,7 +1103,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-steps, .lp-steps-4, .lp-steps-5 { grid-template-columns: 1fr 1fr; }
   .lp-footer-top { grid-template-columns: 1fr 1fr !important; gap: 24px !important; }
   .lp-nav-links { display: none; }
-  .lp-nav { width: calc(100% - 24px); max-width: 100%; }
+  .lp-nav { width: calc(100% - 40px); max-width: 100%; }
   .lp-gallery-grid { grid-template-columns: 1fr 1fr; }
   .lp-persona-grid { grid-template-columns: 1fr; }
   .lp-stats-item { flex: 1 1 100%; border-right: none !important; }
@@ -1933,7 +1933,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
     top: 0;
     left: 0;
     right: 0;
-    padding: 84px 40px 0; /* Clear the 70px height of the floating navbar */
+    padding: 84px 60px 0; /* Clear the 70px height of the floating navbar */
     justify-content: space-between;
     align-items: flex-start;
     pointer-events: none;
@@ -1957,7 +1957,7 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
     bottom: 0;
     left: 0;
     right: 0;
-    padding: 0 40px 40px;
+    padding: 0 60px 40px;
     justify-content: space-between;
     align-items: flex-end;
     pointer-events: none;
@@ -1994,11 +1994,11 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   /* Tighter section padding on phones */
   section { padding-top: 44px !important; padding-bottom: 44px !important; }
 
-  /* Scale images for narrower phones — keep compact so text zone stays clear */
-  .lp-mobile-top-images { padding: 82px 16px 0; }
+  /* Pull images inward — 44px side padding keeps them off the edges but not cramped */
+  .lp-mobile-top-images { padding: 82px 44px 0; }
   .lp-mobile-top-images img { width: 120px; height: 158px; }
 
-  .lp-mobile-bottom-images { padding: 0 16px 28px; }
+  .lp-mobile-bottom-images { padding: 0 44px 28px; }
   .lp-mobile-bottom-images img:first-child  { width: 100px; height: 132px; }
   .lp-mobile-bottom-images img:nth-child(2) { width: 112px; height: 146px; }
   .lp-mobile-bottom-images img:last-child   { width: 100px; height: 132px; }
