@@ -46,7 +46,7 @@ export function CinematicFooter() {
 
 
       {/* ── Links Grid ──────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "64px 40px 0" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "64px 40px 0" }} className="lp-footer-container">
         <div style={{
           display: "grid",
           gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
@@ -55,7 +55,7 @@ export function CinematicFooter() {
         }} className="lp-footer-top">
 
           {/* Brand col */}
-          <div>
+          <div className="lp-footer-brand-col">
             <div className="lp-footer-brand-name">
               <div className="lp-nav-bz">BZ</div>
               Botzudio
@@ -129,7 +129,7 @@ export function CinematicFooter() {
       </div>
 
       {/* ── Bottom Bar ──────────────────────────────────────── */}
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 40px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 40px" }} className="lp-footer-container">
         <div style={{
           borderTop: "1px solid rgba(255,255,255,0.1)",
           padding: "22px 0 28px",
