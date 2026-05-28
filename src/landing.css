@@ -1973,10 +1973,10 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   .lp-mobile-bottom-images img:nth-child(2) { width: 150px; height: 196px; transform: rotate(0deg);  }
   .lp-mobile-bottom-images img:last-child   { width: 136px; height: 178px; transform: rotate(4deg);  }
 
-  /* Hero center content: clear both image rows comfortably */
+  /* Hero center content: top images end at 84+224=308px — start text at 328px */
   .lp-hero-content {
-    padding-top: 268px !important;
-    padding-bottom: 248px !important;
+    padding-top: 332px !important;
+    padding-bottom: 270px !important;
   }
 
   /* Reduce section padding (overrides inline "padding: 80px 0") */
@@ -1994,19 +1994,33 @@ body { background: var(--bg); color: var(--text); line-height: 1.6; }
   /* Tighter section padding on phones */
   section { padding-top: 44px !important; padding-bottom: 44px !important; }
 
-  /* Scale images for narrower phones */
-  .lp-mobile-top-images { padding: 80px 20px 0; }
-  .lp-mobile-top-images img { width: 140px; height: 184px; }
+  /* Scale images for narrower phones — keep compact so text zone stays clear */
+  .lp-mobile-top-images { padding: 82px 16px 0; }
+  .lp-mobile-top-images img { width: 120px; height: 158px; }
 
-  .lp-mobile-bottom-images { padding: 0 20px 32px; }
-  .lp-mobile-bottom-images img:first-child  { width: 112px; height: 148px; }
-  .lp-mobile-bottom-images img:nth-child(2) { width: 126px; height: 164px; }
-  .lp-mobile-bottom-images img:last-child   { width: 112px; height: 148px; }
+  .lp-mobile-bottom-images { padding: 0 16px 28px; }
+  .lp-mobile-bottom-images img:first-child  { width: 100px; height: 132px; }
+  .lp-mobile-bottom-images img:nth-child(2) { width: 112px; height: 146px; }
+  .lp-mobile-bottom-images img:last-child   { width: 100px; height: 132px; }
 
-  /* Adjusted hero content padding for smaller phones */
+  /* Hero center content: top images end at 80+184=264px — start text at 284px
+     Add horizontal padding so rotating text never reaches image edges */
   .lp-hero-content {
-    padding-top: 228px !important;
-    padding-bottom: 210px !important;
+    padding-top: 288px !important;
+    padding-bottom: 230px !important;
+    padding-left: 36px !important;
+    padding-right: 36px !important;
+  }
+  /* Reduce headline so longest rotation "catalog shots," fits without clipping */
+  .lp-hero-content h1 {
+    font-size: clamp(24px, 7.5vw, 72px) !important;
+    letter-spacing: -1px !important;
+    margin-bottom: 14px !important;
+  }
+  /* Tighter subtext on phone */
+  .lp-hero-content p {
+    font-size: 14px !important;
+    margin-bottom: 24px !important;
   }
 
   /* Pricing: full width on small screens */
