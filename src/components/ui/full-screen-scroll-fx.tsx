@@ -282,13 +282,11 @@ export const FullScreenScrollFX = forwardRef<HTMLDivElement, FullScreenFXProps>(
       };
       const handleTouchEnd = (e: TouchEvent) => {
         if (!stRef.current) return;
-        // isActive is true whenever the user is within the pinned section bounds.
-        // The old prog <= 0.02 guard was blocking the very first swipe on mobile
-        // because prog starts at exactly 0 when the section is first pinned.
-        if (!stRef.current.isActive) return;
+        const prog = stRef.current.progress;
+        if (prog <= 0.02 || prog >= 0.98) return;
 
         const deltaY = touchStartY - (e.changedTouches[0]?.clientY ?? 0);
-        if (Math.abs(deltaY) < 30) return; // ignore taps / tiny swipes
+        if (Math.abs(deltaY) < 40) return; // ignore taps / tiny swipes
 
         const dir  = deltaY > 0 ? 1 : -1;
         const next = lastIndexRef.current + dir;
