@@ -32,6 +32,7 @@ function PricingSlider() {
   function computePrice(cr: number) {
     if (cr >= 10000) return { price: Math.round(cr * 1.33), rate: 1.33, discount: 20 };
     if (cr >= 5000)  return { price: Math.round(cr * 1.49), rate: 1.49, discount: 10 };
+    if (cr <= 300)   return { price: 499,                   rate: 1.66, discount: 0 };
     return                  { price: Math.round(cr * 1.66), rate: 1.66, discount: 0 };
   }
 
