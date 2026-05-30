@@ -3099,6 +3099,16 @@ input[type="file"]::file-selector-button:hover {
   border-radius: 50%;
   animation: atSpin 0.7s linear infinite;
 }
+.atLoadingSpinnerSm {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: atSpin 0.7s linear infinite;
+  flex-shrink: 0;
+}
 @keyframes atSpin {
   to { transform: rotate(360deg); }
 }

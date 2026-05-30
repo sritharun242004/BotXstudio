@@ -241,6 +241,8 @@ export default function SavedImagesPane({
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
   // Exclude asset uploads — only show generated outputs
   const exportImages = useMemo(
@@ -316,6 +318,59 @@ export default function SavedImagesPane({
     }
   }, [selectedGroupIds, allGroups, onDeleteGroup]);
 
+  const downloadSelected = useCallback(async () => {
+    if (selectedGroupIds.size === 0) return;
+    const allImages: SavedImageView[] = [];
+    for (const g of allGroups) {
+      if (selectedGroupIds.has(g.id)) allImages.push(...g.images);
+    }
+    if (allImages.length === 0) return;
+
+    setIsDownloading(true);
+    setDownloadProgress({ done: 0, total: allImages.length });
+
+    const triggerDownload = (href: string, filename: string) => {
+      const a = document.createElement("a");
+      a.href = href;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    try {
+      for (let i = 0; i < allImages.length; i++) {
+        const img = allImages[i]!;
+        const ext = mimeToExtension(img.mimeType);
+        const filename = img.fileName || `${img.title || "image"}_${i + 1}.${ext}`;
+
+        try {
+          // Fetch as blob so the browser saves the file instead of opening it
+          const res = await fetch(img.url, { mode: "cors" });
+          if (!res.ok) throw new Error("fetch failed");
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          triggerDownload(objectUrl, filename);
+          // Revoke after a short delay to let the browser start the download
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
+        } catch {
+          // CORS or network issue — fall back to direct URL (browser may open in tab)
+          triggerDownload(img.url, filename);
+        }
+
+        setDownloadProgress({ done: i + 1, total: allImages.length });
+        if (i < allImages.length - 1) {
+          // Stagger to avoid browser blocking simultaneous downloads
+          await new Promise((r) => setTimeout(r, 400));
+        }
+      }
+    } finally {
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    }
+  }, [selectedGroupIds, allGroups, mimeToExtension]);
+
   const selectedImageCount = useMemo(() => {
     let count = 0;
     for (const g of allGroups) {
@@ -368,6 +423,32 @@ export default function SavedImagesPane({
             )}
             <button type="button" className="btn btnGhost" style={{ fontSize: 13, padding: "6px 12px" }} onClick={clearSelection}>
               Cancel
+            </button>
+            <button
+              type="button"
+              className="btn btnPrimary"
+              style={{ fontSize: 13, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}
+              onClick={downloadSelected}
+              disabled={isDownloading || selectedGroupIds.size === 0}
+              title={`Download ${selectedImageCount} image${selectedImageCount !== 1 ? "s" : ""}`}
+            >
+              {isDownloading ? (
+                <>
+                  <span className="atLoadingSpinnerSm" />
+                  {downloadProgress
+                    ? `${downloadProgress.done}/${downloadProgress.total}`
+                    : "Downloading…"}
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  {`Download ${selectedImageCount}`}
+                </>
+              )}
             </button>
             <button
               type="button"
