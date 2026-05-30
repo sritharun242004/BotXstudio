@@ -32,9 +32,14 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
 
 export async function getRaw(req: Request, res: Response, next: NextFunction) {
   try {
-    const { buffer, mimeType } = await imageService.getRaw(req.user!.userId, req.params.id as string);
+    const { buffer, mimeType, fileName } = await imageService.getRaw(req.user!.userId, req.params.id as string);
     res.set("Content-Type", mimeType);
     res.set("Cache-Control", "private, max-age=3600");
+    if (req.query.dl === "1") {
+      const ext = mimeType.split("/")[1] || "jpg";
+      const name = fileName || `botzudio-image.${ext}`;
+      res.set("Content-Disposition", `attachment; filename="${name}"`);
+    }
     res.send(buffer);
   } catch (err) {
     next(err);

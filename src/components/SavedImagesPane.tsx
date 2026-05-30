@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { getAccessToken } from "../lib/api";
 
 type SavedImageView = {
   id: string;
@@ -329,34 +330,33 @@ export default function SavedImagesPane({
     setIsDownloading(true);
     setDownloadProgress({ done: 0, total: allImages.length });
 
-    const triggerDownload = (href: string, filename: string) => {
-      const a = document.createElement("a");
-      a.href = href;
-      a.download = filename;
-      a.style.display = "none";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    };
-
     try {
+      const token = getAccessToken();
       for (let i = 0; i < allImages.length; i++) {
         const img = allImages[i]!;
         const ext = mimeToExtension(img.mimeType);
         const filename = img.fileName || `${img.title || "image"}_${i + 1}.${ext}`;
 
         try {
-          // Fetch as blob so the browser saves the file instead of opening it
-          const res = await fetch(img.url, { mode: "cors" });
-          if (!res.ok) throw new Error("fetch failed");
+          // Use the server /raw?dl=1 endpoint — fetches from S3 server-side,
+          // sets Content-Disposition: attachment, returns the raw bytes.
+          const res = await fetch(`/api/images/${img.id}/raw?dl=1`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            credentials: "include",
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const blob = await res.blob();
           const objectUrl = URL.createObjectURL(blob);
-          triggerDownload(objectUrl, filename);
-          // Revoke after a short delay to let the browser start the download
+          const a = document.createElement("a");
+          a.href = objectUrl;
+          a.download = filename;
+          a.style.display = "none";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(objectUrl), 5000);
-        } catch {
-          // CORS or network issue — fall back to direct URL (browser may open in tab)
-          triggerDownload(img.url, filename);
+        } catch (err) {
+          console.error(`Download failed for image ${img.id}:`, err);
         }
 
         setDownloadProgress({ done: i + 1, total: allImages.length });

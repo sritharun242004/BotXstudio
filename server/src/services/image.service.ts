@@ -103,7 +103,7 @@ export async function getRaw(userId: string, id: string) {
   if (image.userId !== userId) throw new ForbiddenError();
 
   const buffer = await s3Service.getObjectBuffer(image.s3Key);
-  return { buffer, mimeType: image.mimeType };
+  return { buffer, mimeType: image.mimeType, fileName: image.fileName };
 }
 
 export async function remove(userId: string, id: string) {
