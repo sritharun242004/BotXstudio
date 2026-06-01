@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getSession, logout, type Session } from "./lib/auth";
 import { ADMIN_EMAIL } from "./lib/adminAuth";
 import { useCredits } from "./context/CreditsContext";
-import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt, Menu, X, Coins } from "lucide-react";
+import { Palette, Sparkles, Bookmark, FolderOpen, BarChart2, Box, MoreVertical, Settings, LifeBuoy, LogOut, ShieldCheck, LayoutDashboard, BookOpen, Shirt, Menu, X, Coins, Camera } from "lucide-react";
 
 import FieldLabel from "./components/FieldLabel";
 import Toast, { type ToastItem } from "./components/Toast";
@@ -19,7 +19,15 @@ import SavedImagesPane from "./components/SavedImagesPane";
 import AssetsTab from "./components/AssetsTab";
 import UsageTab from "./components/UsageTab";
 import TryOnTab from "./components/TryOnTab";
+import MultiAngleTab from "./components/MultiAngleTab";
 import GuidedTour, { startTour } from "./components/GuidedTour";
+import {
+  loadTabVisibility,
+  saveTabVisibility,
+  type TabVisibilityMap,
+  DEFAULT_TAB_VISIBILITY,
+  TAB_VIS_CHANGE_EVENT,
+} from "./lib/tabVisibility";
 
 import { base64ToBytes, dataUrlToInlineImage, generateImage, GeminiError } from "./lib/gemini";
 import {
@@ -146,7 +154,7 @@ type StoryboardRuntime = {
   promptsUsed: PromptsUsed;
 };
 
-type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "tryon";
+type AppTab = "prints" | "generate" | "assets" | "saved" | "usage" | "dashboard" | "tryon" | "multiangle";
 type SavedImageView = SavedImageRecord & { url: string };
 
 // ─── Pure helpers (outside component) ────────────────────────────────────────
@@ -601,9 +609,34 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<AppTab>(() => {
     const stored = localStorage.getItem(ACTIVE_TAB_KEY) as AppTab | null;
-    return stored && stored !== "prints" && (stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon")
+    return stored && stored !== "prints" && (stored === "generate" || stored === "assets" || stored === "saved" || stored === "usage" || stored === "dashboard" || stored === "tryon" || stored === "multiangle")
       ? stored : "generate";
   });
+
+  const [tabVisibility, setTabVisibility] = useState<TabVisibilityMap>(loadTabVisibility);
+
+  useEffect(() => {
+    function onTabVisChange(e: Event) {
+      setTabVisibility({ ...DEFAULT_TAB_VISIBILITY, ...(e as CustomEvent<TabVisibilityMap>).detail });
+    }
+    function onStorage(e: StorageEvent) {
+      if (e.key === "bsx_tab_vis_v1" && e.newValue) {
+        try { setTabVisibility({ ...DEFAULT_TAB_VISIBILITY, ...JSON.parse(e.newValue) }); } catch {}
+      }
+    }
+    window.addEventListener(TAB_VIS_CHANGE_EVENT, onTabVisChange);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(TAB_VIS_CHANGE_EVENT, onTabVisChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  // If current tab gets disabled by admin, fall back to generate
+  useEffect(() => {
+    const key = activeTab as keyof TabVisibilityMap;
+    if (key in tabVisibility && !tabVisibility[key]) setActiveTab("generate");
+  }, [tabVisibility, activeTab]);
 
   // Tab-switch shimmer
   const [tabShimmer, setTabShimmer] = useState(false);
@@ -726,12 +759,13 @@ export default function App() {
   const savedMainImages = useMemo(() => savedImages.filter((img) => img.kind === "main" || img.kind === "back" || img.kind === "detail"), [savedImages]);
 
   const activeTabLabel =
-    activeTab === "prints"     ? "Add Prints"
-    : activeTab === "assets"   ? "Uploaded Assets"
-    : activeTab === "saved"    ? "Saved images"
-    : activeTab === "usage"    ? "Credits"
+    activeTab === "prints"      ? "Add Prints"
+    : activeTab === "assets"    ? "Uploaded Assets"
+    : activeTab === "saved"     ? "Saved images"
+    : activeTab === "usage"     ? "Credits"
     : activeTab === "dashboard" ? "Dashboard"
     : activeTab === "tryon"     ? "Try On"
+    : activeTab === "multiangle" ? "Multi-Angle"
     : "Generate Images";
 
   // ── Derived computed values used in generation ────────────────────────────
@@ -2377,7 +2411,8 @@ export default function App() {
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
               { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
-            ] as const).map(({ tab, label, Icon }) => (
+              { tab: "multiangle", label: "Multi-Angle",      Icon: Camera          },
+            ] as const).filter(({ tab }) => tabVisibility[tab as keyof TabVisibilityMap] !== false).map(({ tab, label, Icon }) => (
               <button
                 key={tab}
                 type="button"
@@ -2591,6 +2626,22 @@ export default function App() {
                     <div className="stgTransSk" style={{ aspectRatio: "3/4", borderRadius: 14 }} />
                   </div>
                 </>}
+
+                {/* Multi-Angle */}
+                {activeTab === "multiangle" && <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 24 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                      <div className="stgTransSk" style={{ height: 360, borderRadius: 14 }} />
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                        <div className="stgTransSk" style={{ aspectRatio: "1", borderRadius: 12 }} />
+                        <div className="stgTransSk" style={{ aspectRatio: "1", borderRadius: 12 }} />
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      {[1,2,3,4].map(i => <div key={i} className="stgTransSk" style={{ height: 120, borderRadius: 12 }} />)}
+                    </div>
+                  </div>
+                </>}
               </div>
             </div>
           )}
@@ -2752,9 +2803,10 @@ export default function App() {
               />
             )}
 
-            {activeTab === "usage"     && <UsageTab />}
-            {activeTab === "dashboard" && <DashboardTab />}
-            {activeTab === "tryon"     && (
+            {activeTab === "usage"      && <UsageTab />}
+            {activeTab === "dashboard"  && <DashboardTab />}
+            {activeTab === "multiangle" && <MultiAngleTab />}
+            {activeTab === "tryon"      && (
               <TryOnTab
                 savedPrints={savedPrints}
                 garmentAssets={garmentAssetImages}
@@ -2798,7 +2850,8 @@ export default function App() {
               { tab: "saved",      label: "Saved Images",     Icon: Bookmark        },
               { tab: "assets",     label: "Uploaded Assets",  Icon: FolderOpen      },
               { tab: "dashboard",  label: "Dashboard",        Icon: LayoutDashboard },
-            ] as const).map(({ tab, label, Icon }) => (
+              { tab: "multiangle", label: "Multi-Angle",      Icon: Camera          },
+            ] as const).filter(({ tab }) => tabVisibility[tab as keyof TabVisibilityMap] !== false).map(({ tab, label, Icon }) => (
               <button
                 key={tab}
                 type="button"

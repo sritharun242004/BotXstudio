@@ -10,15 +10,21 @@ import {
   User, CreditCard, Sparkles, Palette, Bell, FolderOpen, Shield, Zap,
   Sliders, BarChart2, HelpCircle, Mail, Bug, Lightbulb, MessageCircle,
   Bookmark, LayoutDashboard, BookOpen, Shirt, Coins, LogOut, MessageSquare,
-  Menu, X, Settings, HardDrive, Download
+  Menu, X, Settings, HardDrive, Download, Camera, ShieldCheck
 } from "lucide-react";
+import { ADMIN_EMAIL } from "../lib/adminAuth";
+import {
+  loadTabVisibility, saveTabVisibility,
+  type TabVisibilityMap, type AppTabKey,
+  TAB_LABELS, DEFAULT_TAB_VISIBILITY,
+} from "../lib/tabVisibility";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SectionKey =
   | "profile" | "credits" | "generation"
   | "notifications" | "assets" | "security" | "performance"
-  | "usage" | "support";
+  | "usage" | "support" | "admin";
 
 interface UserSettings {
   displayName: string; bio: string;
@@ -82,8 +88,9 @@ const SECTIONS: { key: SectionKey; label: string; Icon: React.ElementType }[] = 
   { key: "generation", label: "Generation",  Icon: Sparkles },
   { key: "assets",     label: "Assets",      Icon: FolderOpen },
   { key: "security",   label: "Security",    Icon: Shield },
-  { key: "usage",      label: "Usage",       Icon: BarChart2 },
+  { key: "usage",      label: "Usage",       Icon: BarChart2  },
   { key: "support",    label: "Support",     Icon: HelpCircle },
+  { key: "admin",      label: "Admin",       Icon: ShieldCheck },
 ];
 
 const APP_NAV = [
@@ -325,10 +332,8 @@ function CreditsSection() {
   const [credits, setCredits] = useState(1000);
 
   function computePrice(cr: number): { price: number; rate: number; discount: number } {
-    if (cr >= 10000) return { price: Math.round(cr * 1.33), rate: 1.33, discount: 20 };
-    if (cr >= 5000)  return { price: Math.round(cr * 1.49), rate: 1.49, discount: 10 };
-    if (cr <= 300)   return { price: 499,                   rate: 1.66, discount: 0 };
-    return                  { price: Math.round(cr * 1.66), rate: 1.66, discount: 0 };
+    if (cr <= 300) return { price: 499, rate: 1.66, discount: 0 };
+    return               { price: Math.round(cr * 1.66), rate: 1.66, discount: 0 };
   }
 
   useEffect(() => {
@@ -1567,6 +1572,56 @@ function SupportSection() {
   );
 }
 
+// ─── Section: Admin ───────────────────────────────────────────────────────────
+
+const TAB_ICONS: Record<AppTabKey, React.ElementType> = {
+  generate:   Sparkles,
+  tryon:      Shirt,
+  saved:      Bookmark,
+  assets:     FolderOpen,
+  dashboard:  LayoutDashboard,
+  multiangle: Camera,
+};
+
+function AdminSection() {
+  const [vis, setVis] = useState<TabVisibilityMap>(loadTabVisibility);
+
+  function toggle(key: AppTabKey) {
+    const next = { ...vis, [key]: !vis[key] };
+    setVis(next);
+    saveTabVisibility(next);
+  }
+
+  const entries = Object.keys(TAB_LABELS) as AppTabKey[];
+
+  return (
+    <div className="stgSectionContent">
+      <SectionCard title="Tab Visibility">
+        <div className="stgRowDesc" style={{ marginBottom: 16, fontSize: 13, color: "var(--text-muted, #888)" }}>
+          Enable or disable tabs for all users. Disabled tabs disappear from the sidebar immediately.
+          Keep <strong>Generate Images</strong> enabled — it is the core feature.
+        </div>
+        {entries.map((key) => {
+          const Icon = TAB_ICONS[key];
+          return (
+            <div key={key} className="stgRow">
+              <div className="stgRowText">
+                <div className="stgRowLabel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <Icon size={14} style={{ opacity: 0.65, flexShrink: 0 }} />
+                  {TAB_LABELS[key]}
+                </div>
+              </div>
+              <div className="stgRowControl">
+                <Toggle checked={vis[key]} onChange={() => toggle(key)} />
+              </div>
+            </div>
+          );
+        })}
+      </SectionCard>
+    </div>
+  );
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
@@ -1576,13 +1631,17 @@ export default function SettingsPage() {
   const location = useLocation();
   const rawSection = (location.state as { section?: string } | null)?.section;
   
-  const validSections: SectionKey[] = ["profile","credits","generation","assets","security","usage","support"];
-  
+  const isAdmin = session?.email === ADMIN_EMAIL;
+
+  const validSections: SectionKey[] = isAdmin
+    ? ["profile","credits","generation","assets","security","usage","support","admin"]
+    : ["profile","credits","generation","assets","security","usage","support"];
+
   // Map consolidated routes for backward compatibility
   let mappedSection: SectionKey = rawSection as SectionKey;
   if (rawSection === "notifications") mappedSection = "profile";
   if (rawSection === "performance") mappedSection = "generation";
-  
+
   const initialSection: SectionKey = (validSections.includes(mappedSection) ? mappedSection : "profile") as SectionKey;
   
   const [activeSection, setActiveSection] = useState<SectionKey>(initialSection);
@@ -1820,15 +1879,16 @@ export default function SettingsPage() {
 
         {/* ── Horizontal Navigation Tabs (Flat Underline) ───────────── */}
         <div className="stgHorizontalTabs">
-          {SECTIONS.map(s => {
+          {SECTIONS.filter(s => s.key !== "admin" || isAdmin).map(s => {
             const active = activeSection === s.key;
             return (
               <button
                 key={s.key}
                 type="button"
-                className={`stgTabItem${active ? " stgTabItemActive" : ""}`}
+                className={`stgTabItem${active ? " stgTabItemActive" : ""}${s.key === "admin" ? " stgTabItemAdmin" : ""}`}
                 onClick={() => setActiveSection(s.key)}
               >
+                {s.key === "admin" && <ShieldCheck size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />}
                 {s.label}
               </button>
             );
@@ -1845,6 +1905,7 @@ export default function SettingsPage() {
             {activeSection === "security"   && <SecuritySection   settings={settings} update={update} />}
             {activeSection === "usage"      && <UsageSection />}
             {activeSection === "support"    && <SupportSection />}
+            {activeSection === "admin" && isAdmin && <AdminSection />}
           </div>
         </div>
       </div>

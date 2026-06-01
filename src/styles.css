@@ -7456,6 +7456,13 @@ input[type="file"]::file-selector-button:hover {
   border-radius: 9999px;
 }
 
+.stgTabItemAdmin {
+  color: #f59e0b;
+}
+.stgTabItemAdmin:hover {
+  color: #d97706;
+}
+
 /* Adjust content padding now that header and tabs are elevated */
 .stgContentInner {
   padding: 24px 40px 36px;

@@ -11,6 +11,11 @@ import AffiliatesPage from "./AffiliatesPage";
 import AffiliateFormPage from "./AffiliateFormPage";
 import AffiliateProfilePage from "./AffiliateProfilePage";
 import type { Affiliate } from "../lib/affiliateAdmin";
+import {
+  loadTabVisibility, saveTabVisibility,
+  type TabVisibilityMap, type AppTabKey,
+  TAB_LABELS, DEFAULT_TAB_VISIBILITY,
+} from "../lib/tabVisibility";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -23,7 +28,7 @@ function saveJson<T>(key: string, val: T) { localStorage.setItem(key, JSON.strin
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type NavItem = "users" | "templates" | "credits" | "api" | "health" | "affiliates";
+type NavItem = "users" | "templates" | "credits" | "api" | "health" | "affiliates" | "tabs";
 
 type AffView =
   | { mode: "list" }
@@ -429,6 +434,120 @@ function AppHealthPage() {
   );
 }
 
+// ─── Tab Control Page ─────────────────────────────────────────────────────────
+
+const TAB_DESCS: Record<AppTabKey, string> = {
+  generate:   "Core AI image generation — recommended to keep enabled.",
+  tryon:      "Virtual try-on experience for garments.",
+  saved:      "User's saved image library.",
+  assets:     "Uploaded garment & model asset manager.",
+  dashboard:  "Overview stats and activity dashboard.",
+  multiangle: "3D multi-angle camera view generator.",
+};
+
+const TAB_ICONS_SVG: Record<AppTabKey, React.ReactNode> = {
+  generate:   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+  tryon:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.57a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.57a2 2 0 0 0-1.34-2.23z"/></svg>,
+  saved:      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>,
+  assets:     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>,
+  dashboard:  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
+  multiangle: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+};
+
+function TabControlPage() {
+  const [vis, setVis] = useState<TabVisibilityMap>(loadTabVisibility);
+  const [saved, setSaved] = useState(false);
+
+  function toggle(key: AppTabKey) {
+    const next = { ...vis, [key]: !vis[key] };
+    setVis(next);
+    saveTabVisibility(next);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
+  function resetAll() {
+    setVis({ ...DEFAULT_TAB_VISIBILITY });
+    saveTabVisibility({ ...DEFAULT_TAB_VISIBILITY });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1800);
+  }
+
+  const enabledCount = (Object.values(vis) as boolean[]).filter(Boolean).length;
+  const totalCount   = Object.keys(TAB_LABELS).length;
+
+  return (
+    <div className="adPageRoot">
+      <div className="adPageHeader">
+        <div>
+          <h2 className="adPageTitle">App Tabs</h2>
+          <p className="adPageSub">Enable or disable tabs in the app sidebar. Changes take effect instantly for all users — no reload needed.</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {saved && (
+            <span style={{ fontSize: 13, color: "#22c55e", fontWeight: 600 }}>✓ Saved</span>
+          )}
+          <button className="adSecondaryBtn" onClick={resetAll}>Reset all to default</button>
+        </div>
+      </div>
+
+      {/* Summary pill */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
+        <div className="adStatCard" style={{ borderTopColor: "#8b5cf6", minWidth: 140 }}>
+          <div className="adStatValue">{enabledCount} / {totalCount}</div>
+          <div className="adStatLabel">Tabs Enabled</div>
+        </div>
+        <div className="adStatCard" style={{ borderTopColor: "#ef4444", minWidth: 140 }}>
+          <div className="adStatValue">{totalCount - enabledCount}</div>
+          <div className="adStatLabel">Tabs Hidden</div>
+        </div>
+      </div>
+
+      {/* Toggle cards */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {(Object.keys(TAB_LABELS) as AppTabKey[]).map((key) => {
+          const on = vis[key];
+          return (
+            <div
+              key={key}
+              className="adTabToggleRow"
+              style={{ opacity: on ? 1 : 0.6, transition: "opacity 0.2s" }}
+            >
+              <div className="adTabToggleIcon" style={{ color: on ? "#8b5cf6" : "#94a3b8" }}>
+                {TAB_ICONS_SVG[key]}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="adTabToggleName">{TAB_LABELS[key]}</div>
+                <div className="adTabToggleDesc">{TAB_DESCS[key]}</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: on ? "#22c55e" : "#94a3b8" }}>
+                  {on ? "Visible" : "Hidden"}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={on}
+                  className={`adToggle${on ? " adToggleOn" : ""}`}
+                  onClick={() => toggle(key)}
+                  disabled={key === "generate" && on}
+                  title={key === "generate" && on ? "Generate Images cannot be hidden" : undefined}
+                >
+                  <span className="adToggleThumb" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p style={{ marginTop: 20, fontSize: 12, color: "#94a3b8" }}>
+        * The <strong>Generate Images</strong> tab is locked — it cannot be hidden while enabled.
+      </p>
+    </div>
+  );
+}
+
 // ─── Admin sidebar nav ────────────────────────────────────────────────────────
 
 const NAV: { key: NavItem; label: string; icon: React.ReactNode }[] = [
@@ -438,6 +557,7 @@ const NAV: { key: NavItem; label: string; icon: React.ReactNode }[] = [
   { key:"credits",    label:"Credits",    icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M15 9.354a4 4 0 1 0 0 5.292"/></svg> },
   { key:"api",        label:"API Usage",  icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
   { key:"health",     label:"App Health", icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> },
+  { key:"tabs",       label:"App Tabs",   icon:<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M2 7h20"/><path d="M6 3v4"/><path d="M12 3v4"/></svg> },
 ];
 
 // ─── Root dashboard ───────────────────────────────────────────────────────────
@@ -556,6 +676,7 @@ export default function AdminDashboard() {
         {page === "credits"   && <CreditsPage />}
         {page === "api"       && <ApiUsagePage />}
         {page === "health"    && <AppHealthPage />}
+        {page === "tabs"      && <TabControlPage />}
       </main>
     </div>
   );
